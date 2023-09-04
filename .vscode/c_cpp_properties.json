@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "Chasing_5SD073Editor Editor Win64 Development (Chasing_5SD073)",
+            "compilerPath": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.34.31933\\bin\\Hostx64\\x64\\cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "msvc-x64",
+            "configurationProvider": "epic.ue",
+            "compileCommands": "C:\\Users\\fosma\\Documents\\Project Course\\.vscode\\compileCommands_Chasing_5SD073.json"
+        },
+        {
+            "name": "Win32",
+            "compilerPath": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.34.31933\\bin\\Hostx64\\x64\\cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "msvc-x64",
+            "configurationProvider": "epic.ue",
+            "compileCommands": "C:\\Users\\fosma\\Documents\\Project Course\\.vscode\\compileCommands_Default.json"
+        }
+    ],
+    "version": 4
+}

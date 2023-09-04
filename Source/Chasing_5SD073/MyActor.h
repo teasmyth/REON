@@ -17,6 +17,10 @@ public:
 	UPROPERTY(EditAnywhere)
 	float bruh = 0;
 
+
+	UPROPERTY(EditAnywhere)
+	FVector MyVector = FVector(1,2,3);
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
