@@ -13,6 +13,8 @@ public:
 	std::vector<NavNode*> Neighbors;
 
 	float FScore = FLT_MAX;
+	float GScore = FLT_MAX;
+	float HScore = FLT_MAX;
 };
 
 struct NodeCompare

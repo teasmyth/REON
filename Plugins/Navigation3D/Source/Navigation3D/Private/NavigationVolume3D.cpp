@@ -2,6 +2,7 @@
 
 
 #include "NavigationVolume3D.h"
+
 #include "ProceduralMeshComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/ConstructorHelpers.h"
@@ -10,6 +11,9 @@
 #include "NavNode.h"
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
+
+#include "Algo/Reverse.h"
 
 static UMaterial* GridMaterial = nullptr;
 
@@ -49,7 +53,7 @@ void ANavigationVolume3D::OnConstruction(const FTransform& Transform)
 	// Create arrays to store the vertices and the triangles
 	TArray<FVector> vertices;
 	TArray<int32> triangles;
-	
+
 	// Define variables for the start and end of the line
 	FVector start = FVector::ZeroVector;
 	FVector end = FVector::ZeroVector;
@@ -138,7 +142,7 @@ void ANavigationVolume3D::BeginPlay()
 				++sharedAxes;
 			if (node->Coordinates.Z == neighbor_coordinates.Z)
 				++sharedAxes;
-		
+
 			// Only add the neighbor if we share more axes with it then the required min shared neighbor axes and it isn't the same node as us
 			if (sharedAxes >= MinSharedNeighborAxes && sharedAxes < 3)
 			{
@@ -241,87 +245,144 @@ void ANavigationVolume3D::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 }
 
-bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destination, const TArray<TEnumAsByte<EObjectTypeQuery> >& object_types, UClass* actor_class_filter, TArray<FVector>& out_path)
+bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destination, const TArray<TEnumAsByte<EObjectTypeQuery>>& object_types,
+                                   const float& meshBounds, UClass* actor_class_filter,
+                                   TArray<FVector>& out_path)
+
 {
-	// Clear the out path
-	out_path.Empty();
+	// Create open and closed sets
+	std::multiset<NavNode*, NodeCompare> openSet; // look up priority queue
+	std::set<NavNode*> closedSet;
+	std::unordered_map<NavNode*, NavNode*> parentMap; //parent system, to tell where can you come from to a particular node
 
-	std::multiset<NavNode*, NodeCompare> openSet;
-	std::unordered_map<NavNode*, NavNode*> cameFrom;
-	std::unordered_map<NavNode*, float> gScores;
+	//Helper methods
+	auto ReconstructPath = [&](const std::unordered_map<NavNode*, NavNode*>& cameFrom, NavNode* current, TArray<FVector>& path)
+	{
+		// Reconstruct the path from the cameFrom map
+		out_path.Empty();
 
+		while (current)
+		{
+			path.Insert(ConvertCoordinatesToLocation(current->Coordinates), 0);
+			current = cameFrom.count(current) ? cameFrom.at(current) : nullptr;
+		}
+	};
+
+	auto CalculateTentativeGScore = [&](const NavNode& current, const NavNode& neighbor)
+	{
+		int deltaX = FMath::Abs(neighbor.Coordinates.X - current.Coordinates.X);
+		int deltaY = FMath::Abs(neighbor.Coordinates.Y - current.Coordinates.Y);
+		int deltaZ = FMath::Abs(neighbor.Coordinates.Z - current.Coordinates.Z);
+
+		// Check for diagonal movement
+		if ((deltaX != 0 && deltaY != 0 && deltaZ == 0) || // Diagonal along X and Y axes
+			(deltaX != 0 && deltaY == 0 && deltaZ != 0) || // Diagonal along X and Z axes
+			(deltaX == 0 && deltaY != 0 && deltaZ != 0)) // Diagonal along Y and Z axes
+		{
+			// Diagonal movement: Add a higher cost (e.g., 14)
+			return current.GScore + 14; // + AdditionalCosts(current, neighbor); // Consider terrain costs, etc.
+		}
+
+		// Horizontal or vertical movement: Add a lower cost (e.g., 10)
+		return current.GScore + 10; // + AdditionalCosts(current, neighbor); // Consider terrain costs, etc.
+	};
+
+	auto ClearNode = [](NavNode& nodeToClear)
+	{
+		nodeToClear.FScore = FLT_MAX;
+		nodeToClear.GScore = FLT_MAX;
+		nodeToClear.HScore = FLT_MAX;
+	};
+	
+
+	auto Cleanup = [&]()
+	{
+		for (NavNode* item : openSet)
+		{
+			ClearNode(*item);
+		}
+		for (NavNode* item : closedSet)
+		{
+			ClearNode(*item);
+		}
+	};
+
+	auto IsBlocked = [&](const NavNode& nodeToCheck)
+	{
+		TArray<AActor*> outActors;
+		return UKismetSystemLibrary::SphereOverlapActors(GWorld, ConvertCoordinatesToLocation(nodeToCheck.Coordinates),
+																		   /*GetDivisionSize() / 2.2f*/ meshBounds, object_types,
+																		   actor_class_filter, TArray<AActor*>(), outActors);
+	};
+
+	// Initialize start node
 	NavNode* startNode = GetNode(ConvertLocationToCoordinates(start));
 	NavNode* endNode = GetNode(ConvertLocationToCoordinates(destination));
 
-	auto h = [endNode](NavNode* node)
+	
+	//bug fix: when player is sharing a grid that's blocked, target the neighbor grid that's free.
+	if (IsBlocked(*endNode))
 	{
-		return FVector::Distance(FVector(endNode->Coordinates), FVector(node->Coordinates));
-	};
-	auto distance = [](NavNode* node1, NavNode* node2)
-	{
-		return FVector::Distance(FVector(node1->Coordinates), FVector(node2->Coordinates));
-	};
-	auto gScore = [&gScores](NavNode* node)
-	{
-		auto iter = gScores.find(node);
-		if (iter != gScores.end())
-			return iter->second;
-		return FLT_MAX;
-	};
-
-	startNode->FScore = h(startNode);
-	openSet.insert(startNode);
-	gScores[startNode] = 0.0f;
-
-	while (openSet.empty() == false)
-	{
-		NavNode* current = *openSet.begin();
-
-		if (current == endNode)
+		for (NavNode* neighbor : endNode->Neighbors)
 		{
-			// Rebuild the path
-			out_path.Add(ConvertCoordinatesToLocation(current->Coordinates));
-
-			while (true)
+			if (!IsBlocked(*neighbor))
 			{
-				auto iter = cameFrom.find(current);
-				if (iter != cameFrom.end())
-				{
-					current = iter->second;
-					out_path.Insert(ConvertCoordinatesToLocation(current->Coordinates), 0);
-				}
-				else
-				{
-					return true;
-				}
-			}
-		}
-
-		openSet.erase(openSet.begin());
-
-		for (NavNode* neighbor : current->Neighbors)
-		{
-			const float tentative_gScore = gScore(current) + distance(current, neighbor);
-
-			if (tentative_gScore < gScore(neighbor))
-			{
-				TArray<AActor*> outActors;
-				const FVector worldLocation = ConvertCoordinatesToLocation(neighbor->Coordinates);
-				bool traversable = !(UKismetSystemLibrary::BoxOverlapActors(GWorld, worldLocation, FVector(GetDivisionSize() / 2.0f), object_types, actor_class_filter, TArray<AActor*>(), outActors));
-				if (traversable == true)
-				{
-					cameFrom[neighbor] = current;
-					gScores[neighbor] = tentative_gScore;
-					const float fScore = tentative_gScore + h(neighbor);
-					neighbor->FScore = fScore;
-					openSet.insert(neighbor);
-				}
+				endNode = neighbor;
+				break;
 			}
 		}
 	}
+	
+	startNode->GScore = 0.0f;
+	startNode->HScore = FVector::Dist(ConvertCoordinatesToLocation(startNode->Coordinates), ConvertCoordinatesToLocation(endNode->Coordinates));
+	startNode->FScore = startNode->HScore;
 
-	// Failed to find path
-	return false;
+	openSet.insert(startNode);
+
+	int infiniteloopindex = 0;
+	while (!openSet.empty())
+	{
+		infiniteloopindex++;
+		if (infiniteloopindex > 99) //Gotta keep it a bit big in case 
+		{
+			UE_LOG(LogTemp, Error, TEXT("The destination is too far to find within time. or Infinite loop :("));
+			return false;
+		}
+
+		NavNode* current = *openSet.begin();
+		//If the path to the destination is found, reconstruct the path.
+		if (current->Coordinates == endNode->Coordinates)
+		{
+			ReconstructPath(parentMap, current, out_path);
+			Cleanup();
+			return true;
+		}
+
+		openSet.erase(current);
+		closedSet.insert(current);
+
+		for (NavNode* neighbor : current->Neighbors)
+		{
+			if (IsBlocked(*neighbor) || closedSet.find(neighbor) != closedSet.end()) continue; //If blocked, go on to the next iteration and skip this loop
+
+			const float tentativeGScore = CalculateTentativeGScore(*current, *neighbor);
+
+			if (tentativeGScore <= neighbor->GScore) //checking if hypothetical g score is better than (if) whats already been calculated before
+			{
+				parentMap[neighbor] = current;
+				neighbor->GScore = tentativeGScore;
+				neighbor->HScore = FVector::Dist(ConvertCoordinatesToLocation(neighbor->Coordinates),
+				                                 ConvertCoordinatesToLocation(endNode->Coordinates));
+				neighbor->FScore = neighbor->GScore + neighbor->HScore;
+			}
+			//add neighbor if its not in the open list. if its true, it means iterator couldn't find it.
+			if (openSet.find(neighbor) == openSet.end())
+			{
+				openSet.insert(neighbor);
+			}
+		}
+	}
+	return false; // No path found
 }
 
 FIntVector ANavigationVolume3D::ConvertLocationToCoordinates(const FVector& location)
@@ -355,7 +416,8 @@ FVector ANavigationVolume3D::ConvertCoordinatesToLocation(const FIntVector& coor
 	return UKismetMathLibrary::TransformLocation(GetActorTransform(), gridSpaceLocation);
 }
 
-void ANavigationVolume3D::CreateLine(const FVector& start, const FVector& end, const FVector& normal, TArray<FVector>& vertices, TArray<int32>& triangles)
+void ANavigationVolume3D::CreateLine(const FVector& start, const FVector& end, const FVector& normal, TArray<FVector>& vertices,
+                                     TArray<int32>& triangles)
 {
 	// Calculate the half line thickness and the thickness direction
 	float halfLineThickness = LineThickness / 2.0f;
@@ -365,6 +427,7 @@ void ANavigationVolume3D::CreateLine(const FVector& start, const FVector& end, c
 	// 0--------------------------1
 	// |          line		      |
 	// 2--------------------------3
+
 	auto createFlatLine = [&](const FVector& thicknessDirection)
 	{
 		// Top triangle
@@ -416,4 +479,3 @@ NavNode* ANavigationVolume3D::GetNode(FIntVector coordinates) const
 	const int32 index = (coordinates.Z * divisionPerLevel) + (coordinates.Y * DivisionsX) + coordinates.X;
 	return &Nodes[index];
 }
-
