@@ -55,7 +55,7 @@ void AMyCharacter::BeginPlay()
 void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	Ray();
+	//Ray();
 
 	if (moving)
 	{
@@ -165,8 +165,8 @@ void AMyCharacter::Ray()
 			float dis = GetDistanceTo(hit.GetActor());
 			if (GEngine)
 			{
-				const FString msg = FString::Printf(TEXT("diss: %f"), dis);
-				GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
+				//const FString msg = FString::Printf(TEXT("diss: %f"), dis);
+				//GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
 			}
 		}
 	}
