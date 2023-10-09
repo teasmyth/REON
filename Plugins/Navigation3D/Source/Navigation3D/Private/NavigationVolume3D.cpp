@@ -395,8 +395,6 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 
 			ReconstructPath(parentMap, current, out_path);
 			Cleanup();
-			UE_LOG(LogTemp, Warning, TEXT("Meshbounds: %f"), meshBounds);
-			UE_LOG(LogTemp, Warning, TEXT("Found you!"));
 			return true;
 		}
 
