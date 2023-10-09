@@ -6,6 +6,7 @@
 #include "EnhancedInputComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
+
 // Sets default values
 AMyCharacter::AMyCharacter()
 {
@@ -55,7 +56,7 @@ void AMyCharacter::BeginPlay()
 void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	//Ray();
+	Ray();
 
 	if (moving)
 	{
@@ -151,8 +152,8 @@ void AMyCharacter::Ray()
 	FVector start = GetActorLocation();
 	FVector forward = FrontCam->GetForwardVector();
 	FVector down = -FrontCam->GetUpVector();
-	start = FVector(start.X + (down.X * 100), start.Y + (down.Y * 100), start.Z + (down.Z * 100));
-	FVector end = start + (down * 50);
+	start = FVector(start.X + (forward.X * 100), start.Y + (forward.Y * 100), start.Z + (forward.Z * 100));
+	FVector end = start + (forward * 50);
 	FHitResult hit;
 
 	if (GetWorld())
@@ -162,12 +163,32 @@ void AMyCharacter::Ray()
 		DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
 		if (actorHit && hit.GetActor())
 		{
-			float dis = GetDistanceTo(hit.GetActor());
-			if (GEngine)
+			if(hit.GetActor()->ActorHasTag(TEXT("Slope")))
 			{
-				//const FString msg = FString::Printf(TEXT("diss: %f"), dis);
-				//GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
+				if (GEngine)
+				{
+					const FString msg = FString::Printf(TEXT("diss: %s"), *hit.GetActor()->GetName());
+					GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
+				}
 			}
+
+			
+			//FName slider = "Slider";
+			//FName temp = FName(hit.GetActor()->Tags[0]);
+			//
+			////float dis = GetDistanceTo(hit.GetActor()->Tags);
+			////UE_LOG(LogTemp,Warning,TEXT("Hit actor: %s"),*hit.GetActor()->Tags;
+			//if (temp != nullptr)
+			//{
+			//	if (temp == slider)
+			//	{
+			//		if (GEngine)
+			//		{
+			//			const FString msg = FString::Printf(TEXT("diss: %s"), *temp.ToString());
+			//			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
+			//		}
+			//	}
+			//}
 		}
 	}
 }
