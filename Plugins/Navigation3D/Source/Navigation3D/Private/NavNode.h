@@ -19,10 +19,12 @@ public:
 
 struct NodeCompare
 {
-	bool operator() (const NavNode* lhs, const NavNode* rhs) const
+	//Will put the highest FScore above all
+	bool operator() (const NavNode* NavNode1, const NavNode* NavNode2) const
 	{
-		return (lhs->FScore < rhs->FScore);
+		return (NavNode1->FScore > NavNode2->FScore);
 	}
 };
+
 
 

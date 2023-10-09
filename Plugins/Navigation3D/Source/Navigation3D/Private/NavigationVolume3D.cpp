@@ -12,8 +12,9 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
-
+#include "DrawDebugHelpers.h"
 #include "Algo/Reverse.h"
+#include "queue"
 
 static UMaterial* GridMaterial = nullptr;
 
@@ -150,6 +151,12 @@ void ANavigationVolume3D::BeginPlay()
 			}
 		}
 	};
+	TArray<AActor*> outActors;
+	TArray<TEnumAsByte<EObjectTypeQuery>> filter;
+	filter.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
+	filter.Add(UEngineTypes::ConvertToObjectType(ECC_WorldDynamic));
+
+	TArray<AActor*, FDefaultAllocator> ignoreActors;
 
 	// For each node, find its neighbors and assign its coordinates
 	for (int32 z = 0; z < DivisionsZ; ++z)
@@ -160,6 +167,16 @@ void ANavigationVolume3D::BeginPlay()
 			{
 				NavNode* node = GetNode(FIntVector(x, y, z));
 				node->Coordinates = FIntVector(x, y, z);
+				//
+				bool tmp = UKismetSystemLibrary::BoxOverlapActors(GWorld, ConvertCoordinatesToLocation(node->Coordinates),
+				                                                  FVector(GetDivisionSize() / 2), filter,
+				                                                  nullptr, TArray<AActor*>(), outActors);
+
+				if (tmp)
+				{
+					//DrawDebugBox(GWorld, ConvertCoordinatesToLocation(node->Coordinates), FVector(GetDivisionSize() / 2.2), FColor::Cyan, false, 30.0f, 0,2.0f);
+				}
+				//
 
 				// Above neighbors
 				{
@@ -250,10 +267,18 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
                                    TArray<FVector>& out_path)
 
 {
+	bool drawdebugenabled = false;
+	for (int32 i = 0; i < GetTotalDivisions(); ++i)
+	{
+		//Nodes[i].FScore = Nodes[i].GScore = Nodes[i].HScore = MAX_FLT;
+	}
+
 	// Create open and closed sets
-	std::multiset<NavNode*, NodeCompare> openSet; // look up priority queue
+	std::priority_queue<NavNode*, std::vector<NavNode*>, NodeCompare> openSet;
+	std::set<NavNode*> openSetCheck;
 	std::set<NavNode*> closedSet;
 	std::unordered_map<NavNode*, NavNode*> parentMap; //parent system, to tell where can you come from to a particular node
+
 
 	//Helper methods
 	auto ReconstructPath = [&](const std::unordered_map<NavNode*, NavNode*>& cameFrom, NavNode* current, TArray<FVector>& path)
@@ -289,15 +314,13 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 
 	auto ClearNode = [](NavNode& nodeToClear)
 	{
-		nodeToClear.FScore = FLT_MAX;
-		nodeToClear.GScore = FLT_MAX;
-		nodeToClear.HScore = FLT_MAX;
+		nodeToClear.FScore = nodeToClear.GScore = nodeToClear.HScore = FLT_MAX;
 	};
-	
+
 
 	auto Cleanup = [&]()
 	{
-		for (NavNode* item : openSet)
+		for (NavNode* item : openSetCheck)
 		{
 			ClearNode(*item);
 		}
@@ -307,37 +330,45 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 		}
 	};
 
-	auto IsBlocked = [&](const NavNode& nodeToCheck)
+	auto IsBlocked = [&](const NavNode* nodeToCheck)
 	{
 		TArray<AActor*> outActors;
-		return UKismetSystemLibrary::SphereOverlapActors(GWorld, ConvertCoordinatesToLocation(nodeToCheck.Coordinates),
-																		   /*GetDivisionSize() / 2.2f*/ meshBounds, object_types,
-																		   actor_class_filter, TArray<AActor*>(), outActors);
+		bool tmp = UKismetSystemLibrary::BoxOverlapActors(GetWorld(), ConvertCoordinatesToLocation(nodeToCheck->Coordinates),
+		                                                  /*FVector(GetDivisionSize() / 2.1)*/ FVector(meshBounds), object_types,
+		                                                  actor_class_filter, TArray<AActor*>(), outActors);
+
+		if (tmp && drawdebugenabled)
+		{
+			DrawDebugBox(GetWorld(), ConvertCoordinatesToLocation(nodeToCheck->Coordinates), FVector(meshBounds), FColor::Red, false, 1, 0,
+			             5.0f);
+		}
+		return tmp;
 	};
 
 	// Initialize start node
 	NavNode* startNode = GetNode(ConvertLocationToCoordinates(start));
 	NavNode* endNode = GetNode(ConvertLocationToCoordinates(destination));
 
-	
+
 	//bug fix: when player is sharing a grid that's blocked, target the neighbor grid that's free.
-	if (IsBlocked(*endNode))
+	if (IsBlocked(endNode))
 	{
 		for (NavNode* neighbor : endNode->Neighbors)
 		{
-			if (!IsBlocked(*neighbor))
+			if (!IsBlocked(neighbor))
 			{
 				endNode = neighbor;
 				break;
 			}
 		}
 	}
-	
+
 	startNode->GScore = 0.0f;
 	startNode->HScore = FVector::Dist(ConvertCoordinatesToLocation(startNode->Coordinates), ConvertCoordinatesToLocation(endNode->Coordinates));
 	startNode->FScore = startNode->HScore;
 
-	openSet.insert(startNode);
+	openSet.push(startNode);
+	openSetCheck.insert(startNode);
 
 	int infiniteloopindex = 0;
 	while (!openSet.empty())
@@ -345,43 +376,63 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 		infiniteloopindex++;
 		if (infiniteloopindex > 99) //Gotta keep it a bit big in case 
 		{
+			auto startDebug = startNode;
+			auto endDebug = endNode;
+			auto openSetDebug = openSet;
+			auto closedSetDebug = closedSet;
 			UE_LOG(LogTemp, Error, TEXT("The destination is too far to find within time. or Infinite loop :("));
 			return false;
 		}
 
-		NavNode* current = *openSet.begin();
+		NavNode* current = openSet.top();
+
 		//If the path to the destination is found, reconstruct the path.
 		if (current->Coordinates == endNode->Coordinates)
 		{
+			if (drawdebugenabled)
+				DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(current->Coordinates), meshBounds, 4, FColor::Blue, false, 2, 0,
+				                5.0f);
+
 			ReconstructPath(parentMap, current, out_path);
 			Cleanup();
+			UE_LOG(LogTemp, Warning, TEXT("Meshbounds: %f"), meshBounds);
+			UE_LOG(LogTemp, Warning, TEXT("Found you!"));
 			return true;
 		}
 
-		openSet.erase(current);
+		openSet.pop();
+		openSetCheck.erase(current);
 		closedSet.insert(current);
+		
+		if (drawdebugenabled) DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(current->Coordinates), meshBounds, 4, FColor::Green,
+		                                      false, 1, 0, 5.0f);
+
 
 		for (NavNode* neighbor : current->Neighbors)
 		{
-			if (IsBlocked(*neighbor) || closedSet.find(neighbor) != closedSet.end()) continue; //If blocked, go on to the next iteration and skip this loop
+			//If blocked or is in closed list (meaning best path found), go on to the next iteration and skip this loop
+			if (IsBlocked(neighbor) || closedSet.find(neighbor) != closedSet.end()) continue;
 
 			const float tentativeGScore = CalculateTentativeGScore(*current, *neighbor);
 
-			if (tentativeGScore <= neighbor->GScore) //checking if hypothetical g score is better than (if) whats already been calculated before
-			{
-				parentMap[neighbor] = current;
-				neighbor->GScore = tentativeGScore;
-				neighbor->HScore = FVector::Dist(ConvertCoordinatesToLocation(neighbor->Coordinates),
-				                                 ConvertCoordinatesToLocation(endNode->Coordinates));
-				neighbor->FScore = neighbor->GScore + neighbor->HScore;
-			}
+			//checking if hypothetical g score is worse, if so, skip
+			if (tentativeGScore > neighbor->GScore) continue;
+
+			parentMap[neighbor] = current;
+			neighbor->GScore = tentativeGScore;
+			neighbor->HScore = FVector::Dist(ConvertCoordinatesToLocation(neighbor->Coordinates), ConvertCoordinatesToLocation(endNode->Coordinates));
+			neighbor->FScore = neighbor->GScore + neighbor->HScore;
+
 			//add neighbor if its not in the open list. if its true, it means iterator couldn't find it.
-			if (openSet.find(neighbor) == openSet.end())
+			if (openSetCheck.find(neighbor) == openSetCheck.end())
 			{
-				openSet.insert(neighbor);
+				openSet.push(neighbor);
+				openSetCheck.insert(neighbor);
 			}
 		}
 	}
+
+	UE_LOG(LogTemp, Display, TEXT("Path not found."));
 	return false; // No path found
 }
 
