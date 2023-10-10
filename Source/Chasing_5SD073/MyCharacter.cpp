@@ -163,6 +163,16 @@ void AMyCharacter::Ray()
 		DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
 		if (actorHit && hit.GetActor())
 		{
+			// is ground check
+			float dis = GetDistanceTo(hit.GetActor());
+			if (GEngine)
+			{
+				const FString msg = FString::Printf(TEXT("diss: %f"), dis);
+				GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
+			}
+
+			
+			// slope check
 			if(hit.GetActor()->ActorHasTag(TEXT("Slope")))
 			{
 				if (GEngine)
@@ -170,6 +180,10 @@ void AMyCharacter::Ray()
 					const FString msg = FString::Printf(TEXT("diss: %s"), *hit.GetActor()->GetName());
 					GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
 				}
+			}
+			else
+			{
+				
 			}
 
 			
