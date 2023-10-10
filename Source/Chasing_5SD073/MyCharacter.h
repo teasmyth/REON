@@ -11,6 +11,7 @@
 #include "InputActionValue.h"
 #include "EnhancedInputSubsystems.h"
 #include "Camera/CameraComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "MyCharacter.generated.h"
 
 class UInputComponent;
@@ -73,15 +74,15 @@ public:
 	USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
 	/** Returns FirstPersonCameraComponent subobject **/
 	UCameraComponent* GetFirstPersonCameraComponent() const { return FrontCam; }
-
 	
 	bool moving = false;
 	bool sprint = false;
 	
+	//UPROPERTY(EditAnywhere, Category = "CustomValues")
+	//float normalSpeed;
+	
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
-	float normalSpeed;
-	UPROPERTY(EditAnywhere, Category = "CustomValues")
-	float accelerateSpeed;
+	float maximumPlayerAcceleration;
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float accelerationValue;
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
@@ -100,7 +101,7 @@ public:
 
 	void Acceleration(float DeltaTime);
 
-	float currentSpeed;
+	//float currentSpeed;
 
 	void DebugSpeed();
 	void DebugSize();
@@ -113,4 +114,14 @@ public:
 	void LookBack();
 	void LookFront();
 	void Ray();
+
+	void GroundRaycast(float DeltaTime);
+	void SliderRaycast();
+	bool onSlope;
+
+	float accelerationSpeedRate = 3;
+	float accelerationTimer;
+	float fallingTimer;
+	float maxFallingPenaltyTime = 5;
+	float maxFallingSpeedSlowPenalty = 0.5;
 };
