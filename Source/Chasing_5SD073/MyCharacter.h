@@ -74,59 +74,53 @@ public:
 	USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
 	/** Returns FirstPersonCameraComponent subobject **/
 	UCameraComponent* GetFirstPersonCameraComponent() const { return FrontCam; }
+
 	
 	bool moving = false;
 	bool sprint = false;
 	
-	//UPROPERTY(EditAnywhere, Category = "CustomValues")
-	//float normalSpeed;
-	
-	UPROPERTY(EditAnywhere, Category = "CustomValues")
-	float maximumPlayerSpeed;
-	UPROPERTY(EditAnywhere, Category = "CustomValues")
-	float accelerationValue;
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float slow_precentage;
+	
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float cameraJitter;
-	UPROPERTY(EditAnywhere, Category = "CustomValues")
-	float slideSpeed;
 	
-	enum PlayerVelocity
-	{
-		Normal, Accelerate, SlowDown, FallSlowDown 
-	};
-
-	PlayerVelocity playerVelocity;
-
-	void Acceleration();
-
-	//float currentSpeed;
-
-	void DebugSpeed();
-	void DebugSize();
-	
-	void Move(const FInputActionValue& Value);
-	void SpeedReset();
-	void Look(const FInputActionValue& Value);
-	void Slide();
-	void ResetSize();
-	void LookBack();
-	void LookFront();
-	void Ray();
-
-	void GroundRaycast(float DeltaTime);
-	void SliderRaycast();
-	bool onSlope;
-
-	// dick head
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
-	float accelerationSpeedRate; 
-	float accelerationTimer;
-	float fallingTimer;
+	float slideSpeedBoost;
+	
+	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	float accelerationSpeedRate;
+	
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float maxFallingPenaltyTime;
+	
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float maxFallingSpeedSlowPenalty;
+	
+	float accelerationTimer;
+	float fallingTimer;
 	bool landed;
+
+	
+	// Movements
+	void Acceleration();
+	void Move(const FInputActionValue& Value);
+	void Look(const FInputActionValue& Value);
+	void Slide();
+	void LookBack();
+	void LookFront();
+
+	// Reset
+	void SpeedReset();
+	void ResetSize();
+
+	// Raycast
+	bool onSlope;
+	void Ray();
+	void GroundRaycast(float DeltaTime);
+	void SliderRaycast();
+
+	// Debug
+	void DebugSpeed();
+	void DebugSize();
 };

@@ -48,7 +48,6 @@ void AMyCharacter::BeginPlay()
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
-	//currentSpeed = normalSpeed;
 }
 
 // Called every frame
@@ -56,12 +55,6 @@ void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	//Ray();
-
-	//if (moving)
-	//{
-	//	Acceleration(DeltaTime);
-	//}
-//
 	//SliderRaycast();
 	
 	if (GetCharacterMovement()->IsFalling() && !landed)
@@ -69,7 +62,6 @@ void AMyCharacter::Tick(float DeltaTime)
 		//landed = false;
 		//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Player is falling")));
 		fallingTimer += DeltaTime;
-		
 	}
 	else
 	{
@@ -111,34 +103,29 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 void AMyCharacter::Acceleration()
 {
+	// accelerationSpeedRate = how long (seconds) it should take to reach maximum speed
 	// when u are not falling the acceleration time doesnt get effected
-	float currentAcceleration = maximumPlayerSpeed / accelerationSpeedRate;
+	float currentAcceleration = GetCharacterMovement()->MaxCustomMovementSpeed / accelerationSpeedRate;
 
 	//landed after falling
 	if (landed)
 	{
-
-	if (fallingTimer >= maxFallingPenaltyTime) fallingTimer = maxFallingPenaltyTime;
+		if (fallingTimer >= maxFallingPenaltyTime) fallingTimer = maxFallingPenaltyTime;
 		
-		currentAcceleration = maximumPlayerSpeed / accelerationSpeedRate * (1 - (fallingTimer / maxFallingPenaltyTime) * maxFallingSpeedSlowPenalty);
+		currentAcceleration = GetCharacterMovement()->MaxCustomMovementSpeed / accelerationSpeedRate * (1 - (fallingTimer / maxFallingPenaltyTime) * maxFallingSpeedSlowPenalty);
 
-		if(GetCharacterMovement()->Velocity.Length() >= maximumPlayerSpeed)
+		if(GetCharacterMovement()->Velocity.Length() >= GetCharacterMovement()->MaxCustomMovementSpeed)
 		{
 			landed = false;
 			fallingTimer = 0;
 		}
 	}
 
-	// accelerationSpeedRate = how long (seconds) it should take to reach maximum speed
-
 	GetCharacterMovement()->MaxAcceleration = currentAcceleration;
-	
 }
 
 void AMyCharacter::Move(const FInputActionValue& Value)
 {
-	//moving = true;
-
 	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
