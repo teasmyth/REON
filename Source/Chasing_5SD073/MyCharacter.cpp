@@ -117,8 +117,6 @@ void AMyCharacter::Acceleration()
 	//landed after falling
 	if (landed)
 	{
-		//currentAcceleration = accelerationSpeedRate * (1 + ((fallingTimer / maxFallingPenaltyTime) * maxFallingSpeedSlowPenalty));
-
 
 	if (fallingTimer >= maxFallingPenaltyTime) fallingTimer = maxFallingPenaltyTime;
 		
