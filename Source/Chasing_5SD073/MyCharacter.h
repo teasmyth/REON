@@ -49,6 +49,9 @@ public:
 	/** Move Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	class UInputAction* MoveAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
+	class UInputAction* AirDashAction;
 	
 protected:
 	// Called when the game starts or when spawned
@@ -96,10 +99,15 @@ public:
 	
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float maxFallingSpeedSlowPenalty;
+
+	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	float airDashDistance;
 	
 	float accelerationTimer;
 	float fallingTimer;
 	bool landed;
+	bool dash;
+	bool dashOnce;
 
 	
 	// Movements
@@ -109,7 +117,7 @@ public:
 	void Slide();
 	void LookBack();
 	void LookFront();
-	void AirDash();
+	void AirDash(const FInputActionValue& Value);
 
 	// Reset
 	void SpeedReset();

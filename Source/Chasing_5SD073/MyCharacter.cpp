@@ -4,6 +4,7 @@
 #include "MyCharacter.h"
 #include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
+#include "../../../../../../Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt/Windows.UI.ViewManagement.h"
 
 
 // Sets default values
@@ -34,6 +35,9 @@ AMyCharacter::AMyCharacter()
 	Mesh1P->CastShadow = false;
 	//Mesh1P->SetRelativeRotation(FRotator(0.9f, -19.19f, 5.2f));
 	Mesh1P->SetRelativeLocation(FVector(-30.f, 0.f, -150.f));
+
+	dash = false;
+	dashOnce = true;
 }
 
 // Called when the game starts or when spawned
@@ -56,18 +60,32 @@ void AMyCharacter::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	//Ray();
 	//SliderRaycast();
-	
+
 	if (GetCharacterMovement()->IsFalling() && !landed)
 	{
-		//landed = false;
-		//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Player is falling")));
+		dash = true;
 		fallingTimer += DeltaTime;
 	}
 	else
 	{
+		dash = false;
 		//fallingTimer = 0;
 	}
-	
+
+	if (GetCharacterMovement()->IsFalling())
+	{
+		dash = true;
+	}
+	else
+	{
+		dash = false;
+	}
+
+	FString fru = dash ? "true" : "false";
+	//	UE_LOG(LogTemp, Display, TEXT("falling %s"), *fru);
+	UE_LOG(LogTemp, Warning, TEXT("landed %s"), ( landed ? TEXT("true") : TEXT("false") ));
+	UE_LOG(LogTemp, Warning, TEXT("falling %s"),
+	       ( GetCharacterMovement()->IsFalling() ? TEXT("true") : TEXT("false") ));
 	GroundRaycast(DeltaTime);
 	//DebugSpeed();
 }
@@ -98,6 +116,9 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		                                   &AMyCharacter::LookBack);
 		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Completed, this,
 		                                   &AMyCharacter::LookFront);
+
+		//AirDash
+		EnhancedInputComponent->BindAction(AirDashAction, ETriggerEvent::Triggered, this, &AMyCharacter::AirDash);
 	}
 }
 
@@ -113,10 +134,11 @@ void AMyCharacter::Acceleration()
 	if (landed)
 	{
 		if (fallingTimer >= maxFallingPenaltyTime) fallingTimer = maxFallingPenaltyTime;
-		
-		currentAcceleration = GetCharacterMovement()->MaxCustomMovementSpeed / accelerationSpeedRate * (1 - (fallingTimer / maxFallingPenaltyTime) * maxFallingSpeedSlowPenalty);
 
-		if(GetCharacterMovement()->Velocity.Length() >= GetCharacterMovement()->MaxCustomMovementSpeed)
+		currentAcceleration = GetCharacterMovement()->MaxCustomMovementSpeed / accelerationSpeedRate * (1 - (
+			fallingTimer / maxFallingPenaltyTime) * maxFallingSpeedSlowPenalty);
+
+		if (GetCharacterMovement()->Velocity.Length() >= GetCharacterMovement()->MaxCustomMovementSpeed)
 		{
 			landed = false;
 			fallingTimer = 0;
@@ -139,22 +161,6 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 	Acceleration();
 }
 
-void AMyCharacter::LookBack()
-{
-	FString fru = moving ? "true" : "false";
-	UE_LOG(LogTemp, Display, TEXT("%s"), *fru);
-	FrontCam->SetRelativeLocation(FVector(-10.f, 0.f, 60.f)); // Position the camera
-	BackCam->SetActive(true);
-	FrontCam->SetActive(false);
-	//FrontCam->Activate(false);
-}
-
-void AMyCharacter::LookFront()
-{
-	FrontCam->Activate(true);
-	BackCam->Activate(false);
-}
-
 void AMyCharacter::Look(const FInputActionValue& Value)
 {
 	// input is a Vector2D
@@ -173,6 +179,22 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
+void AMyCharacter::LookBack()
+{
+	FString fru = moving ? "true" : "false";
+	UE_LOG(LogTemp, Display, TEXT("%s"), *fru);
+	FrontCam->SetRelativeLocation(FVector(-10.f, 0.f, 60.f)); // Position the camera
+	BackCam->SetActive(true);
+	FrontCam->SetActive(false);
+	//FrontCam->Activate(false);
+}
+
+void AMyCharacter::LookFront()
+{
+	FrontCam->Activate(true);
+	BackCam->Activate(false);
+}
+
 void AMyCharacter::Slide()
 {
 	FVector3d scale = GetActorScale3D();
@@ -184,9 +206,47 @@ void AMyCharacter::Slide()
 	}
 }
 
-void AMyCharacter::AirDash()
+void AMyCharacter::AirDash(const FInputActionValue& Value)
 {
-	
+	FVector dashValue = Value.Get<FVector>();
+
+	if (Controller != nullptr)
+	{
+		if (!dash)
+		{
+			dashOnce = true;
+			return;
+		}
+
+		FVector StartTrace = FVector(
+			GetCapsuleComponent()->GetSocketLocation(FName("Capsule Component")).X + 100 * dashValue.X,
+			GetCapsuleComponent()->GetSocketLocation(FName("Capsule Component")).Y + 100 * dashValue.Y,
+			GetCapsuleComponent()->GetSocketLocation(FName("Capsule Component")).Z + 100 * dashValue.Z);
+
+		FRotator CurrentTrace = GetCapsuleComponent()->GetSocketRotation(FName("Capsule Component"));
+		FVector EndTrace = StartTrace + CurrentTrace.Vector() * airDashDistance;
+
+		FVector start = GetActorLocation();
+		FVector forward = FrontCam->GetForwardVector();
+		start = FVector(start.X + (forward.X * airDashDistance), start.Y + (forward.Y * airDashDistance), start.Z + (forward.Z * airDashDistance));
+		FVector end = start + forward;
+		FHitResult hit;
+
+		if (GetWorld())
+		{
+			bool actorHit = GetWorld()->LineTraceSingleByChannel(hit, start, end, ECC_Pawn, FCollisionQueryParams(),
+			                                                     FCollisionResponseParams());
+			DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
+
+			if (dash)
+			{
+				SetActorLocation(end, true);
+
+				//DebugSpeed();
+				dashOnce = false;
+			}
+		}
+	}
 }
 
 // Reset
@@ -195,7 +255,7 @@ void AMyCharacter::SpeedReset()
 	moving = false;
 	//currentSpeed = normalSpeed;
 	//GetCharacterMovement()->MaxWalkSpeed = normalSpeed;
-	accelerationTimer=0;
+	accelerationTimer = 0;
 }
 
 void AMyCharacter::ResetSize()
@@ -291,18 +351,18 @@ void AMyCharacter::GroundRaycast(float DeltaTime)
 	{
 		bool actorHit = GetWorld()->LineTraceSingleByChannel(hit, start, end, ECC_Pawn, FCollisionQueryParams(),
 		                                                     FCollisionResponseParams());
-		//DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
+		DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
 		if (actorHit)
 		{
 			// is ground check
 			FVector hitActorPoint = hit.ImpactPoint;
 			FVector playerPoint = start;
 			FVector dis;
-			float distance = dis.Distance(playerPoint,hitActorPoint);
+			float distance = dis.Distance(playerPoint, hitActorPoint);
 
-			//UE_LOG(LogTemp, Log, TEXT("Distance between player and actor: %f"), distance);
+			UE_LOG(LogTemp, Log, TEXT("Distance between player and actor: %f"), distance);
 
-			if(distance <= 70 && GetCharacterMovement()->IsFalling())
+			if (distance <= 3 && GetCharacterMovement()->IsFalling())
 			{
 				landed = true;
 			}
