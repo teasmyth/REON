@@ -82,7 +82,7 @@ public:
 	//float normalSpeed;
 	
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
-	float maximumPlayerAcceleration;
+	float maximumPlayerSpeed;
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float accelerationValue;
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
@@ -99,7 +99,7 @@ public:
 
 	PlayerVelocity playerVelocity;
 
-	void Acceleration(float DeltaTime);
+	void Acceleration();
 
 	//float currentSpeed;
 
@@ -119,9 +119,14 @@ public:
 	void SliderRaycast();
 	bool onSlope;
 
-	float accelerationSpeedRate = 3;
+	// dick head
+	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	float accelerationSpeedRate; 
 	float accelerationTimer;
 	float fallingTimer;
-	float maxFallingPenaltyTime = 5;
-	float maxFallingSpeedSlowPenalty = 0.5;
+	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	float maxFallingPenaltyTime;
+	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	float maxFallingSpeedSlowPenalty;
+	bool landed;
 };

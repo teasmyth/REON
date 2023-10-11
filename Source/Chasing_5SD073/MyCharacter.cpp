@@ -57,25 +57,27 @@ void AMyCharacter::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	//Ray();
 
-	if (moving)
-	{
-		Acceleration(DeltaTime);
-	}
-
+	//if (moving)
+	//{
+	//	Acceleration(DeltaTime);
+	//}
+//
 	//SliderRaycast();
 	
-	if (GetCharacterMovement()->IsFalling())
+	if (GetCharacterMovement()->IsFalling() && !landed)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Player is falling")));
+		//landed = false;
+		//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Player is falling")));
 		fallingTimer += DeltaTime;
-		GroundRaycast(DeltaTime);
+		
 	}
 	else
 	{
-		fallingTimer = 0;
+		//fallingTimer = 0;
 	}
-
-	//DebugSpeed();
+	
+	GroundRaycast(DeltaTime);
+	DebugSpeed();
 }
 
 // Called to bind functionality to input
@@ -107,38 +109,37 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	}
 }
 
-void AMyCharacter::Acceleration(float DeltaTime)
+void AMyCharacter::Acceleration()
 {
 	// when u are not falling the acceleration time doesnt get effected
-	float currentAcceleration = accelerationSpeedRate;
+	float currentAcceleration = maximumPlayerSpeed / accelerationSpeedRate;
 
 	//landed after falling
-	if (GetCharacterMovement()->IsFalling())
+	if (landed)
 	{
-		currentAcceleration = accelerationSpeedRate * (1 + ((fallingTimer / maxFallingPenaltyTime) * maxFallingSpeedSlowPenalty));
+		//currentAcceleration = accelerationSpeedRate * (1 + ((fallingTimer / maxFallingPenaltyTime) * maxFallingSpeedSlowPenalty));
 
-		//if falling timer >= penaltyime
-		// landed = false
+
+	if (fallingTimer >= maxFallingPenaltyTime) fallingTimer = maxFallingPenaltyTime;
+		
+		currentAcceleration = maximumPlayerSpeed / accelerationSpeedRate * (1 - (fallingTimer / maxFallingPenaltyTime) * maxFallingSpeedSlowPenalty);
+
+		if(GetCharacterMovement()->Velocity.Length() >= maximumPlayerSpeed)
+		{
+			landed = false;
+			fallingTimer = 0;
+		}
 	}
 
 	// accelerationSpeedRate = how long (seconds) it should take to reach maximum speed
-	if (accelerationTimer < currentAcceleration)
-	{
-		accelerationTimer += DeltaTime;
-	}
-	else
-	{
-		accelerationTimer = currentAcceleration;
-	}
 
-	// accelerationTimer / currentAcceleration indicates how long does it take to reach the max acceleration
-	// the higher currentAcceleration is the slower speed increases 
-	GetCharacterMovement()->MaxWalkSpeed = maximumPlayerAcceleration * (accelerationTimer / currentAcceleration);
+	GetCharacterMovement()->MaxAcceleration = currentAcceleration;
+	
 }
 
 void AMyCharacter::Move(const FInputActionValue& Value)
 {
-	moving = true;
+	//moving = true;
 
 	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
@@ -148,6 +149,7 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 		AddMovementInput(GetActorForwardVector(), MovementVector.Y);
 		AddMovementInput(GetActorRightVector(), MovementVector.X);
 	}
+	Acceleration();
 }
 
 void AMyCharacter::ResetSize()
@@ -245,38 +247,33 @@ void AMyCharacter::Ray()
 void AMyCharacter::GroundRaycast(float DeltaTime)
 {
 	FVector start = GetActorLocation();
-	FVector forward = FrontCam->GetForwardVector();
-	//FVector downnnn = 	GetActorLocation().Y;
-
-	FVector down = -FrontCam->GetUpVector();
-	start = FVector(start.X + (down.X * 100), start.Y + (down.Y * 100), start.Z + (down.Z * 100));
-	FVector end = start + (down * 100000 * DeltaTime);
+	FVector bounds = GetCapsuleComponent()->Bounds.BoxExtent;
+	float minZ = bounds.Z + 0.1f;
+	start -= FVector(0, 0, minZ);
+	FVector down = -GetActorUpVector();
+	//start = FVector(start.X + (down.X * 100), start.Y + (down.Y * 100), start.Z + (down.Z * 100));
+	FVector end = start + (down * 10000.f);
 	FHitResult hit;
 
 	if (GetWorld())
 	{
 		bool actorHit = GetWorld()->LineTraceSingleByChannel(hit, start, end, ECC_Pawn, FCollisionQueryParams(),
 		                                                     FCollisionResponseParams());
-		DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
-		if (actorHit && hit.GetActor())
+		//DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
+		if (actorHit)
 		{
 			// is ground check
-			//float dis = GetDistanceTo(hit.GetActor());
-
-			//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red,
-			//                                 FString::Printf(TEXT("You are htting: %s"), *hit.GetActor()->GetName()));
-			//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red,
-			//                                 FString::Printf(TEXT("Impact point: %s"), *hit.ImpactPoint.ToString()));
-
 			FVector hitActorPoint = hit.ImpactPoint;
-			FVector playerPoint = GetActorLocation();
-			FVector disss ;
-			float distance = disss.Distance(playerPoint,hitActorPoint);
-			//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red,
-			//								 FString::Printf(TEXT("Impact point: %f"), distance));
+			FVector playerPoint = start;
+			FVector dis;
+			float distance = dis.Distance(playerPoint,hitActorPoint);
 
-			UE_LOG(LogTemp, Log, TEXT("Actor location: %F"), distance);
+			//UE_LOG(LogTemp, Log, TEXT("Distance between player and actor: %f"), distance);
 
+			if(distance <= 70 && GetCharacterMovement()->IsFalling())
+			{
+				landed = true;
+			}
 		}
 	}
 }
@@ -350,7 +347,6 @@ void AMyCharacter::Slide()
 
 void AMyCharacter::DebugSpeed()
 {
-	
 	if (GEngine)
 	{
 		const FString msg = FString::Printf(TEXT("Player speed: %lf"), GetCharacterMovement()->Velocity.Length());
