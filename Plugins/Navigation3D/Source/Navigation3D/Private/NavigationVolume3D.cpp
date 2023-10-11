@@ -334,7 +334,7 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 	{
 		TArray<AActor*> outActors;
 		bool tmp = UKismetSystemLibrary::BoxOverlapActors(GetWorld(), ConvertCoordinatesToLocation(nodeToCheck->Coordinates),
-		                                                  /*FVector(GetDivisionSize() / 2.1)*/ FVector(meshBounds), object_types,
+		                                                  /*FVector(GetDivisionSize() / 2.1)*/ FVector(meshBounds) * 1.1f, object_types,
 		                                                  actor_class_filter, TArray<AActor*>(), outActors);
 
 		if (tmp && drawdebugenabled)

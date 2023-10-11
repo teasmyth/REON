@@ -77,7 +77,7 @@ void AMyCharacter::Tick(float DeltaTime)
 	}
 	
 	GroundRaycast(DeltaTime);
-	DebugSpeed();
+	//DebugSpeed();
 }
 
 // Called to bind functionality to input
