@@ -109,6 +109,7 @@ public:
 	void Slide();
 	void LookBack();
 	void LookFront();
+	void AirDash();
 
 	// Reset
 	void SpeedReset();

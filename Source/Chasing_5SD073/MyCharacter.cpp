@@ -101,6 +101,8 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	}
 }
 
+
+// Movement
 void AMyCharacter::Acceleration()
 {
 	// accelerationSpeedRate = how long (seconds) it should take to reach maximum speed
@@ -137,17 +139,6 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 	Acceleration();
 }
 
-void AMyCharacter::ResetSize()
-{
-	FVector3d scale = GetActorScale3D();
-	FVector3d origin = FVector3d(1, 1, 1);
-	if (scale != origin)
-	{
-		SetActorScale3D(scale * 2);
-	}
-	//DebugSize();
-}
-
 void AMyCharacter::LookBack()
 {
 	FString fru = moving ? "true" : "false";
@@ -164,6 +155,62 @@ void AMyCharacter::LookFront()
 	BackCam->Activate(false);
 }
 
+void AMyCharacter::Look(const FInputActionValue& Value)
+{
+	// input is a Vector2D
+	FVector2D LookAxisVector = Value.Get<FVector2D>();
+
+	if (Controller != nullptr)
+	{
+		// add yaw and pitch input to controller
+		AddControllerYawInput(LookAxisVector.X);
+		AddControllerPitchInput(LookAxisVector.Y);
+	}
+
+	if (LookAxisVector.X >= cameraJitter || LookAxisVector.X <= -cameraJitter)
+	{
+		GetCharacterMovement()->Velocity *= slow_precentage;
+	}
+}
+
+void AMyCharacter::Slide()
+{
+	FVector3d scale = GetActorScale3D();
+	FVector3d origin = FVector3d(1, 1, 1);
+	if (scale == origin)
+	{
+		SetActorScale3D(scale / 2);
+		DebugSize();
+	}
+}
+
+void AMyCharacter::AirDash()
+{
+	
+}
+
+// Reset
+void AMyCharacter::SpeedReset()
+{
+	moving = false;
+	//currentSpeed = normalSpeed;
+	//GetCharacterMovement()->MaxWalkSpeed = normalSpeed;
+	accelerationTimer=0;
+}
+
+void AMyCharacter::ResetSize()
+{
+	FVector3d scale = GetActorScale3D();
+	FVector3d origin = FVector3d(1, 1, 1);
+	if (scale != origin)
+	{
+		SetActorScale3D(scale * 2);
+	}
+	//DebugSize();
+}
+
+
+// Raycast
 void AMyCharacter::Ray()
 {
 	FVector start = GetActorLocation();
@@ -293,43 +340,8 @@ void AMyCharacter::SliderRaycast()
 	}
 }
 
-void AMyCharacter::SpeedReset()
-{
-	moving = false;
-	//currentSpeed = normalSpeed;
-	//GetCharacterMovement()->MaxWalkSpeed = normalSpeed;
-	accelerationTimer=0;
-}
 
-void AMyCharacter::Look(const FInputActionValue& Value)
-{
-	// input is a Vector2D
-	FVector2D LookAxisVector = Value.Get<FVector2D>();
-
-	if (Controller != nullptr)
-	{
-		// add yaw and pitch input to controller
-		AddControllerYawInput(LookAxisVector.X);
-		AddControllerPitchInput(LookAxisVector.Y);
-	}
-
-	if (LookAxisVector.X >= cameraJitter || LookAxisVector.X <= -cameraJitter)
-	{
-		GetCharacterMovement()->Velocity *= slow_precentage;
-	}
-}
-
-void AMyCharacter::Slide()
-{
-	FVector3d scale = GetActorScale3D();
-	FVector3d origin = FVector3d(1, 1, 1);
-	if (scale == origin)
-	{
-		SetActorScale3D(scale / 2);
-		DebugSize();
-	}
-}
-
+// Debug
 void AMyCharacter::DebugSpeed()
 {
 	if (GEngine)
