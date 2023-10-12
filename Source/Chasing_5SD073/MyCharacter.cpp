@@ -4,7 +4,6 @@
 #include "MyCharacter.h"
 #include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
-#include "../../../../../../Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt/Windows.UI.ViewManagement.h"
 
 
 // Sets default values
