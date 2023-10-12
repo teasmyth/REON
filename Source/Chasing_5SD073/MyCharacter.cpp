@@ -5,7 +5,7 @@
 #include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
 
-
+#pragma region Character 
 // Sets default values
 AMyCharacter::AMyCharacter()
 {
@@ -121,6 +121,9 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	}
 }
 
+#pragma endregion
+
+#pragma region Movement
 
 // Movement
 void AMyCharacter::Acceleration()
@@ -241,12 +244,28 @@ void AMyCharacter::AirDash(const FInputActionValue& Value)
 			{
 				SetActorLocation(end, true);
 
-				//DebugSpeed();
+				DebugSpeed();
 				dashOnce = false;
 			}
 		}
 	}
 }
+
+void AMyCharacter::WallRun()
+{
+}
+
+void AMyCharacter::WallJump()
+{
+}
+
+void AMyCharacter::WallClimbing()
+{
+}
+
+#pragma endregion
+
+#pragma region Reset
 
 // Reset
 void AMyCharacter::SpeedReset()
@@ -268,8 +287,11 @@ void AMyCharacter::ResetSize()
 	//DebugSize();
 }
 
+#pragma endregion
 
+#pragma region RayCast
 // Raycast
+
 void AMyCharacter::Ray()
 {
 	FVector start = GetActorLocation();
@@ -399,8 +421,11 @@ void AMyCharacter::SliderRaycast()
 	}
 }
 
+#pragma endregion
 
+#pragma region Debug
 // Debug
+
 void AMyCharacter::DebugSpeed()
 {
 	if (GEngine)
@@ -415,3 +440,5 @@ void AMyCharacter::DebugSize()
 	FVector scale = GetActorScale3D();
 	UE_LOG(LogTemp, Log, TEXT("Actor location: %s"), *scale.ToString());
 }
+
+#pragma endregion

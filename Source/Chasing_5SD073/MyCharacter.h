@@ -119,6 +119,10 @@ public:
 	void LookFront();
 	void AirDash(const FInputActionValue& Value);
 
+	void WallRun();
+	void WallJump();
+	void WallClimbing();
+	
 	// Reset
 	void SpeedReset();
 	void ResetSize();
