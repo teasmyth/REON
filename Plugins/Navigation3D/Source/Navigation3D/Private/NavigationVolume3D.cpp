@@ -275,21 +275,51 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 
 	// Create open and closed sets
 	std::priority_queue<NavNode*, std::vector<NavNode*>, NodeCompare> openSet;
-	std::set<NavNode*> openSetCheck;
+	std::set<NavNode*> openSetCheck; //For checking if something is in open set.
 	std::set<NavNode*> closedSet;
 	std::unordered_map<NavNode*, NavNode*> parentMap; //parent system, to tell where can you come from to a particular node
 
+#pragma region Helper methods
 
-	//Helper methods
 	auto ReconstructPath = [&](const std::unordered_map<NavNode*, NavNode*>& cameFrom, NavNode* current, TArray<FVector>& path)
 	{
 		// Reconstruct the path from the cameFrom map
 		out_path.Empty();
+		TArray<FVector> smoothenedPath;
 
 		while (current)
 		{
 			path.Insert(ConvertCoordinatesToLocation(current->Coordinates), 0);
 			current = cameFrom.count(current) ? cameFrom.at(current) : nullptr;
+		}
+
+		if (out_path.Num() > 2)
+		{
+			ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(ECC_Visibility); // Specify the trace channel using ECC_Visibility
+			FVector currentPoint = *out_path.begin();
+			smoothenedPath.Add(currentPoint);
+
+		
+			//out path num = 9  -> loop max is 8,
+			for (int i = 0; i < out_path.Num() - 2; i++)
+			{
+			
+				FHitResult hitResult;
+				bool sphereHit = UKismetSystemLibrary::SphereTraceSingle(GetWorld(), currentPoint, out_path[i + 1], meshBounds, TraceChannel, false, TArray<AActor*>(),
+																 EDrawDebugTrace::Type::None, hitResult, true);
+				//bool hit = UKismetSystemLibrary::LineTraceSingle(GetWorld(), currentPoint, out_path[i + 1], TraceChannel, false, TArray<AActor*>(),
+																// EDrawDebugTrace::Type::None, hitResult, true);
+
+				if (sphereHit)
+				{
+					currentPoint = out_path[i + 1];
+					smoothenedPath.Add(out_path[i + 1]);
+				}
+			}
+
+			smoothenedPath.Add(out_path.Last());
+
+			out_path = smoothenedPath;
 		}
 	};
 
@@ -344,6 +374,8 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 		}
 		return tmp;
 	};
+
+#pragma  endregion
 
 	// Initialize start node
 	NavNode* startNode = GetNode(ConvertLocationToCoordinates(start));
@@ -401,9 +433,10 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 		openSet.pop();
 		openSetCheck.erase(current);
 		closedSet.insert(current);
-		
-		if (drawdebugenabled) DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(current->Coordinates), meshBounds, 4, FColor::Green,
-		                                      false, 1, 0, 5.0f);
+
+		if (drawdebugenabled)
+			DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(current->Coordinates), meshBounds, 4, FColor::Green,
+			                false, 1, 0, 5.0f);
 
 
 		for (NavNode* neighbor : current->Neighbors)
