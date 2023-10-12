@@ -134,6 +134,16 @@ public:
 	void SliderRaycast();
 
 	// Debug
+
+	// Print on screen
+	UPROPERTY(EditAnywhere, Category = "Debugging")
+	bool debugSpeed;
+
+	// Debug log
+	UPROPERTY(EditAnywhere, Category = "Debugging")
+	bool debugLanding;
+	
 	void DebugSpeed();
+	void DebugLanding();
 	void DebugSize();
 };

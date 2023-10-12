@@ -80,13 +80,11 @@ void AMyCharacter::Tick(float DeltaTime)
 		dash = false;
 	}
 
-	FString fru = dash ? "true" : "false";
-	//	UE_LOG(LogTemp, Display, TEXT("falling %s"), *fru);
-	UE_LOG(LogTemp, Warning, TEXT("landed %s"), ( landed ? TEXT("true") : TEXT("false") ));
-	UE_LOG(LogTemp, Warning, TEXT("falling %s"),
-	       ( GetCharacterMovement()->IsFalling() ? TEXT("true") : TEXT("false") ));
+	
 	GroundRaycast(DeltaTime);
-	//DebugSpeed();
+
+	if(debugSpeed) DebugSpeed();
+	if(debugLanding) DebugLanding();
 }
 
 // Called to bind functionality to input
@@ -183,8 +181,8 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 
 void AMyCharacter::LookBack()
 {
-	FString fru = moving ? "true" : "false";
-	UE_LOG(LogTemp, Display, TEXT("%s"), *fru);
+	//FString fru = moving ? "true" : "false";
+	//UE_LOG(LogTemp, Display, TEXT("%s"), *fru);
 	FrontCam->SetRelativeLocation(FVector(-10.f, 0.f, 60.f)); // Position the camera
 	BackCam->SetActive(true);
 	FrontCam->SetActive(false);
@@ -433,6 +431,13 @@ void AMyCharacter::DebugSpeed()
 		const FString msg = FString::Printf(TEXT("Player speed: %lf"), GetCharacterMovement()->Velocity.Length());
 		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
 	}
+}
+
+void AMyCharacter::DebugLanding()
+{
+	UE_LOG(LogTemp, Warning, TEXT("landed %s"), ( landed ? TEXT("true") : TEXT("false") ));
+	UE_LOG(LogTemp, Warning, TEXT("falling %s"),
+		   ( GetCharacterMovement()->IsFalling() ? TEXT("true") : TEXT("false") ));
 }
 
 void AMyCharacter::DebugSize()
