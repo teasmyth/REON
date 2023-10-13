@@ -83,7 +83,7 @@ public:
 	bool sprint = false;
 	
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
-	float slow_precentage;
+	float slowPrecentage;
 	
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float cameraJitter;
@@ -134,7 +134,6 @@ public:
 	void SliderRaycast();
 
 	// Debug
-
 	// Print on screen
 	UPROPERTY(EditAnywhere, Category = "Debugging")
 	bool debugSpeed;
@@ -142,8 +141,22 @@ public:
 	// Debug log
 	UPROPERTY(EditAnywhere, Category = "Debugging")
 	bool debugLanding;
+
+	UPROPERTY(EditAnywhere, Category = "Debugging")
+	bool debugGroundRaycast;
+
+	UPROPERTY(EditAnywhere, Category = "Debugging")
+	bool debugSlideRaycast;
+
 	
 	void DebugSpeed();
 	void DebugLanding();
 	void DebugSize();
+
+	float getCurrentAccelerationRate;
+
+	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	FVector slideBoost;
+
+	bool fallSliding;
 };

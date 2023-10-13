@@ -57,9 +57,7 @@ void AMyCharacter::BeginPlay()
 void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	//Ray();
-	//SliderRaycast();
-
+	
 	if (GetCharacterMovement()->IsFalling() && !landed)
 	{
 		dash = true;
@@ -68,23 +66,31 @@ void AMyCharacter::Tick(float DeltaTime)
 	else
 	{
 		dash = false;
-		//fallingTimer = 0;
 	}
 
 	if (GetCharacterMovement()->IsFalling())
 	{
 		dash = true;
+		
+		//if(fallSliding)
+		//{
+		//	Slide();
+//
+		//	if(GetCharacterMovement()->IsMovingOnGround())
+		//	{
+		//		fallSliding = false;
+		//	}
+		//}
 	}
 	else
 	{
 		dash = false;
 	}
-
 	
-	GroundRaycast(DeltaTime);
-
-	if(debugSpeed) DebugSpeed();
-	if(debugLanding) DebugLanding();
+	if(debugGroundRaycast) 	GroundRaycast(DeltaTime);
+	if(debugSlideRaycast)	SliderRaycast();
+	if(debugSpeed)			DebugSpeed();
+	if(debugLanding)		DebugLanding();
 }
 
 // Called to bind functionality to input
@@ -133,8 +139,11 @@ void AMyCharacter::Acceleration()
 	//landed after falling
 	if (landed)
 	{
-		if (fallingTimer >= maxFallingPenaltyTime) fallingTimer = maxFallingPenaltyTime;
-
+		if (fallingTimer >= maxFallingPenaltyTime)
+		{
+			fallingTimer = maxFallingPenaltyTime;
+		}
+		
 		currentAcceleration = GetCharacterMovement()->MaxCustomMovementSpeed / accelerationSpeedRate * (1 - (
 			fallingTimer / maxFallingPenaltyTime) * maxFallingSpeedSlowPenalty);
 
@@ -146,6 +155,7 @@ void AMyCharacter::Acceleration()
 	}
 
 	GetCharacterMovement()->MaxAcceleration = currentAcceleration;
+	getCurrentAccelerationRate = currentAcceleration;
 }
 
 void AMyCharacter::Move(const FInputActionValue& Value)
@@ -175,7 +185,7 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 
 	if (LookAxisVector.X >= cameraJitter || LookAxisVector.X <= -cameraJitter)
 	{
-		GetCharacterMovement()->Velocity *= slow_precentage;
+		GetCharacterMovement()->Velocity *= slowPrecentage;
 	}
 }
 
@@ -202,7 +212,11 @@ void AMyCharacter::Slide()
 	if (scale == origin)
 	{
 		SetActorScale3D(scale / 2);
-		DebugSize();
+		//GetCharacterMovement()->MaxAcceleration = 1.5f *  getCurrentAccelerationRate;
+		
+		GetCharacterMovement()->Velocity += GetActorRotation().Vector() * slideBoost;
+		fallSliding = true;
+		
 	}
 }
 
@@ -281,6 +295,8 @@ void AMyCharacter::ResetSize()
 	if (scale != origin)
 	{
 		SetActorScale3D(scale * 2);
+	
+		//GetCharacterMovement()->MaxAcceleration = getCurrentAccelerationRate * slideSpeedBoostRate;
 	}
 	//DebugSize();
 }
@@ -445,5 +461,7 @@ void AMyCharacter::DebugSize()
 	FVector scale = GetActorScale3D();
 	UE_LOG(LogTemp, Log, TEXT("Actor location: %s"), *scale.ToString());
 }
+
+
 
 #pragma endregion
