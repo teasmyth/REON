@@ -268,10 +268,10 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 
 {
 	bool drawdebugenabled = false;
-	for (int32 i = 0; i < GetTotalDivisions(); ++i)
-	{
-		//Nodes[i].FScore = Nodes[i].GScore = Nodes[i].HScore = MAX_FLT;
-	}
+	// for (int32 i = 0; i < GetTotalDivisions(); ++i)
+	// {
+	// 	  Nodes[i].FScore = Nodes[i].GScore = Nodes[i].HScore = MAX_FLT;
+	// }
 
 	// Create open and closed sets
 	std::priority_queue<NavNode*, std::vector<NavNode*>, NodeCompare> openSet;
@@ -299,16 +299,14 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 			FVector currentPoint = *out_path.begin();
 			smoothenedPath.Add(currentPoint);
 
-		
+
 			//out path num = 9  -> loop max is 8,
 			for (int i = 0; i < out_path.Num() - 2; i++)
 			{
-			
 				FHitResult hitResult;
-				bool sphereHit = UKismetSystemLibrary::SphereTraceSingle(GetWorld(), currentPoint, out_path[i + 1], meshBounds, TraceChannel, false, TArray<AActor*>(),
-																 EDrawDebugTrace::Type::None, hitResult, true);
-				//bool hit = UKismetSystemLibrary::LineTraceSingle(GetWorld(), currentPoint, out_path[i + 1], TraceChannel, false, TArray<AActor*>(),
-																// EDrawDebugTrace::Type::None, hitResult, true);
+				bool sphereHit = UKismetSystemLibrary::SphereTraceSingle(GetWorld(), currentPoint, out_path[i + 1], meshBounds, TraceChannel, false,
+				                                                         TArray<AActor*>(),
+				                                                         EDrawDebugTrace::Type::None, hitResult, true);
 
 				if (sphereHit)
 				{
@@ -318,7 +316,6 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 			}
 
 			smoothenedPath.Add(out_path.Last());
-
 			out_path = smoothenedPath;
 		}
 	};
@@ -347,7 +344,6 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 		nodeToClear.FScore = nodeToClear.GScore = nodeToClear.HScore = FLT_MAX;
 	};
 
-
 	auto Cleanup = [&]()
 	{
 		for (NavNode* item : openSetCheck)
@@ -375,13 +371,24 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 		return tmp;
 	};
 
+	auto Heuristics = [](const NavNode* currentNode, const NavNode* endNode)
+	{
+		return
+			FMath::Abs(currentNode->Coordinates.X - endNode->Coordinates.X) +
+			FMath::Abs(currentNode->Coordinates.Y - endNode->Coordinates.Y) +
+			FMath::Abs(currentNode->Coordinates.Z - endNode->Coordinates.Z);
+	};
+
 #pragma  endregion
 
 	// Initialize start node
 	NavNode* startNode = GetNode(ConvertLocationToCoordinates(start));
-	NavNode* endNode = GetNode(ConvertLocationToCoordinates(destination));
 
+	FIntVector origin = ConvertLocationToCoordinates(destination);
+	FIntVector up = origin + FIntVector(0,0,1);
 
+	NavNode* endNode = GetNode(up);
+	
 	//bug fix: when player is sharing a grid that's blocked, target the neighbor grid that's free.
 	if (IsBlocked(endNode))
 	{
@@ -465,6 +472,26 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 
 	UE_LOG(LogTemp, Display, TEXT("Path not found."));
 	return false; // No path found
+
+	/*
+		openSet.push(startNode);
+		while (!openSet.empty())
+		{
+			NavNode* currentNode = openSet.top();
+			openSet.pop();
+			if (currentNode->Coordinates == endNode->Coordinates)
+			{
+				return true;
+			}
+	
+			closedSet.insert(currentNode);
+			
+			for (auto neighbor : currentNode->Neighbors)
+			{
+				
+			}
+		}
+		*/
 }
 
 FIntVector ANavigationVolume3D::ConvertLocationToCoordinates(const FVector& location)
