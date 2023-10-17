@@ -157,6 +157,5 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	FVector slideBoost;
-
 	bool fallSliding;
 };

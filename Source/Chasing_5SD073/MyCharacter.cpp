@@ -86,6 +86,10 @@ void AMyCharacter::Tick(float DeltaTime)
 	{
 		dash = false;
 	}
+
+
+	if(onSlope) Slide();
+
 	
 	if(debugGroundRaycast) 	GroundRaycast(DeltaTime);
 	if(debugSlideRaycast)	SliderRaycast();
@@ -213,8 +217,12 @@ void AMyCharacter::Slide()
 	{
 		SetActorScale3D(scale / 2);
 		//GetCharacterMovement()->MaxAcceleration = 1.5f *  getCurrentAccelerationRate;
-		
-		GetCharacterMovement()->Velocity += GetActorRotation().Vector() * slideBoost;
+
+		FVector speedMax = FVector(1000,1000,1000);
+		if(GetCharacterMovement()->Velocity.Length() <= 1000)
+		{
+			GetCharacterMovement()->Velocity += GetActorRotation().Vector() * slideBoost;
+		}
 		fallSliding = true;
 		
 	}
@@ -295,7 +303,8 @@ void AMyCharacter::ResetSize()
 	if (scale != origin)
 	{
 		SetActorScale3D(scale * 2);
-	
+		GetCharacterMovement()->Velocity -= FVector(100,100,100);
+
 		//GetCharacterMovement()->MaxAcceleration = getCurrentAccelerationRate * slideSpeedBoostRate;
 	}
 	//DebugSize();
@@ -425,7 +434,9 @@ void AMyCharacter::SliderRaycast()
 			if (hit.GetActor()->ActorHasTag(TEXT("Slope")))
 			{
 				onSlope = true;
-				GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("U are on a Slope")));
+				UE_LOG(LogTemp, Warning, TEXT("slope %s"), ( onSlope ? TEXT("true") : TEXT("false") ));
+
+				//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("U are on a Slope")));
 			}
 			else
 			{
@@ -461,7 +472,5 @@ void AMyCharacter::DebugSize()
 	FVector scale = GetActorScale3D();
 	UE_LOG(LogTemp, Log, TEXT("Actor location: %s"), *scale.ToString());
 }
-
-
 
 #pragma endregion
