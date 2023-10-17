@@ -147,7 +147,6 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Debugging")
 	bool debugSlideRaycast;
-
 	
 	void DebugSpeed();
 	void DebugLanding();

@@ -89,7 +89,6 @@ void AMyCharacter::Tick(float DeltaTime)
 
 
 	if(onSlope) Slide();
-
 	
 	if(debugGroundRaycast) 	GroundRaycast(DeltaTime);
 	if(debugSlideRaycast)	SliderRaycast();
@@ -224,7 +223,6 @@ void AMyCharacter::Slide()
 			GetCharacterMovement()->Velocity += GetActorRotation().Vector() * slideBoost;
 		}
 		fallSliding = true;
-		
 	}
 }
 
@@ -403,12 +401,15 @@ void AMyCharacter::GroundRaycast(float DeltaTime)
 			FVector playerPoint = start;
 			FVector dis;
 			float distance = dis.Distance(playerPoint, hitActorPoint);
-
-			UE_LOG(LogTemp, Log, TEXT("Distance between player and actor: %f"), distance);
-
+			
 			if (distance <= 3 && GetCharacterMovement()->IsFalling())
 			{
 				landed = true;
+			}
+
+			if(debugGroundRaycast)
+			{
+				UE_LOG(LogTemp, Log, TEXT("Distance between player and actor: %f"), distance);
 			}
 		}
 	}
@@ -434,13 +435,16 @@ void AMyCharacter::SliderRaycast()
 			if (hit.GetActor()->ActorHasTag(TEXT("Slope")))
 			{
 				onSlope = true;
-				UE_LOG(LogTemp, Warning, TEXT("slope %s"), ( onSlope ? TEXT("true") : TEXT("false") ));
-
-				//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("U are on a Slope")));
 			}
 			else
 			{
 				onSlope = false;
+			}
+
+			if(debugGroundRaycast)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("slope %s"), ( onSlope ? TEXT("true") : TEXT("false") ));
+				//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("U are on a Slope")));
 			}
 		}
 	}
