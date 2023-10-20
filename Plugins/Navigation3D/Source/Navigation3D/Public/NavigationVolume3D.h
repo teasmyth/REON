@@ -69,9 +69,9 @@ public:
 	// Gets the node at the specified coordinates
 	NavNode* GetNode(FIntVector coordinates) const;
 
-	// Finds a path from the starting location to the destination. Destination is deprecated.
+	// Finds a path from the starting location to the destination
 	UFUNCTION(BlueprintCallable, Category = "NavigationVolume3D")
-	bool FindPath(const FVector& start, const FVector& destination, AActor* target, const TArray<TEnumAsByte<EObjectTypeQuery> >& object_types, const float& meshBounds, UClass* actor_class_filter, TArray<FVector>& out_path, const bool& useAStar);
+	bool FindPath(const FVector& start, const FVector& destination, const TArray<TEnumAsByte<EObjectTypeQuery> >& object_types, const float& meshBounds, UClass* actor_class_filter, TArray<FVector>& out_path);
 
 	/**
 	* Converts a world space location to a coordinate in the grid. If the location is not located within the grid,
@@ -136,11 +136,6 @@ private:
 
 	// Helper function to clamp the coordinate to a valid one inside the grid
 	void ClampCoordinates(FIntVector& coordinates) const;
-
-	float CalculateMaxSweepDistance(const NavNode& CurrentNode, const FVector& Direction);
-
-	//Returns true if a JumpPoint has been found. If true, outJumpPoint is not a nullptr
-	bool Jump(const NavNode& CurrentNode, const NavNode& Neighbor, AActor* Target, NavNode** outJumpPoint);
 
 	// The nodes used for pathfinding
 	NavNode* Nodes = nullptr;
