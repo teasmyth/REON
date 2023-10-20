@@ -167,16 +167,6 @@ void ANavigationVolume3D::BeginPlay()
 			{
 				NavNode* node = GetNode(FIntVector(x, y, z));
 				node->Coordinates = FIntVector(x, y, z);
-				//
-				bool tmp = UKismetSystemLibrary::BoxOverlapActors(GWorld, ConvertCoordinatesToLocation(node->Coordinates),
-				                                                  FVector(GetDivisionSize() / 2), filter,
-				                                                  nullptr, TArray<AActor*>(), outActors);
-
-				if (tmp)
-				{
-					//DrawDebugBox(GWorld, ConvertCoordinatesToLocation(node->Coordinates), FVector(GetDivisionSize() / 2.2), FColor::Cyan, false, 30.0f, 0,2.0f);
-				}
-				//
 
 				// Above neighbors
 				{
@@ -262,11 +252,14 @@ void ANavigationVolume3D::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 }
 
-bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destination, const TArray<TEnumAsByte<EObjectTypeQuery>>& object_types,
+bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destination, AActor* target,
+                                   const TArray<TEnumAsByte<EObjectTypeQuery>>& object_types,
                                    const float& meshBounds, UClass* actor_class_filter,
-                                   TArray<FVector>& out_path)
+                                   TArray<FVector>& out_path, const bool& useAStar)
 
 {
+	double StartTimeAStar = FPlatformTime::Seconds();
+
 	bool drawdebugenabled = false;
 	// for (int32 i = 0; i < GetTotalDivisions(); ++i)
 	// {
@@ -379,16 +372,42 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 			FMath::Abs(currentNode->Coordinates.Z - endNode->Coordinates.Z);
 	};
 
+	//todo doesnt work.
+	//D is cost of diagonal movement, default is 14. D2 is cost of cardinal/orthogonal movement, default is 10.
+	auto CalculateOctileDistance = [](const NavNode* startNode, const NavNode* targetNode, const int32 D = 14, const int32 D2 = 10)
+	{
+		int dx = FMath::Abs(targetNode->Coordinates.X - startNode->Coordinates.X);
+		int dy = FMath::Abs(targetNode->Coordinates.Y - startNode->Coordinates.Y);
+		int dz = FMath::Abs(targetNode->Coordinates.Z - startNode->Coordinates.Z);
+
+		int d1 = FMath::Min3(dx, dy, dz);
+		int d2 = FMath::Abs(dx - dy) + FMath::Abs(dy - dz) + FMath::Abs(dz - dx);
+		int d3 = 0;
+
+		if (D == 1)
+		{
+			// The cost of diagonal movement is 1.
+			d3 = d1;
+		}
+		else
+		{
+			// The cost of diagonal movement is sqrt(3), approximately 1.7321.
+			d3 = static_cast<int32>(D * 0.7321 * d1);
+		}
+
+		return D * (d1 + d2) + (D2 - 2 * D) * d3;
+	};
+
 #pragma  endregion
 
 	// Initialize start node
 	NavNode* startNode = GetNode(ConvertLocationToCoordinates(start));
 
 	FIntVector origin = ConvertLocationToCoordinates(destination);
-	FIntVector up = origin + FIntVector(0,0,1);
+	FIntVector up = origin + FIntVector(0, 0, 1);
 
-	NavNode* endNode = GetNode(up);
-	
+	NavNode* endNode = GetNode(origin);
+
 	//bug fix: when player is sharing a grid that's blocked, target the neighbor grid that's free.
 	if (IsBlocked(endNode))
 	{
@@ -403,96 +422,461 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 	}
 
 	startNode->GScore = 0.0f;
-	startNode->HScore = FVector::Dist(ConvertCoordinatesToLocation(startNode->Coordinates), ConvertCoordinatesToLocation(endNode->Coordinates));
-	startNode->FScore = startNode->HScore;
+	startNode->HScore = 0;
+	startNode->FScore = 0;
 
-	openSet.push(startNode);
-	openSetCheck.insert(startNode);
-
-	int infiniteloopindex = 0;
-	while (!openSet.empty())
+	if (useAStar)
 	{
-		infiniteloopindex++;
-		if (infiniteloopindex > 99) //Gotta keep it a bit big in case 
+		openSet.push(startNode);
+		openSetCheck.insert(startNode);
+
+		int infiniteloopindex = 0;
+		while (!openSet.empty())
 		{
-			auto startDebug = startNode;
-			auto endDebug = endNode;
-			auto openSetDebug = openSet;
-			auto closedSetDebug = closedSet;
-			UE_LOG(LogTemp, Error, TEXT("The destination is too far to find within time. or Infinite loop :("));
-			return false;
-		}
-
-		NavNode* current = openSet.top();
-
-		//If the path to the destination is found, reconstruct the path.
-		if (current->Coordinates == endNode->Coordinates)
-		{
-			if (drawdebugenabled)
-				DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(current->Coordinates), meshBounds, 4, FColor::Blue, false, 2, 0,
-				                5.0f);
-
-			ReconstructPath(parentMap, current, out_path);
-			Cleanup();
-			return true;
-		}
-
-		openSet.pop();
-		openSetCheck.erase(current);
-		closedSet.insert(current);
-
-		if (drawdebugenabled)
-			DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(current->Coordinates), meshBounds, 4, FColor::Green,
-			                false, 1, 0, 5.0f);
-
-
-		for (NavNode* neighbor : current->Neighbors)
-		{
-			//If blocked or is in closed list (meaning best path found), go on to the next iteration and skip this loop
-			if (IsBlocked(neighbor) || closedSet.find(neighbor) != closedSet.end()) continue;
-
-			const float tentativeGScore = CalculateTentativeGScore(*current, *neighbor);
-
-			//checking if hypothetical g score is worse, if so, skip
-			if (tentativeGScore > neighbor->GScore) continue;
-
-			parentMap[neighbor] = current;
-			neighbor->GScore = tentativeGScore;
-			neighbor->HScore = FVector::Dist(ConvertCoordinatesToLocation(neighbor->Coordinates), ConvertCoordinatesToLocation(endNode->Coordinates));
-			neighbor->FScore = neighbor->GScore + neighbor->HScore;
-
-			//add neighbor if its not in the open list. if its true, it means iterator couldn't find it.
-			if (openSetCheck.find(neighbor) == openSetCheck.end())
+			infiniteloopindex++;
+			if (infiniteloopindex > 99) //Gotta keep it a bit big in case 
 			{
-				openSet.push(neighbor);
-				openSetCheck.insert(neighbor);
+				auto startDebug = startNode;
+				auto endDebug = endNode;
+				auto openSetDebug = openSet;
+				auto closedSetDebug = closedSet;
+				UE_LOG(LogTemp, Error, TEXT("The destination is too far to find within time. or Infinite loop :("));
+				return false;
+			}
+
+			NavNode* current = openSet.top();
+
+			//If the path to the destination is found, reconstruct the path.
+			if (current->Coordinates == endNode->Coordinates)
+			{
+				if (drawdebugenabled)
+					DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(current->Coordinates), meshBounds, 4, FColor::Blue, false, 2, 0,
+					                5.0f);
+
+				ReconstructPath(parentMap, current, out_path);
+				Cleanup();
+				double EndTimeAStar = FPlatformTime::Seconds();
+				double ElapsedTimeAStar = EndTimeAStar - StartTimeAStar;
+				UE_LOG(LogTemp, Warning, TEXT(" A* elapsed time: %f seconds"), ElapsedTimeAStar);
+				return true;
+			}
+
+			openSet.pop();
+			openSetCheck.erase(current);
+			closedSet.insert(current);
+
+			if (drawdebugenabled)
+				DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(current->Coordinates), meshBounds, 4, FColor::Green,
+				                false, 1, 0, 5.0f);
+
+
+			for (NavNode* neighbor : current->Neighbors)
+			{
+				//If blocked or is in closed list (meaning best path found), go on to the next iteration and skip this loop
+				if (IsBlocked(neighbor) || closedSet.find(neighbor) != closedSet.end()) continue;
+
+				const float tentativeGScore = CalculateTentativeGScore(*current, *neighbor);
+
+				//checking if hypothetical g score is worse, if so, skip
+				if (tentativeGScore > neighbor->GScore) continue;
+
+				parentMap[neighbor] = current;
+				neighbor->GScore = tentativeGScore;
+				neighbor->HScore = FVector::Dist(ConvertCoordinatesToLocation(neighbor->Coordinates),
+				                                 ConvertCoordinatesToLocation(endNode->Coordinates));
+				neighbor->FScore = neighbor->GScore + neighbor->HScore;
+
+				//add neighbor if its not in the open list. if its true, it means iterator couldn't find it.
+				if (openSetCheck.find(neighbor) == openSetCheck.end())
+				{
+					openSet.push(neighbor);
+					openSetCheck.insert(neighbor);
+				}
+			}
+		}
+
+		UE_LOG(LogTemp, Display, TEXT("Path not found."));
+		return false; // No path found
+	}
+	else
+	{
+		int infiniteloopindex = 0;
+
+		openSet.push(startNode);
+		while (!openSet.empty())
+		{
+			infiniteloopindex++;
+			if (infiniteloopindex > 21) //Gotta keep it a bit big in case 
+			{
+				return false;
+			}
+			NavNode* currentNode = openSet.top();
+			openSet.pop();
+			closedSet.emplace(currentNode);
+
+			if (currentNode->Coordinates == endNode->Coordinates)
+			{
+				ReconstructPath(parentMap, currentNode, out_path);
+				Cleanup();
+				//DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(currentNode->Coordinates), 30, 4, FColor::Purple, false, 2, 0, 5.0f);
+
+				//UE_LOG(LogTemp, Warning, TEXT("Found path!"));
+				double EndTimeAStar = FPlatformTime::Seconds();
+				double ElapsedTimeAStar = EndTimeAStar - StartTimeAStar;
+				UE_LOG(LogTemp, Warning, TEXT("JPS elapsed time: %f seconds"), ElapsedTimeAStar);
+				return true;
+			}
+			//DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(currentNode->Coordinates), 30, 4, FColor::Blue, false, 2, 0, 5.0f);
+
+			for (auto neighbor : currentNode->Neighbors)
+			{
+				NavNode* jumpPoint = nullptr;
+				bool successfulJump = Jump(*currentNode, *neighbor, target, &jumpPoint);
+				//DrawDebugBox(GetWorld(), ConvertCoordinatesToLocation(neighbor->Coordinates), FVector(GetDivisionSize() / 2), FColor::Green, true, 1, 0, 2);
+
+
+				if (successfulJump)
+				{
+					float tentativeF = currentNode->GScore + 1 + FVector::Dist(ConvertCoordinatesToLocation(jumpPoint->Coordinates),
+					                                                            ConvertCoordinatesToLocation(endNode->Coordinates));
+					if (jumpPoint->FScore < tentativeF) continue;
+
+					jumpPoint->GScore = currentNode->GScore + 1;
+					//jumpPoint->HScore = CalculateOctileDistance(jumpPoint, endNode);
+					jumpPoint->HScore = FVector::Dist(ConvertCoordinatesToLocation(jumpPoint->Coordinates),
+					                                  ConvertCoordinatesToLocation(endNode->Coordinates));
+					jumpPoint->FScore = jumpPoint->GScore + jumpPoint->HScore;
+					parentMap[jumpPoint] = currentNode;
+					if (openSetCheck.find(neighbor) == openSetCheck.end())
+					{
+						openSet.push(jumpPoint);
+						openSetCheck.emplace(jumpPoint);
+						//DrawDebugBox(GetWorld(), ConvertCoordinatesToLocation(jumpPoint->Coordinates), FVector(GetDivisionSize() / 2), FColor::Green, true, 1, 0, 2);
+					}
+				}
+			}
+		}
+		return false;
+	}
+}
+
+bool ANavigationVolume3D::Jump(const NavNode& CurrentNode, const NavNode& Neighbor, AActor* Target, NavNode** outJumpPoint)
+{
+	FIntVector Direction = Neighbor.Coordinates - CurrentNode.Coordinates;
+	bool DiagonalMovement = FMath::Abs(Direction.X) + FMath::Abs(Direction.Y) + FMath::Abs(Direction.Z) > 1;
+	//Given direction's values are either -1, 0 or 1, so if we take its absolutes (so only 1 and 0)
+	//the only way it can be more than 1 is not a straight movement (eg 0,0,1)
+
+
+#pragma region Direction Calculations
+	//Need to pass in a rotation as either 0,0,1; 0,1,0 or 1,0,0.
+	auto RotateVector2D = [](const FIntVector& VectorToRotate, const float& AngleInDegrees, const FIntVector& Axis)
+	{
+		const float AngleInRadians = FMath::DegreesToRadians(AngleInDegrees);
+		const float CosTheta = FMath::Cos(AngleInRadians);
+		const float SinTheta = FMath::Sin(AngleInRadians);
+
+		FVector RotatedVector;
+
+		if (Axis == FIntVector(1, 0, 0)) // Rotate around the X-axis
+		{
+			RotatedVector.X = VectorToRotate.X;
+			RotatedVector.Y = VectorToRotate.Y * CosTheta - VectorToRotate.Z * SinTheta;
+			RotatedVector.Z = VectorToRotate.Y * SinTheta + VectorToRotate.Z * CosTheta;
+		}
+		else if (Axis == FIntVector(0, 1, 0)) // Rotate around the Y-axis
+		{
+			RotatedVector.X = VectorToRotate.X * CosTheta + VectorToRotate.Z * SinTheta;
+			RotatedVector.Y = VectorToRotate.Y;
+			RotatedVector.Z = -VectorToRotate.X * SinTheta + VectorToRotate.Z * CosTheta;
+		}
+		else if (Axis == FIntVector(0, 0, 1)) // Rotate around the Z-axis
+		{
+			RotatedVector.X = VectorToRotate.X * CosTheta - VectorToRotate.Y * SinTheta;
+			RotatedVector.Y = VectorToRotate.X * SinTheta + VectorToRotate.Y * CosTheta;
+			RotatedVector.Z = VectorToRotate.Z;
+		}
+		else
+		{
+			// Invalid axis or custom axis rotation.
+			return RotatedVector = FVector(0, 0, 0);
+		}
+
+		return RotatedVector;
+	};
+
+	std::vector<FVector> RotatedDirections;
+	std::vector<FVector> PossibleStarts;
+
+	if (!DiagonalMovement)
+	{
+		std::vector<FIntVector> PossibleDirections;
+		//Orthogonal + Diagonal Directions - Diagonal can be left out if the agent cannot move diagonally.
+
+		if (Direction.Y == 0 && Direction.Z == 0) //We are moving in X (1 or -1) Direction (forwards or backwards)
+		{
+			FIntVector Right = FIntVector(0, 1, 0);
+			FIntVector Left = FIntVector(0, -1, 0); //While all the opposites need not be to declared. However, this is more readable.
+			FIntVector Above = FIntVector(0, 0, 1);
+			FIntVector Below = FIntVector(0, 0, -1);
+
+			PossibleDirections.push_back(Right);
+			PossibleDirections.push_back(Left);
+			PossibleDirections.push_back(Above);
+			PossibleDirections.push_back(Below);
+
+			PossibleDirections.push_back(Above + Right);
+			PossibleDirections.push_back(Above + Left);
+			PossibleDirections.push_back(Below + Right);
+			PossibleDirections.push_back(Below + Left);
+		}
+
+		else if (Direction.X == 0 && Direction.Z == 0) //We are moving in Y (1 or -1) Direction (right or left)
+		{
+			FIntVector Left = FIntVector(1, 0, 0);
+			FIntVector Right = FIntVector(-1, 0, 0);
+			FIntVector Above = FIntVector(0, 0, 1);
+			FIntVector Below = FIntVector(0, 0, -1);
+
+			PossibleDirections.push_back(Left);
+			PossibleDirections.push_back(Right);
+			PossibleDirections.push_back(Above);
+			PossibleDirections.push_back(Below);
+
+			PossibleDirections.push_back(Above + Right);
+			PossibleDirections.push_back(Above + Left);
+			PossibleDirections.push_back(Below + Right);
+			PossibleDirections.push_back(Below + Left);
+		}
+
+		else if (Direction.X == 0 && Direction.Y == 0) //We are moving in Z (1 or -1) Direction (up or down)
+		{
+			FIntVector Forward = FIntVector(1, 0, 0);
+			FIntVector Backward = FIntVector(-1, 0, 0);
+			FIntVector Right = FIntVector(0, 1, 0);
+			FIntVector Left = FIntVector(0, -1, 0);
+
+			PossibleDirections.push_back(Forward);
+			PossibleDirections.push_back(Backward);
+			PossibleDirections.push_back(Right);
+			PossibleDirections.push_back(Left);
+
+			PossibleDirections.push_back(Forward + Right);
+			PossibleDirections.push_back(Forward + Left);
+			PossibleDirections.push_back(Backward + Right);
+			PossibleDirections.push_back(Backward + Left);
+		}
+
+		for (FIntVector Possibility : PossibleDirections)
+		{
+			FIntVector toAdd = CurrentNode.Coordinates + Possibility + Direction;
+			if (GetNode(toAdd) != nullptr)
+			{
+				PossibleStarts.push_back(ConvertCoordinatesToLocation(toAdd));
 			}
 		}
 	}
 
-	UE_LOG(LogTemp, Display, TEXT("Path not found."));
-	return false; // No path found
+	else //Diagonal Movement
+	{
+		FVector RotatedVector1 = RotateVector2D(Direction, 45.0f, FIntVector(0, 0, 1));
+		FVector RotatedVector2 = RotateVector2D(Direction, -45.0f, FIntVector(0, 0, 1));
 
-	/*
-		openSet.push(startNode);
-		while (!openSet.empty())
+		RotatedVector1.Z = 0;
+		RotatedVector2.Z = 0;
+
+		FVector RotatedVector1UP = RotatedVector1 + FVector(0, 0, 1);
+		FVector RotatedVector1DOWN = RotatedVector1 + FVector(0, 0, -1);
+
+		FVector RotatedVector2UP = RotatedVector2 + FVector(0, 0, 1);
+		FVector RotatedVector2DOWN = RotatedVector2 + FVector(0, 0, -1);
+
+		//PossibleDirections.push_back(RotatedVector1);
+		RotatedDirections.push_back(RotatedVector1);
+
+		// PossibleDirections.push_back(RotatedVector1UP);
+		RotatedDirections.push_back(RotatedVector1UP);
+		//
+		// PossibleDirections.push_back(RotatedVector1DOWN);
+		RotatedDirections.push_back(RotatedVector1DOWN);
+
+		//PossibleDirections.push_back(RotatedVector2);
+		RotatedDirections.push_back(RotatedVector2);
+
+		// PossibleDirections.push_back(RotatedVector2DOWN);
+		RotatedDirections.push_back(RotatedVector2DOWN);
+		//
+		// PossibleDirections.push_back(RotatedVector2UP);
+		RotatedDirections.push_back(RotatedVector2UP);
+	}
+
+#pragma endregion
+
+	float MaxSweepDistance = CalculateMaxSweepDistance(CurrentNode, static_cast<FVector>(Direction));
+	ECollisionChannel CollisionChannel = ECC_Visibility;
+
+	FCollisionQueryParams TraceParams;
+	TraceParams.AddIgnoredActor(this); // Ignore the agent itself.
+	//FCollisionShape BoxCollider = FCollisionShape::MakeBox(FVector(GetDivisionSize() / 2.1f)); //2.1 in case the edges count as collision
+
+
+	FHitResult OriginLineResult;
+	FVector OriginStart = ConvertCoordinatesToLocation(CurrentNode.Coordinates + Direction);
+	FVector OriginEnd = OriginStart + static_cast<FVector>(Direction) * MaxSweepDistance;
+	//DrawDebugLine(GetWorld(), OriginStart, OriginEnd, FColor::Blue, true, 5, 0, 5);
+
+	bool originHit = GetWorld()->LineTraceSingleByChannel(OriginLineResult, OriginStart, OriginEnd, ECC_GameTraceChannel1, TraceParams);
+
+	//UE_LOG(LogTemp, Error, TEXT("%s"), *Target->GetActorNameOrLabel());
+	if (originHit && OriginLineResult.GetActor() == Target)
+	{
+		*outJumpPoint = GetNode(ConvertLocationToCoordinates(Target->GetActorLocation()));
+		return true;
+	}
+
+
+	if (!DiagonalMovement)
+	{
+		struct HitResultCompare
 		{
-			NavNode* currentNode = openSet.top();
-			openSet.pop();
-			if (currentNode->Coordinates == endNode->Coordinates)
+			bool operator()(const FHitResult& left, const FHitResult& right) const
 			{
+				return left.Distance < right.Distance;
+			}
+		};
+
+		std::multiset<FHitResult, HitResultCompare> HitResultsSet;
+
+		for (int32 i = 0; i < PossibleStarts.size(); i++)
+		{
+			FHitResult HitResult;
+			FVector Start = PossibleStarts[i];
+			FVector End = Start + static_cast<FVector>(Direction) * MaxSweepDistance;
+
+			//DrawDebugLine(GetWorld(), Start, End, FColor::Red, true, 1, 0, 5);
+			//bool bHit = GetWorld()->SweepSingleByChannel(HitResult, Start, End, FQuat::Identity, ECC_GameTraceChannel1, BoxCollider, TraceParams);
+			bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_GameTraceChannel1, TraceParams);
+
+			if (HitResult.GetActor() == Target)
+			{
+				*outJumpPoint = GetNode(ConvertLocationToCoordinates(Target->GetActorLocation()));
 				return true;
 			}
-	
-			closedSet.insert(currentNode);
-			
-			for (auto neighbor : currentNode->Neighbors)
+
+			if (bHit && HitResult.Distance > 0 && HitResult.Distance < OriginLineResult.Distance - 1)
 			{
-				
+				HitResultsSet.emplace(HitResult);
 			}
 		}
-		*/
+
+		if (HitResultsSet.size() > 0)
+		{
+			FHitResult hit = *HitResultsSet.begin();
+
+			//World Coords. Adding a tiny vector pointing towards hit object's center because when an object is just on the edge of the grid,
+			//the impact point is technically on the grid that's before it by fraction of a cm.
+			FVector dir = (OriginLineResult.TraceStart - hit.TraceStart);
+			FVector precisionCorrection = (hit.GetActor()->GetActorLocation() - hit.ImpactPoint).GetSafeNormal();
+			FVector jumpPointCoords = hit.ImpactPoint + dir;
+			//DrawDebugSphere(GetWorld(), hit.ImpactPoint, 10, 4, FColor::Green, false, 2, 0, 5.0f);
+
+			*outJumpPoint = GetNode(ConvertLocationToCoordinates(jumpPointCoords));
+			auto tmp = GetNode(ConvertLocationToCoordinates(jumpPointCoords));
+			//DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(tmp->Coordinates), 30, 4, FColor::Blue, false, 2, 0, 5.0f);
+			return true;
+		}
+	}
+	else
+	{
+		int32 searchIndex = 1;
+		bool coordsValid = true;
+		while (coordsValid)
+		{
+			FVector Previous = ConvertCoordinatesToLocation(CurrentNode.Coordinates + Direction * (searchIndex - 1));
+			FVector Start = ConvertCoordinatesToLocation(CurrentNode.Coordinates + Direction * searchIndex);
+			FVector NextDiagonal = ConvertCoordinatesToLocation(CurrentNode.Coordinates + Direction * (searchIndex + 1));
+			coordsValid = AreCoordinatesValid(CurrentNode.Coordinates + Direction * (searchIndex + 1)); //Nothing to check next loop. End
+
+			FHitResult CurrentHitResult;
+			FHitResult NextHitResult;
+
+			bool currentHit = GetWorld()->LineTraceSingleByChannel(CurrentHitResult, Previous, Start, ECC_GameTraceChannel1, TraceParams);
+			bool nextHit = GetWorld()->LineTraceSingleByChannel(NextHitResult, Start, NextDiagonal, ECC_GameTraceChannel1, TraceParams);
+
+			if (currentHit) return false;
+
+			if (nextHit)
+			{
+				*outJumpPoint = GetNode(ConvertLocationToCoordinates(NextDiagonal));
+				return true;
+			}
+
+
+			for (int32 i = 0; i < RotatedDirections.size(); i++)
+			{
+				float RotatedSweep = CalculateMaxSweepDistance(*GetNode(ConvertLocationToCoordinates(Start)), RotatedDirections[i]);
+				FHitResult HitResult;
+				const float actualSweep = CalculateMaxSweepDistance(*GetNode(ConvertLocationToCoordinates(Start)), RotatedDirections[i]);
+				FVector End = Start + RotatedDirections[i] * actualSweep;
+
+				bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_GameTraceChannel1, TraceParams);
+				//DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 2, 0, 2);
+
+				if (bHit)
+				{
+					FVector dir = (OriginLineResult.TraceStart - HitResult.TraceStart); //World Coords
+					FVector jumpPointCoords = HitResult.ImpactPoint + dir;
+					//DrawDebugSphere(GetWorld(), hit.ImpactPoint, 10, 4, FColor::Green, false, 2, 0, 5.0f);
+					*outJumpPoint = GetNode(ConvertLocationToCoordinates(Start));
+					//DrawDebugBox(GetWorld(), HitResult.ImpactPoint, FVector(GetDivisionSize() / 2), FColor::Green, true, 1, 0, 2);
+					return true;
+				}
+			}
+			searchIndex++;
+		}
+	}
+	return false;
 }
+
+float ANavigationVolume3D::CalculateMaxSweepDistance(const NavNode& CurrentNode, const FVector& Direction)
+{
+	// Define the size of your 3D navigation grid (GridWidth, GridHeight, and GridDepth)
+	FIntVector GridSize = FIntVector(GetDivisionsX() - 1, GetDivisionsY() - 1, GetDivisionsZ() - 1);
+
+	// Calculate the maximum possible distance in the specified direction
+	FIntVector MaxDistance = CurrentNode.Coordinates;
+
+
+	if (Direction.X > 0)
+	{
+		MaxDistance.X = GridSize.X;
+	}
+	else if (Direction.X < 0)
+	{
+		MaxDistance.X = 0;
+	}
+
+	if (Direction.Y > 0)
+	{
+		MaxDistance.Y = GridSize.Y;
+	}
+	else if (Direction.Y < 0)
+	{
+		MaxDistance.Y = 0;
+	}
+
+	if (Direction.Z > 0)
+	{
+		MaxDistance.Z = GridSize.Z;
+	}
+	else if (Direction.Z < 0)
+	{
+		MaxDistance.Z = 0;
+	}
+
+	return (ConvertCoordinatesToLocation(MaxDistance) - ConvertCoordinatesToLocation(CurrentNode.Coordinates)).Length();
+}
+
 
 FIntVector ANavigationVolume3D::ConvertLocationToCoordinates(const FVector& location)
 {
@@ -580,11 +964,15 @@ void ANavigationVolume3D::ClampCoordinates(FIntVector& coordinates) const
 	coordinates.Z = FMath::Clamp(coordinates.Z, 0, DivisionsZ - 1);
 }
 
+
 NavNode* ANavigationVolume3D::GetNode(FIntVector coordinates) const
 {
 	ClampCoordinates(coordinates);
 
+	if (!AreCoordinatesValid(coordinates)) return nullptr;
+
 	const int32 divisionPerLevel = DivisionsX * DivisionsY;
 	const int32 index = (coordinates.Z * divisionPerLevel) + (coordinates.Y * DivisionsX) + coordinates.X;
+
 	return &Nodes[index];
 }

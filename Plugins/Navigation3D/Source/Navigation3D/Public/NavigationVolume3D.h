@@ -71,8 +71,10 @@ public:
 
 	// Finds a path from the starting location to the destination
 	UFUNCTION(BlueprintCallable, Category = "NavigationVolume3D")
-	bool FindPath(const FVector& start, const FVector& destination, const TArray<TEnumAsByte<EObjectTypeQuery> >& object_types, const float& meshBounds, UClass* actor_class_filter, TArray<FVector>& out_path);
-
+	bool FindPath(const FVector& start, const FVector& destination, AActor* target,
+								   const TArray<TEnumAsByte<EObjectTypeQuery>>& object_types,
+								   const float& meshBounds, UClass* actor_class_filter,
+								   TArray<FVector>& out_path, const bool& useAStar);
 	/**
 	* Converts a world space location to a coordinate in the grid. If the location is not located within the grid,
 	* the coordinate will be clamped to the closest coordinate.
@@ -136,6 +138,10 @@ private:
 
 	// Helper function to clamp the coordinate to a valid one inside the grid
 	void ClampCoordinates(FIntVector& coordinates) const;
+
+	float CalculateMaxSweepDistance(const NavNode& CurrentNode, const FVector& Direction);
+
+	bool Jump(const NavNode& CurrentNode, const NavNode& Neighbor, AActor* Target, NavNode** outJumpPoint);
 
 	// The nodes used for pathfinding
 	NavNode* Nodes = nullptr;
