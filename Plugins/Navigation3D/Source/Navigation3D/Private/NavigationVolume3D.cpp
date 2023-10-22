@@ -15,6 +15,8 @@
 #include "DrawDebugHelpers.h"
 #include "Algo/Reverse.h"
 #include "queue"
+#include "Async/Async.h"
+#include "Async/TaskGraphInterfaces.h"
 
 static UMaterial* GridMaterial = nullptr;
 
@@ -28,7 +30,9 @@ ANavigationVolume3D::ANavigationVolume3D()
 	DefaultSceneComponent = CreateDefaultSubobject<USceneComponent>("DefaultSceneComponent");
 	SetRootComponent(DefaultSceneComponent);
 
+
 	// Create the procedural mesh component
+
 	ProceduralMesh = CreateDefaultSubobject<UProceduralMeshComponent>("ProceduralMesh");
 	ProceduralMesh->SetupAttachment(GetRootComponent());
 	ProceduralMesh->CastShadow = false;
@@ -38,6 +42,8 @@ ANavigationVolume3D::ANavigationVolume3D()
 	ProceduralMesh->CanCharacterStepUpOn = ECanBeCharacterBase::ECB_No;
 	ProceduralMesh->SetCollisionProfileName("NoCollision");
 	ProceduralMesh->bHiddenInGame = false;
+	ProceduralMesh->SetMaterial(0, nullptr);
+
 
 	// By default, hide the volume while the game is running
 	SetActorHiddenInGame(true);
@@ -47,10 +53,15 @@ ANavigationVolume3D::ANavigationVolume3D()
 	GridMaterial = materialFinder.Object;
 }
 
+
 void ANavigationVolume3D::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
+}
 
+
+void ANavigationVolume3D::VisualizeGrid()
+{
 	// Create arrays to store the vertices and the triangles
 	TArray<FVector> vertices;
 	TArray<int32> triangles;
@@ -116,16 +127,40 @@ void ANavigationVolume3D::OnConstruction(const FTransform& Transform)
 	ProceduralMesh->CreateMeshSection(0, vertices, triangles, Normals, UVs, Colors, Tangents, false);
 
 	// Set the material on the procedural mesh so it's color/opacity can be configurable
-	UMaterialInstanceDynamic* dynamicMaterialInstance = UMaterialInstanceDynamic::Create(GridMaterial, this);
-	dynamicMaterialInstance->SetVectorParameterValue("Color", Color);
-	dynamicMaterialInstance->SetScalarParameterValue("Opacity", Color.A);
-	ProceduralMesh->SetMaterial(0, dynamicMaterialInstance);
+	DynamicMaterialInstance = UMaterialInstanceDynamic::Create(GridMaterial, this);
+	DynamicMaterialInstance->SetVectorParameterValue("Color", Color);
+	DynamicMaterialInstance->SetScalarParameterValue("Opacity", Color.A);
+	ProceduralMesh->SetMaterial(0, DynamicMaterialInstance);
+}
+
+
+void ANavigationVolume3D::CreateGrid()
+{
+	VisualizeGrid();
+}
+
+void ANavigationVolume3D::CreateBorders()
+{
+}
+
+void ANavigationVolume3D::DeleteGrid() const
+{
+	ProceduralMesh->ClearAllMeshSections();
+	ProceduralMesh->SetMaterial(0, nullptr);
+	//ProceduralMesh->GetMaterial(0)->BeginDestroy();
+
+
+	//ProceduralMesh->UnregisterComponent();
+	//ProceduralMesh->ConditionalBeginDestroy();
 }
 
 // Called when the game starts or when spawned
 void ANavigationVolume3D::BeginPlay()
 {
 	Super::BeginPlay();
+	double LoadTimer = FPlatformTime::Seconds();
+
+	optimize = true;
 
 	// Allocate nodes used for pathfinding
 	Nodes = new NavNode[GetTotalDivisions()];
@@ -159,6 +194,7 @@ void ANavigationVolume3D::BeginPlay()
 	TArray<AActor*, FDefaultAllocator> ignoreActors;
 
 	// For each node, find its neighbors and assign its coordinates
+
 	for (int32 z = 0; z < DivisionsZ; ++z)
 	{
 		for (int32 y = 0; y < DivisionsY; ++y)
@@ -167,74 +203,82 @@ void ANavigationVolume3D::BeginPlay()
 			{
 				NavNode* node = GetNode(FIntVector(x, y, z));
 				node->Coordinates = FIntVector(x, y, z);
-
-				// Above neighbors
+				if (!optimize)
 				{
-					// front
+					// Above neighbors
 					{
-						addNeighborIfValid(node, FIntVector(x + 1, y - 1, z + 1));
-						addNeighborIfValid(node, FIntVector(x + 1, y + 0, z + 1));
-						addNeighborIfValid(node, FIntVector(x + 1, y + 1, z + 1));
+						// front
+						{
+							addNeighborIfValid(node, FIntVector(x + 1, y - 1, z + 1));
+							addNeighborIfValid(node, FIntVector(x + 1, y + 0, z + 1));
+							addNeighborIfValid(node, FIntVector(x + 1, y + 1, z + 1));
+						}
+						// middle
+						{
+							addNeighborIfValid(node, FIntVector(x + 0, y - 1, z + 1));
+							addNeighborIfValid(node, FIntVector(x + 0, y + 0, z + 1));
+							addNeighborIfValid(node, FIntVector(x + 0, y + 1, z + 1));
+						}
+						// back
+						{
+							addNeighborIfValid(node, FIntVector(x - 1, y - 1, z + 1));
+							addNeighborIfValid(node, FIntVector(x - 1, y + 0, z + 1));
+							addNeighborIfValid(node, FIntVector(x - 1, y + 1, z + 1));
+						}
 					}
-					// middle
-					{
-						addNeighborIfValid(node, FIntVector(x + 0, y - 1, z + 1));
-						addNeighborIfValid(node, FIntVector(x + 0, y + 0, z + 1));
-						addNeighborIfValid(node, FIntVector(x + 0, y + 1, z + 1));
-					}
-					// back
-					{
-						addNeighborIfValid(node, FIntVector(x - 1, y - 1, z + 1));
-						addNeighborIfValid(node, FIntVector(x - 1, y + 0, z + 1));
-						addNeighborIfValid(node, FIntVector(x - 1, y + 1, z + 1));
-					}
-				}
 
-				// Middle neighbors
-				{
-					// front
+					// Middle neighbors
 					{
-						addNeighborIfValid(node, FIntVector(x + 1, y - 1, z + 0));
-						addNeighborIfValid(node, FIntVector(x + 1, y + 0, z + 0));
-						addNeighborIfValid(node, FIntVector(x + 1, y + 1, z + 0));
+						// front
+						{
+							addNeighborIfValid(node, FIntVector(x + 1, y - 1, z + 0));
+							addNeighborIfValid(node, FIntVector(x + 1, y + 0, z + 0));
+							addNeighborIfValid(node, FIntVector(x + 1, y + 1, z + 0));
+						}
+						// middle
+						{
+							addNeighborIfValid(node, FIntVector(x + 0, y - 1, z + 0));
+							addNeighborIfValid(node, FIntVector(x + 0, y + 1, z + 0));
+						}
+						// back
+						{
+							addNeighborIfValid(node, FIntVector(x - 1, y - 1, z + 0));
+							addNeighborIfValid(node, FIntVector(x - 1, y + 0, z + 0));
+							addNeighborIfValid(node, FIntVector(x - 1, y + 1, z + 0));
+						}
 					}
-					// middle
-					{
-						addNeighborIfValid(node, FIntVector(x + 0, y - 1, z + 0));
-						addNeighborIfValid(node, FIntVector(x + 0, y + 1, z + 0));
-					}
-					// back
-					{
-						addNeighborIfValid(node, FIntVector(x - 1, y - 1, z + 0));
-						addNeighborIfValid(node, FIntVector(x - 1, y + 0, z + 0));
-						addNeighborIfValid(node, FIntVector(x - 1, y + 1, z + 0));
-					}
-				}
 
-				// Below neighbors
-				{
-					// front
+					// Below neighbors
 					{
-						addNeighborIfValid(node, FIntVector(x + 1, y - 1, z - 1));
-						addNeighborIfValid(node, FIntVector(x + 1, y + 0, z - 1));
-						addNeighborIfValid(node, FIntVector(x + 1, y + 1, z - 1));
-					}
-					// middle
-					{
-						addNeighborIfValid(node, FIntVector(x + 0, y - 1, z - 1));
-						addNeighborIfValid(node, FIntVector(x + 0, y + 0, z - 1));
-						addNeighborIfValid(node, FIntVector(x + 0, y + 1, z - 1));
-					}
-					// back
-					{
-						addNeighborIfValid(node, FIntVector(x - 1, y - 1, z - 1));
-						addNeighborIfValid(node, FIntVector(x - 1, y + 0, z - 1));
-						addNeighborIfValid(node, FIntVector(x - 1, y + 1, z - 1));
+						// front
+						{
+							addNeighborIfValid(node, FIntVector(x + 1, y - 1, z - 1));
+							addNeighborIfValid(node, FIntVector(x + 1, y + 0, z - 1));
+							addNeighborIfValid(node, FIntVector(x + 1, y + 1, z - 1));
+						}
+						// middle
+						{
+							addNeighborIfValid(node, FIntVector(x + 0, y - 1, z - 1));
+							addNeighborIfValid(node, FIntVector(x + 0, y + 0, z - 1));
+							addNeighborIfValid(node, FIntVector(x + 0, y + 1, z - 1));
+						}
+						// back
+						{
+							addNeighborIfValid(node, FIntVector(x - 1, y - 1, z - 1));
+							addNeighborIfValid(node, FIntVector(x - 1, y + 0, z - 1));
+							addNeighborIfValid(node, FIntVector(x - 1, y + 1, z - 1));
+						}
 					}
 				}
 			}
 		}
 	}
+
+
+	double EndLoadTimer = FPlatformTime::Seconds();
+
+	double ElapsedLoadTimer = EndLoadTimer - LoadTimer;
+	UE_LOG(LogTemp, Warning, TEXT(" Loading time: %f seconds"), ElapsedLoadTimer);
 }
 
 void ANavigationVolume3D::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -261,10 +305,12 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 	double StartTimeAStar = FPlatformTime::Seconds();
 
 	bool drawdebugenabled = false;
-	// for (int32 i = 0; i < GetTotalDivisions(); ++i)
-	// {
-	// 	  Nodes[i].FScore = Nodes[i].GScore = Nodes[i].HScore = MAX_FLT;
-	// }
+	/*
+	 for (int32 i = 0; i < GetTotalDivisions(); ++i)
+	{
+		  Nodes[i].FScore = Nodes[i].GScore = Nodes[i].HScore = MAX_FLT;
+	}
+	*/
 
 	// Create open and closed sets
 	std::priority_queue<NavNode*, std::vector<NavNode*>, NodeCompare> openSet;
@@ -406,7 +452,7 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 	FIntVector origin = ConvertLocationToCoordinates(destination);
 	FIntVector up = origin + FIntVector(0, 0, 1);
 
-	NavNode* endNode = GetNode(origin);
+	NavNode* endNode = GetNode(ConvertLocationToCoordinates(destination));
 
 	//bug fix: when player is sharing a grid that's blocked, target the neighbor grid that's free.
 	if (IsBlocked(endNode))
@@ -424,6 +470,7 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 	startNode->GScore = 0.0f;
 	startNode->HScore = 0;
 	startNode->FScore = 0;
+
 
 	if (useAStar)
 	{
@@ -469,6 +516,8 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 				DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(current->Coordinates), meshBounds, 4, FColor::Green,
 				                false, 1, 0, 5.0f);
 
+
+			if (optimize && current->Neighbors.size() == 0) AddNeighbors(current);
 
 			for (NavNode* neighbor : current->Neighbors)
 			{
@@ -528,6 +577,9 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 			}
 			//DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(currentNode->Coordinates), 30, 4, FColor::Blue, false, 2, 0, 5.0f);
 
+
+			if (optimize && currentNode->Neighbors.size() == 0) AddNeighbors(currentNode);
+
 			for (auto neighbor : currentNode->Neighbors)
 			{
 				NavNode* jumpPoint = nullptr;
@@ -538,7 +590,7 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 				if (successfulJump)
 				{
 					float tentativeF = currentNode->GScore + 1 + FVector::Dist(ConvertCoordinatesToLocation(jumpPoint->Coordinates),
-					                                                            ConvertCoordinatesToLocation(endNode->Coordinates));
+					                                                           ConvertCoordinatesToLocation(endNode->Coordinates));
 					if (jumpPoint->FScore < tentativeF) continue;
 
 					jumpPoint->GScore = currentNode->GScore + 1;
@@ -557,6 +609,56 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 			}
 		}
 		return false;
+	}
+}
+
+void ANavigationVolume3D::AddNeighbors(NavNode* currentNode)
+{
+	auto addNeighborIfValid = [&](NavNode* node, const FIntVector& neighbor_coordinates)
+	{
+		// Make sure the neighboring coordinates are valid
+		if (AreCoordinatesValid(neighbor_coordinates))
+		{
+			int32 sharedAxes = 0;
+			if (node->Coordinates.X == neighbor_coordinates.X)
+				++sharedAxes;
+			if (node->Coordinates.Y == neighbor_coordinates.Y)
+				++sharedAxes;
+			if (node->Coordinates.Z == neighbor_coordinates.Z)
+				++sharedAxes;
+
+			// Only add the neighbor if we share more axes with it than the required min shared neighbor axes and it isn't the same node as us
+			if (sharedAxes >= MinSharedNeighborAxes && sharedAxes < 3)
+			{
+				node->Neighbors.push_back(GetNode(neighbor_coordinates));
+			}
+		}
+	};
+
+	// Extract coordinates from the current node
+	const FIntVector& coordinates = currentNode->Coordinates;
+	const int32 x = coordinates.X;
+	const int32 y = coordinates.Y;
+	const int32 z = coordinates.Z;
+
+	// Above neighbors
+	{
+		// Loop through the neighbors and add them if valid
+		for (int32 dx = -1; dx <= 1; ++dx)
+		{
+			for (int32 dy = -1; dy <= 1; ++dy)
+			{
+				for (int32 dz = -1; dz <= 1; ++dz)
+				{
+					// Skip the center node (dx=0, dy=0, dz=0)
+					if (dx == 0 && dy == 0 && dz == 0)
+						continue;
+
+					FIntVector neighborCoordinates(x + dx, y + dy, z + dz);
+					addNeighborIfValid(currentNode, neighborCoordinates);
+				}
+			}
+		}
 	}
 }
 
