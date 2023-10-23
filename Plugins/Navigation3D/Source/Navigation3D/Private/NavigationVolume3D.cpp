@@ -57,6 +57,7 @@ ANavigationVolume3D::ANavigationVolume3D()
 void ANavigationVolume3D::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
+	CreateBorders();
 }
 
 
@@ -127,7 +128,7 @@ void ANavigationVolume3D::VisualizeGrid()
 	ProceduralMesh->CreateMeshSection(0, vertices, triangles, Normals, UVs, Colors, Tangents, false);
 
 	// Set the material on the procedural mesh so it's color/opacity can be configurable
-	DynamicMaterialInstance = UMaterialInstanceDynamic::Create(GridMaterial, this);
+	UMaterialInstanceDynamic* DynamicMaterialInstance = UMaterialInstanceDynamic::Create(GridMaterial, this);
 	DynamicMaterialInstance->SetVectorParameterValue("Color", Color);
 	DynamicMaterialInstance->SetScalarParameterValue("Opacity", Color.A);
 	ProceduralMesh->SetMaterial(0, DynamicMaterialInstance);
@@ -141,6 +142,125 @@ void ANavigationVolume3D::CreateGrid()
 
 void ANavigationVolume3D::CreateBorders()
 {
+	if (DrawParallelogram)
+	{
+		CreateCubeMesh(
+			FVector(GetGridSizeX(), 0, GetGridSizeZ()),
+			FVector(0,0, GetGridSizeZ()),
+			FVector(0,0,0),
+			FVector(GetGridSizeX(), 0, 0),
+			FVector(GetGridSizeX(), GetGridSizeY(), GetGridSizeZ()),
+			FVector(0, GetGridSizeY(), GetGridSizeZ()),
+			FVector(0, GetGridSizeY(), 0),
+			FVector(GetGridSizeX(), GetGridSizeY(), 0)
+			);
+		return;
+	}
+	
+	// Create arrays to store the vertices and the triangles
+	TArray<FVector> vertices;
+	TArray<int32> triangles;
+
+	// Define variables for the start and end of the line
+	FVector start = FVector::ZeroVector;
+	FVector end = FVector::ZeroVector;
+
+	for (int32 y = 0; y <= GetGridSizeY(); y += GetGridSizeY())
+	{
+		for (int32 z = 0; z <= GetGridSizeZ(); z += GetGridSizeZ())
+		{
+			start = FVector(0, y, z);
+			end = FVector(GetGridSizeX(), y, z);
+			CreateLine(start, end, FVector::UpVector, vertices, triangles);
+		}
+	}
+
+
+	for (int32 x = 0; x <= GetGridSizeX(); x += GetGridSizeX())
+	{
+		for (int32 z = 0; z <= GetGridSizeZ(); z += GetGridSizeZ())
+		{
+			start = FVector(x, 0, z);
+			end = FVector(x, GetGridSizeY(), z);
+			CreateLine(start, end, FVector::UpVector, vertices, triangles);
+		}
+	}
+
+	for (int32 x = 0; x <= GetGridSizeX(); x += GetGridSizeX())
+	{
+		for (int32 y = 0; y <= GetGridSizeY(); y += GetGridSizeY())
+		{
+			start = FVector(x, y, 0);
+			end = FVector(x, y, GetGridSizeZ());
+			CreateLine(start, end, FVector::ForwardVector, vertices, triangles);
+		}
+	}
+
+	// Unused variables that are required to be passed to CreateMeshSection
+	TArray<FVector> Normals;
+	TArray<FVector2D> UVs;
+	TArray<FColor> Colors;
+	TArray<FProcMeshTangent> Tangents;
+
+	// Add the geometry to the procedural mesh so it will render
+	ProceduralMesh->CreateMeshSection(0, vertices, triangles, Normals, UVs, Colors, Tangents, false);
+
+
+	// Set the material on the procedural mesh so it's color/opacity can be configurable
+	UMaterialInstanceDynamic* DynamicMaterialInstance = UMaterialInstanceDynamic::Create(GridMaterial, this);
+	DynamicMaterialInstance->SetVectorParameterValue("Color", Color);
+	DynamicMaterialInstance->SetScalarParameterValue("Opacity", Color.A);
+	ProceduralMesh->SetMaterial(0, DynamicMaterialInstance);
+}
+
+
+void ANavigationVolume3D::CreateCubeMesh(const FVector& Corner1, const FVector& Corner2,
+                                         const FVector& Corner3, const FVector& Corner4, const FVector& Corner5, const FVector& Corner6,
+                                         const FVector& Corner7, const FVector& Corner8)
+{
+	
+	// Define vertices for the cube
+	TArray<FVector> Vertices = {
+		Corner1, Corner2, Corner3, Corner4, // Front face
+		Corner5, Corner6, Corner7, Corner8 // Back face
+	};
+
+	// Define triangles (index references to vertices)
+	TArray<int32> Triangles = {
+		0, 1, 2, 0, 2, 3, // Front face
+		5, 4, 7, 5, 7, 6, // Back face
+		4, 0, 3, 4, 3, 7, // Left face
+		1, 5, 6, 1, 6, 2, // Right face
+		3, 2, 6, 3, 6, 7, // Top face
+		4, 5, 1, 4, 1, 0 // Bottom face
+	};
+
+	// Define normals for each vertex
+	TArray<FVector> Normals;
+	for (int32 i = 0; i < Vertices.Num(); ++i)
+	{
+		Normals.Add(Vertices[i].GetSafeNormal());
+	}
+
+	// Define UVs for each vertex
+	TArray<FVector2D> UVs = {
+		FVector2D(0, 0), FVector2D(1, 0), FVector2D(1, 1), FVector2D(0, 1), // Front face
+		FVector2D(0, 0), FVector2D(1, 0), FVector2D(1, 1), FVector2D(0, 1) // Back face
+	};
+	
+	TArray<FColor> Colors;
+	TArray<FProcMeshTangent> Tangents;
+	
+	// Set the data in the procedural mesh component
+	//MeshComponent->CreateMeshSection(0, Vertices, Triangles, Normals, UVs, TArray<FColor>(), TArray<FProcMeshTangent>(), false);
+	ProceduralMesh->CreateMeshSection(0, Vertices, Triangles, Normals, UVs, Colors, Tangents, false);
+
+
+	// Set the material on the procedural mesh so it's color/opacity can be configurable
+	UMaterialInstanceDynamic* DynamicMaterialInstance = UMaterialInstanceDynamic::Create(GridMaterial, this);
+	DynamicMaterialInstance->SetVectorParameterValue("Color", Color);
+	DynamicMaterialInstance->SetScalarParameterValue("Opacity", Color.A);
+	ProceduralMesh->SetMaterial(0, DynamicMaterialInstance);
 }
 
 void ANavigationVolume3D::DeleteGrid() const
@@ -389,6 +509,7 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 	auto ClearNode = [](NavNode& nodeToClear)
 	{
 		nodeToClear.FScore = nodeToClear.GScore = nodeToClear.HScore = FLT_MAX;
+		//nodeToClear.Neighbors.clear();
 	};
 
 	auto Cleanup = [&]()
@@ -594,9 +715,12 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 					const float tentativeH = FVector::Dist(ConvertCoordinatesToLocation(jumpPoint->Coordinates),
 					                                       ConvertCoordinatesToLocation(endNode->Coordinates));
 
-					const float tentativeF = tentativeG + tentativeH;
+					//const float tentativeF = tentativeG + tentativeH;
 
-					if (jumpPoint->GScore <= tentativeG) continue; //should I check G or F?
+					const float tentativeF = FVector::Dist(ConvertCoordinatesToLocation(jumpPoint->Coordinates),
+					                                       ConvertCoordinatesToLocation(endNode->Coordinates));
+
+					if (jumpPoint->FScore <= tentativeF) continue; //should I check G or F?
 
 					jumpPoint->GScore = tentativeG;
 					//jumpPoint->HScore = tentativeH; //since I am not using existing H for any calculation, pointless to store it.

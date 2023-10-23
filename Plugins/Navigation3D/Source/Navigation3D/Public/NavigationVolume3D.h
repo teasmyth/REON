@@ -28,8 +28,6 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "A NavigationVolume3D", meta = (AllowPrivateAccess = "true"))
 	UProceduralMeshComponent* ProceduralMesh = nullptr;
 
-	UMaterialInstanceDynamic* DynamicMaterialInstance;
-
 	// The number of divisions in the grid along the X axis
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "A NavigationVolume3D|Pathfinding", meta = (AllowPrivateAccess = "true", ClampMin = 1))
 	int32 DivisionsX = 10;
@@ -47,7 +45,8 @@ private:
 	float DivisionSize = 100.0f;
 
 	// The minimum number of axes that must be shared with a neighboring node for it to be counted a neighbor
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "A NavigationVolume3D|Pathfinding", meta = (AllowPrivateAccess = "true", ClampMin = 0, ClampMax = 2))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "A NavigationVolume3D|Pathfinding",
+		meta = (AllowPrivateAccess = "true", ClampMin = 0, ClampMax = 2))
 	int32 MinSharedNeighborAxes = 0;
 
 	// The thickness of the grid lines
@@ -58,8 +57,11 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "A NavigationVolume3D|Aesthetics", meta = (AllowPrivateAccess = "true"))
 	FLinearColor Color = FLinearColor(0.0f, 0.0f, 0.0f, 0.5f);
 
-public:
+	//Instead of of just borders, draws a whole 3D object.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "A NavigationVolume3D|Aesthetics", meta = (AllowPrivateAccess = "true"))
+	bool DrawParallelogram = false;
 
+public:
 	/**
 	* Called when an instance of this class is placed (in editor) or spawned.
 	* @param	Transform			The transform the actor was constructed at.
@@ -74,7 +76,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "A NavigationVolume3D")
 	void VisualizeGrid();
-	
+
 
 	//Visualizes the grid.
 	UFUNCTION(CallInEditor, Category = "A NavigationVolume3D")
@@ -87,14 +89,13 @@ public:
 	UFUNCTION(CallInEditor, Category = "A NavigationVolume3D")
 	void DeleteGrid() const;
 
-	
-	
+
 	// Finds a path from the starting location to the destination
 	UFUNCTION(BlueprintCallable, Category = "A NavigationVolume3D")
 	bool FindPath(const FVector& start, const FVector& destination, AActor* target,
-								   const TArray<TEnumAsByte<EObjectTypeQuery>>& object_types,
-								   const float& meshBounds, UClass* actor_class_filter,
-								   TArray<FVector>& out_path, const bool& useAStar);
+	              const TArray<TEnumAsByte<EObjectTypeQuery>>& object_types,
+	              const float& meshBounds, UClass* actor_class_filter,
+	              TArray<FVector>& out_path, const bool& useAStar);
 	/**
 	* Converts a world space location to a coordinate in the grid. If the location is not located within the grid,
 	* the coordinate will be clamped to the closest coordinate.
@@ -141,17 +142,33 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	// Gets the size of the grid along the X axis
-	inline float GetGridSizeX() const { return DivisionsX * DivisionSize; }
+	float GetGridSizeX() const { return DivisionsX * DivisionSize; }
 
 	// Gets the size of the grid along the Y axis
-	inline float GetGridSizeY() const { return DivisionsY * DivisionSize; }
+	float GetGridSizeY() const { return DivisionsY * DivisionSize; }
 
 	// Gets the size of the grid along the Z axis
-	inline float GetGridSizeZ() const { return DivisionsZ * DivisionSize; }
+	float GetGridSizeZ() const { return DivisionsZ * DivisionSize; }
 
 private:
 	// Helper function for creating the geometry for a single line of the grid
 	void CreateLine(const FVector& start, const FVector& end, const FVector& normal, TArray<FVector>& vertices, TArray<int32>& triangles);
+
+
+	/*The front face's corners (usually clockwise or counterclockwise):
+	Top-left-front corner
+	Top-right-front corner
+	Bottom-right-front corner
+	Bottom-left-front corner
+
+	The back face's corners (matching order with the front face):
+	Top-left-back corner
+	Top-right-back corner
+	Bottom-right-back corner
+	Bottom-left-back corner
+	*/
+	void CreateCubeMesh(const FVector& Corner1, const FVector& Corner2, const FVector& Corner3, const FVector& Corner4, const FVector& Corner5,
+	                    const FVector& Corner6, const FVector& Corner7, const FVector& Corner8);
 
 	// Helper function to check if a coordinate is valid
 	bool AreCoordinatesValid(const FIntVector& coordinates) const;
