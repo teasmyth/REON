@@ -332,7 +332,15 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 			current = cameFrom.count(current) ? cameFrom.at(current) : nullptr;
 		}
 
-		if (out_path.Num() > 2)
+		float foundPathLength = 0;
+		for (int32 i = 0; i < path.Num() - 1; i++)
+		{
+			foundPathLength += FVector::Dist(path[i], path[i + 1]);
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("Found (unsmoothened) path length: %f"), foundPathLength);
+
+		if (out_path.Num() > 2) //Smoothing path if its not right next to it.
 		{
 			ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(ECC_Visibility); // Specify the trace channel using ECC_Visibility
 			FVector currentPoint = *out_path.begin();
@@ -410,21 +418,16 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 		return tmp;
 	};
 
-	auto Heuristics = [](const NavNode* currentNode, const NavNode* endNode)
-	{
-		return
-			FMath::Abs(currentNode->Coordinates.X - endNode->Coordinates.X) +
-			FMath::Abs(currentNode->Coordinates.Y - endNode->Coordinates.Y) +
-			FMath::Abs(currentNode->Coordinates.Z - endNode->Coordinates.Z);
-	};
 
 	//todo doesnt work.
 	//D is cost of diagonal movement, default is 14. D2 is cost of cardinal/orthogonal movement, default is 10.
-	auto CalculateOctileDistance = [](const NavNode* startNode, const NavNode* targetNode, const int32 D = 14, const int32 D2 = 10)
+	auto CalculateOctileDistance = [&](const NavNode* startNode, const NavNode* targetNode, const int32 D = 14, const int32 D2 = 10)
 	{
-		int dx = FMath::Abs(targetNode->Coordinates.X - startNode->Coordinates.X);
-		int dy = FMath::Abs(targetNode->Coordinates.Y - startNode->Coordinates.Y);
-		int dz = FMath::Abs(targetNode->Coordinates.Z - startNode->Coordinates.Z);
+		const FVector startNodeF = ConvertCoordinatesToLocation(startNode->Coordinates);
+		const FVector targetNodeF = ConvertCoordinatesToLocation(targetNode->Coordinates);
+		int dx = FMath::Abs(targetNodeF.X - startNodeF.X);
+		int dy = FMath::Abs(targetNodeF.Y - startNodeF.Y);
+		int dz = FMath::Abs(targetNodeF.Z - startNodeF.Z);
 
 		int d1 = FMath::Min3(dx, dy, dz);
 		int d2 = FMath::Abs(dx - dy) + FMath::Abs(dy - dz) + FMath::Abs(dz - dx);
@@ -438,7 +441,7 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 		else
 		{
 			// The cost of diagonal movement is sqrt(3), approximately 1.7321.
-			d3 = static_cast<int32>(D * 0.7321 * d1);
+			d3 = static_cast<int32>(D * 0.7321f * d1);
 		}
 
 		return D * (d1 + d2) + (D2 - 2 * D) * d3;
@@ -467,17 +470,16 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 		}
 	}
 
-	startNode->GScore = 0.0f;
+	startNode->GScore = 0;
 	startNode->HScore = 0;
 	startNode->FScore = 0;
 
+	openSet.push(startNode);
+	openSetCheck.insert(startNode);
+	int infiniteloopindex = 0;
 
 	if (useAStar)
 	{
-		openSet.push(startNode);
-		openSetCheck.insert(startNode);
-
-		int infiniteloopindex = 0;
 		while (!openSet.empty())
 		{
 			infiniteloopindex++;
@@ -549,13 +551,11 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 	}
 	else
 	{
-		int infiniteloopindex = 0;
-
-		openSet.push(startNode);
+		//openSet.push(startNode);
 		while (!openSet.empty())
 		{
 			infiniteloopindex++;
-			if (infiniteloopindex > 21) //Gotta keep it a bit big in case 
+			if (infiniteloopindex > 99) //Gotta keep it a bit big in case 
 			{
 				return false;
 			}
@@ -584,20 +584,25 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 			{
 				NavNode* jumpPoint = nullptr;
 				bool successfulJump = Jump(*currentNode, *neighbor, target, &jumpPoint);
-				//DrawDebugBox(GetWorld(), ConvertCoordinatesToLocation(neighbor->Coordinates), FVector(GetDivisionSize() / 2), FColor::Green, true, 1, 0, 2);
 
-
+				//int GWeight = 15;
 				if (successfulJump)
 				{
-					float tentativeF = currentNode->GScore + 1 + FVector::Dist(ConvertCoordinatesToLocation(jumpPoint->Coordinates),
-					                                                           ConvertCoordinatesToLocation(endNode->Coordinates));
-					if (jumpPoint->FScore < tentativeF) continue;
+					const float tentativeG = currentNode->GScore + FVector::Dist(ConvertCoordinatesToLocation(currentNode->Coordinates),
+					                                                             ConvertCoordinatesToLocation(jumpPoint->Coordinates));
 
-					jumpPoint->GScore = currentNode->GScore + 1;
-					//jumpPoint->HScore = CalculateOctileDistance(jumpPoint, endNode);
-					jumpPoint->HScore = FVector::Dist(ConvertCoordinatesToLocation(jumpPoint->Coordinates),
-					                                  ConvertCoordinatesToLocation(endNode->Coordinates));
-					jumpPoint->FScore = jumpPoint->GScore + jumpPoint->HScore;
+					const float tentativeH = FVector::Dist(ConvertCoordinatesToLocation(jumpPoint->Coordinates),
+					                                       ConvertCoordinatesToLocation(endNode->Coordinates));
+
+					const float tentativeF = tentativeG + tentativeH;
+
+					if (jumpPoint->GScore <= tentativeG) continue; //should I check G or F?
+
+					jumpPoint->GScore = tentativeG;
+					//jumpPoint->HScore = tentativeH; //since I am not using existing H for any calculation, pointless to store it.
+					//jumpPoint->HScore = FVector::Dist(ConvertCoordinatesToLocation(jumpPoint->Coordinates),
+					//                                  ConvertCoordinatesToLocation(endNode->Coordinates));
+					jumpPoint->FScore = tentativeF;
 					parentMap[jumpPoint] = currentNode;
 					if (openSetCheck.find(neighbor) == openSetCheck.end())
 					{
@@ -612,7 +617,7 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 	}
 }
 
-void ANavigationVolume3D::AddNeighbors(NavNode* currentNode)
+void ANavigationVolume3D::AddNeighbors(NavNode* currentNode) const
 {
 	auto addNeighborIfValid = [&](NavNode* node, const FIntVector& neighbor_coordinates)
 	{
@@ -665,12 +670,31 @@ void ANavigationVolume3D::AddNeighbors(NavNode* currentNode)
 bool ANavigationVolume3D::Jump(const NavNode& CurrentNode, const NavNode& Neighbor, AActor* Target, NavNode** outJumpPoint)
 {
 	FIntVector Direction = Neighbor.Coordinates - CurrentNode.Coordinates;
+
+	float MaxSweepDistance = CalculateMaxSweepDistance(CurrentNode, static_cast<FVector>(Direction));
+	ECollisionChannel CollisionChannel = ECC_Visibility;
+
+	FCollisionQueryParams TraceParams;
+	TraceParams.AddIgnoredActor(this); // Ignore the agent itself.
+
+	FHitResult OriginLineResult;
+	FVector OriginStart = ConvertCoordinatesToLocation(CurrentNode.Coordinates + Direction);
+	FVector OriginEnd = OriginStart + static_cast<FVector>(Direction) * MaxSweepDistance;
+
+	bool originHit = GetWorld()->LineTraceSingleByChannel(OriginLineResult, OriginStart, OriginEnd, ECC_GameTraceChannel1, TraceParams);
+
+	if (originHit && OriginLineResult.GetActor() == Target)
+	{
+		*outJumpPoint = GetNode(ConvertLocationToCoordinates(Target->GetActorLocation()));
+		return true;
+	}
+
+#pragma region Direction Calculations
+
 	bool DiagonalMovement = FMath::Abs(Direction.X) + FMath::Abs(Direction.Y) + FMath::Abs(Direction.Z) > 1;
 	//Given direction's values are either -1, 0 or 1, so if we take its absolutes (so only 1 and 0)
 	//the only way it can be more than 1 is not a straight movement (eg 0,0,1)
 
-
-#pragma region Direction Calculations
 	//Need to pass in a rotation as either 0,0,1; 0,1,0 or 1,0,0.
 	auto RotateVector2D = [](const FIntVector& VectorToRotate, const float& AngleInDegrees, const FIntVector& Axis)
 	{
@@ -793,97 +817,52 @@ bool ANavigationVolume3D::Jump(const NavNode& CurrentNode, const NavNode& Neighb
 		FVector RotatedVector2UP = RotatedVector2 + FVector(0, 0, 1);
 		FVector RotatedVector2DOWN = RotatedVector2 + FVector(0, 0, -1);
 
-		//PossibleDirections.push_back(RotatedVector1);
 		RotatedDirections.push_back(RotatedVector1);
-
-		// PossibleDirections.push_back(RotatedVector1UP);
 		RotatedDirections.push_back(RotatedVector1UP);
-		//
-		// PossibleDirections.push_back(RotatedVector1DOWN);
 		RotatedDirections.push_back(RotatedVector1DOWN);
 
-		//PossibleDirections.push_back(RotatedVector2);
 		RotatedDirections.push_back(RotatedVector2);
-
-		// PossibleDirections.push_back(RotatedVector2DOWN);
 		RotatedDirections.push_back(RotatedVector2DOWN);
-		//
-		// PossibleDirections.push_back(RotatedVector2UP);
 		RotatedDirections.push_back(RotatedVector2UP);
 	}
 
 #pragma endregion
 
-	float MaxSweepDistance = CalculateMaxSweepDistance(CurrentNode, static_cast<FVector>(Direction));
-	ECollisionChannel CollisionChannel = ECC_Visibility;
 
-	FCollisionQueryParams TraceParams;
-	TraceParams.AddIgnoredActor(this); // Ignore the agent itself.
-	//FCollisionShape BoxCollider = FCollisionShape::MakeBox(FVector(GetDivisionSize() / 2.1f)); //2.1 in case the edges count as collision
-
-
-	FHitResult OriginLineResult;
-	FVector OriginStart = ConvertCoordinatesToLocation(CurrentNode.Coordinates + Direction);
-	FVector OriginEnd = OriginStart + static_cast<FVector>(Direction) * MaxSweepDistance;
-	//DrawDebugLine(GetWorld(), OriginStart, OriginEnd, FColor::Blue, true, 5, 0, 5);
-
-	bool originHit = GetWorld()->LineTraceSingleByChannel(OriginLineResult, OriginStart, OriginEnd, ECC_GameTraceChannel1, TraceParams);
-
-	//UE_LOG(LogTemp, Error, TEXT("%s"), *Target->GetActorNameOrLabel());
-	if (originHit && OriginLineResult.GetActor() == Target)
-	{
-		*outJumpPoint = GetNode(ConvertLocationToCoordinates(Target->GetActorLocation()));
-		return true;
-	}
-
+	FHitResult HitResult;
 
 	if (!DiagonalMovement)
 	{
-		struct HitResultCompare
-		{
-			bool operator()(const FHitResult& left, const FHitResult& right) const
-			{
-				return left.Distance < right.Distance;
-			}
-		};
-
 		std::multiset<FHitResult, HitResultCompare> HitResultsSet;
 
 		for (int32 i = 0; i < PossibleStarts.size(); i++)
 		{
-			FHitResult HitResult;
 			FVector Start = PossibleStarts[i];
 			FVector End = Start + static_cast<FVector>(Direction) * MaxSweepDistance;
 
-			//DrawDebugLine(GetWorld(), Start, End, FColor::Red, true, 1, 0, 5);
-			//bool bHit = GetWorld()->SweepSingleByChannel(HitResult, Start, End, FQuat::Identity, ECC_GameTraceChannel1, BoxCollider, TraceParams);
-			bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_GameTraceChannel1, TraceParams);
-
-			if (HitResult.GetActor() == Target)
+			if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_GameTraceChannel1, TraceParams))
 			{
-				*outJumpPoint = GetNode(ConvertLocationToCoordinates(Target->GetActorLocation()));
-				return true;
-			}
-
-			if (bHit && HitResult.Distance > 0 && HitResult.Distance < OriginLineResult.Distance - 1)
-			{
-				HitResultsSet.emplace(HitResult);
+				if (HitResult.GetActor() == Target)
+				{
+					*outJumpPoint = GetNode(ConvertLocationToCoordinates(Target->GetActorLocation()));
+					return true;
+				}
+				else if (HitResult.Distance > 0 && HitResult.Distance < OriginLineResult.Distance - 1)
+				{
+					HitResultsSet.emplace(HitResult);
+				}
 			}
 		}
 
 		if (HitResultsSet.size() > 0)
 		{
-			FHitResult hit = *HitResultsSet.begin();
+			FHitResult closestHit = *HitResultsSet.begin();
 
 			//World Coords. Adding a tiny vector pointing towards hit object's center because when an object is just on the edge of the grid,
 			//the impact point is technically on the grid that's before it by fraction of a cm.
-			FVector dir = (OriginLineResult.TraceStart - hit.TraceStart);
-			FVector precisionCorrection = (hit.GetActor()->GetActorLocation() - hit.ImpactPoint).GetSafeNormal();
-			FVector jumpPointCoords = hit.ImpactPoint + dir;
-			//DrawDebugSphere(GetWorld(), hit.ImpactPoint, 10, 4, FColor::Green, false, 2, 0, 5.0f);
 
-			*outJumpPoint = GetNode(ConvertLocationToCoordinates(jumpPointCoords));
-			auto tmp = GetNode(ConvertLocationToCoordinates(jumpPointCoords));
+			FVector JumpPointCoords = closestHit.ImpactPoint + (OriginLineResult.TraceStart - closestHit.TraceStart);
+			*outJumpPoint = GetNode(ConvertLocationToCoordinates(JumpPointCoords));
 			//DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(tmp->Coordinates), 30, 4, FColor::Blue, false, 2, 0, 5.0f);
 			return true;
 		}
@@ -891,23 +870,16 @@ bool ANavigationVolume3D::Jump(const NavNode& CurrentNode, const NavNode& Neighb
 	else
 	{
 		int32 searchIndex = 1;
-		bool coordsValid = true;
-		while (coordsValid)
+		while (AreCoordinatesValid(CurrentNode.Coordinates + Direction * (searchIndex + 1)))
 		{
 			FVector Previous = ConvertCoordinatesToLocation(CurrentNode.Coordinates + Direction * (searchIndex - 1));
 			FVector Start = ConvertCoordinatesToLocation(CurrentNode.Coordinates + Direction * searchIndex);
+
+			if (GetWorld()->LineTraceSingleByChannel(HitResult, Previous, Start, ECC_GameTraceChannel1, TraceParams)) return false;
+
+
 			FVector NextDiagonal = ConvertCoordinatesToLocation(CurrentNode.Coordinates + Direction * (searchIndex + 1));
-			coordsValid = AreCoordinatesValid(CurrentNode.Coordinates + Direction * (searchIndex + 1)); //Nothing to check next loop. End
-
-			FHitResult CurrentHitResult;
-			FHitResult NextHitResult;
-
-			bool currentHit = GetWorld()->LineTraceSingleByChannel(CurrentHitResult, Previous, Start, ECC_GameTraceChannel1, TraceParams);
-			bool nextHit = GetWorld()->LineTraceSingleByChannel(NextHitResult, Start, NextDiagonal, ECC_GameTraceChannel1, TraceParams);
-
-			if (currentHit) return false;
-
-			if (nextHit)
+			if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, NextDiagonal, ECC_GameTraceChannel1, TraceParams))
 			{
 				*outJumpPoint = GetNode(ConvertLocationToCoordinates(NextDiagonal));
 				return true;
@@ -916,21 +888,16 @@ bool ANavigationVolume3D::Jump(const NavNode& CurrentNode, const NavNode& Neighb
 
 			for (int32 i = 0; i < RotatedDirections.size(); i++)
 			{
-				float RotatedSweep = CalculateMaxSweepDistance(*GetNode(ConvertLocationToCoordinates(Start)), RotatedDirections[i]);
-				FHitResult HitResult;
-				const float actualSweep = CalculateMaxSweepDistance(*GetNode(ConvertLocationToCoordinates(Start)), RotatedDirections[i]);
-				FVector End = Start + RotatedDirections[i] * actualSweep;
+				const float RotatedSweep = CalculateMaxSweepDistance(*GetNode(ConvertLocationToCoordinates(Start)), RotatedDirections[i]);
+				if (RotatedSweep < 1) continue;
 
-				bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_GameTraceChannel1, TraceParams);
+				FVector End = Start + RotatedDirections[i] * RotatedSweep;
+
 				//DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 2, 0, 2);
 
-				if (bHit)
+				if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_GameTraceChannel1, TraceParams))
 				{
-					FVector dir = (OriginLineResult.TraceStart - HitResult.TraceStart); //World Coords
-					FVector jumpPointCoords = HitResult.ImpactPoint + dir;
-					//DrawDebugSphere(GetWorld(), hit.ImpactPoint, 10, 4, FColor::Green, false, 2, 0, 5.0f);
 					*outJumpPoint = GetNode(ConvertLocationToCoordinates(Start));
-					//DrawDebugBox(GetWorld(), HitResult.ImpactPoint, FVector(GetDivisionSize() / 2), FColor::Green, true, 1, 0, 2);
 					return true;
 				}
 			}

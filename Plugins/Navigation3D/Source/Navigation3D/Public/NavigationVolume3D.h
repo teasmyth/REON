@@ -163,10 +163,18 @@ private:
 
 	bool Jump(const NavNode& CurrentNode, const NavNode& Neighbor, AActor* Target, NavNode** outJumpPoint);
 
-	void AddNeighbors(NavNode* currentNode);
+	void AddNeighbors(NavNode* currentNode) const;
 
 	bool optimize = false;
 
 	// The nodes used for pathfinding
 	NavNode* Nodes = nullptr;
+};
+
+struct HitResultCompare
+{
+	bool operator()(const FHitResult& left, const FHitResult& right) const
+	{
+		return left.Distance < right.Distance;
+	}
 };
