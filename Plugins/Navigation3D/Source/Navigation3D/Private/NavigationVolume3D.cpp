@@ -2,7 +2,6 @@
 
 
 #include "NavigationVolume3D.h"
-
 #include "ProceduralMeshComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/ConstructorHelpers.h"
@@ -17,6 +16,7 @@
 #include "queue"
 #include "Async/Async.h"
 #include "Async/TaskGraphInterfaces.h"
+#include "Engine/Engine.h"
 
 static UMaterial* GridMaterial = nullptr;
 
@@ -38,21 +38,50 @@ ANavigationVolume3D::ANavigationVolume3D()
 	ProceduralMesh->CastShadow = false;
 	ProceduralMesh->SetEnableGravity(false);
 	ProceduralMesh->bApplyImpulseOnDamage = false;
-	ProceduralMesh->SetGenerateOverlapEvents(false);
+	//ProceduralMesh->SetGenerateOverlapEvents(false);
 	ProceduralMesh->CanCharacterStepUpOn = ECanBeCharacterBase::ECB_No;
-	ProceduralMesh->SetCollisionProfileName("NoCollision");
+	//ProceduralMesh->SetCollisionProfileName("NoCollision");
 	ProceduralMesh->bHiddenInGame = false;
+	ProceduralMesh->bUseComplexAsSimpleCollision = false;
+
 	ProceduralMesh->SetMaterial(0, nullptr);
 
 
 	// By default, hide the volume while the game is running
-	SetActorHiddenInGame(true);
+	//AActor::SetActorHiddenInGame(true); //todo check that its not bugging out, idk, the AActor:: was recommended by Rider.
 
 	// Find and save the grid material
 	static ConstructorHelpers::FObjectFinder<UMaterial> materialFinder(TEXT("Material'/Navigation3D/M_Grid.M_Grid'"));
 	GridMaterial = materialFinder.Object;
 }
 
+
+void ANavigationVolume3D::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+                                         int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (GEngine && TargetActor != nullptr && OtherActor == TargetActor)
+	{
+		const FString Text = OtherActor->GetActorNameOrLabel() + " Overlap Begin";
+		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, Text);
+		TFuture<void> AsyncTask = Async(EAsyncExecution::Thread, [&]() { PopulateNodesAsync(); });
+	}
+}
+
+void ANavigationVolume3D::OnOverlapEnd(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp,
+                                       int32 OtherBodyIndex)
+{
+	if (GEngine && TargetActor != nullptr && OtherActor == TargetActor)
+	{
+		const FString Text = OtherActor->GetActorNameOrLabel() + " Overlap End";
+		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, Text);
+		if (areNodesLoaded)
+		{
+			delete [] Nodes;
+			Nodes = nullptr;
+		}
+		areNodesLoaded = false;
+	}
+}
 
 void ANavigationVolume3D::OnConstruction(const FTransform& Transform)
 {
@@ -61,7 +90,7 @@ void ANavigationVolume3D::OnConstruction(const FTransform& Transform)
 }
 
 
-void ANavigationVolume3D::VisualizeGrid()
+void ANavigationVolume3D::CreateGrid()
 {
 	// Create arrays to store the vertices and the triangles
 	TArray<FVector> vertices;
@@ -134,29 +163,23 @@ void ANavigationVolume3D::VisualizeGrid()
 	ProceduralMesh->SetMaterial(0, DynamicMaterialInstance);
 }
 
-
-void ANavigationVolume3D::CreateGrid()
-{
-	VisualizeGrid();
-}
-
 void ANavigationVolume3D::CreateBorders()
 {
 	if (DrawParallelogram)
 	{
 		CreateCubeMesh(
 			FVector(GetGridSizeX(), 0, GetGridSizeZ()),
-			FVector(0,0, GetGridSizeZ()),
-			FVector(0,0,0),
+			FVector(0, 0, GetGridSizeZ()),
+			FVector(0, 0, 0),
 			FVector(GetGridSizeX(), 0, 0),
 			FVector(GetGridSizeX(), GetGridSizeY(), GetGridSizeZ()),
 			FVector(0, GetGridSizeY(), GetGridSizeZ()),
 			FVector(0, GetGridSizeY(), 0),
 			FVector(GetGridSizeX(), GetGridSizeY(), 0)
-			);
+		);
 		return;
 	}
-	
+
 	// Create arrays to store the vertices and the triangles
 	TArray<FVector> vertices;
 	TArray<int32> triangles;
@@ -174,7 +197,6 @@ void ANavigationVolume3D::CreateBorders()
 			CreateLine(start, end, FVector::UpVector, vertices, triangles);
 		}
 	}
-
 
 	for (int32 x = 0; x <= GetGridSizeX(); x += GetGridSizeX())
 	{
@@ -205,7 +227,6 @@ void ANavigationVolume3D::CreateBorders()
 	// Add the geometry to the procedural mesh so it will render
 	ProceduralMesh->CreateMeshSection(0, vertices, triangles, Normals, UVs, Colors, Tangents, false);
 
-
 	// Set the material on the procedural mesh so it's color/opacity can be configurable
 	UMaterialInstanceDynamic* DynamicMaterialInstance = UMaterialInstanceDynamic::Create(GridMaterial, this);
 	DynamicMaterialInstance->SetVectorParameterValue("Color", Color);
@@ -218,7 +239,6 @@ void ANavigationVolume3D::CreateCubeMesh(const FVector& Corner1, const FVector& 
                                          const FVector& Corner3, const FVector& Corner4, const FVector& Corner5, const FVector& Corner6,
                                          const FVector& Corner7, const FVector& Corner8)
 {
-	
 	// Define vertices for the cube
 	TArray<FVector> Vertices = {
 		Corner1, Corner2, Corner3, Corner4, // Front face
@@ -247,10 +267,10 @@ void ANavigationVolume3D::CreateCubeMesh(const FVector& Corner1, const FVector& 
 		FVector2D(0, 0), FVector2D(1, 0), FVector2D(1, 1), FVector2D(0, 1), // Front face
 		FVector2D(0, 0), FVector2D(1, 0), FVector2D(1, 1), FVector2D(0, 1) // Back face
 	};
-	
+
 	TArray<FColor> Colors;
 	TArray<FProcMeshTangent> Tangents;
-	
+
 	// Set the data in the procedural mesh component
 	//MeshComponent->CreateMeshSection(0, Vertices, Triangles, Normals, UVs, TArray<FColor>(), TArray<FProcMeshTangent>(), false);
 	ProceduralMesh->CreateMeshSection(0, Vertices, Triangles, Normals, UVs, Colors, Tangents, false);
@@ -280,32 +300,10 @@ void ANavigationVolume3D::BeginPlay()
 	Super::BeginPlay();
 	double LoadTimer = FPlatformTime::Seconds();
 
-	optimize = true;
+	ProceduralMesh->OnComponentBeginOverlap.AddDynamic(this, &ANavigationVolume3D::OnOverlapBegin);
+	ProceduralMesh->OnComponentEndOverlap.AddDynamic(this, &ANavigationVolume3D::OnOverlapEnd);
 
-	// Allocate nodes used for pathfinding
-	Nodes = new NavNode[GetTotalDivisions()];
 
-	// Helper lambda for adding a neighbor
-	auto addNeighborIfValid = [&](NavNode* node, const FIntVector& neighbor_coordinates)
-	{
-		// Make sure the neighboring coordinates are valid
-		if (AreCoordinatesValid(neighbor_coordinates))
-		{
-			int32 sharedAxes = 0;
-			if (node->Coordinates.X == neighbor_coordinates.X)
-				++sharedAxes;
-			if (node->Coordinates.Y == neighbor_coordinates.Y)
-				++sharedAxes;
-			if (node->Coordinates.Z == neighbor_coordinates.Z)
-				++sharedAxes;
-
-			// Only add the neighbor if we share more axes with it then the required min shared neighbor axes and it isn't the same node as us
-			if (sharedAxes >= MinSharedNeighborAxes && sharedAxes < 3)
-			{
-				node->Neighbors.push_back(GetNode(neighbor_coordinates));
-			}
-		}
-	};
 	TArray<AActor*> outActors;
 	TArray<TEnumAsByte<EObjectTypeQuery>> filter;
 	filter.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
@@ -313,7 +311,37 @@ void ANavigationVolume3D::BeginPlay()
 
 	TArray<AActor*, FDefaultAllocator> ignoreActors;
 
-	// For each node, find its neighbors and assign its coordinates
+	// Allocate nodes used for pathfinding
+	//TFuture<void> AsyncTask = Async(EAsyncExecution::Thread, [&]() { PopulateNodesAsync(); });
+	//PopulateNodesAsync();
+
+	//Defining the colliders borders
+	const TArray ConvexVerts = {
+		FVector(GetGridSizeX(), 0, GetGridSizeZ()),
+		FVector(0, 0, GetGridSizeZ()),
+		FVector(0, 0, 0),
+		FVector(GetGridSizeX(), 0, 0),
+		FVector(GetGridSizeX(), GetGridSizeY(), GetGridSizeZ()),
+		FVector(0, GetGridSizeY(), GetGridSizeZ()),
+		FVector(0, GetGridSizeY(), 0),
+		FVector(GetGridSizeX(), GetGridSizeY(), 0)
+	};
+
+	ProceduralMesh->ClearCollisionConvexMeshes();
+	ProceduralMesh->AddCollisionConvexMesh(ConvexVerts);
+
+
+	const double EndLoadTimer = FPlatformTime::Seconds();
+	const double ElapsedLoadTimer = EndLoadTimer - LoadTimer;
+	UE_LOG(LogTemp, Warning, TEXT(" Loading time: %f seconds"), ElapsedLoadTimer);
+}
+
+void ANavigationVolume3D::PopulateNodesAsync()
+{
+	//Because of how player is setup, it sometimes triggers twice.
+	if (areNodesLoaded) return;
+
+	Nodes = new NavNode[GetTotalDivisions()];
 
 	for (int32 z = 0; z < DivisionsZ; ++z)
 	{
@@ -323,82 +351,13 @@ void ANavigationVolume3D::BeginPlay()
 			{
 				NavNode* node = GetNode(FIntVector(x, y, z));
 				node->Coordinates = FIntVector(x, y, z);
-				if (!optimize)
-				{
-					// Above neighbors
-					{
-						// front
-						{
-							addNeighborIfValid(node, FIntVector(x + 1, y - 1, z + 1));
-							addNeighborIfValid(node, FIntVector(x + 1, y + 0, z + 1));
-							addNeighborIfValid(node, FIntVector(x + 1, y + 1, z + 1));
-						}
-						// middle
-						{
-							addNeighborIfValid(node, FIntVector(x + 0, y - 1, z + 1));
-							addNeighborIfValid(node, FIntVector(x + 0, y + 0, z + 1));
-							addNeighborIfValid(node, FIntVector(x + 0, y + 1, z + 1));
-						}
-						// back
-						{
-							addNeighborIfValid(node, FIntVector(x - 1, y - 1, z + 1));
-							addNeighborIfValid(node, FIntVector(x - 1, y + 0, z + 1));
-							addNeighborIfValid(node, FIntVector(x - 1, y + 1, z + 1));
-						}
-					}
-
-					// Middle neighbors
-					{
-						// front
-						{
-							addNeighborIfValid(node, FIntVector(x + 1, y - 1, z + 0));
-							addNeighborIfValid(node, FIntVector(x + 1, y + 0, z + 0));
-							addNeighborIfValid(node, FIntVector(x + 1, y + 1, z + 0));
-						}
-						// middle
-						{
-							addNeighborIfValid(node, FIntVector(x + 0, y - 1, z + 0));
-							addNeighborIfValid(node, FIntVector(x + 0, y + 1, z + 0));
-						}
-						// back
-						{
-							addNeighborIfValid(node, FIntVector(x - 1, y - 1, z + 0));
-							addNeighborIfValid(node, FIntVector(x - 1, y + 0, z + 0));
-							addNeighborIfValid(node, FIntVector(x - 1, y + 1, z + 0));
-						}
-					}
-
-					// Below neighbors
-					{
-						// front
-						{
-							addNeighborIfValid(node, FIntVector(x + 1, y - 1, z - 1));
-							addNeighborIfValid(node, FIntVector(x + 1, y + 0, z - 1));
-							addNeighborIfValid(node, FIntVector(x + 1, y + 1, z - 1));
-						}
-						// middle
-						{
-							addNeighborIfValid(node, FIntVector(x + 0, y - 1, z - 1));
-							addNeighborIfValid(node, FIntVector(x + 0, y + 0, z - 1));
-							addNeighborIfValid(node, FIntVector(x + 0, y + 1, z - 1));
-						}
-						// back
-						{
-							addNeighborIfValid(node, FIntVector(x - 1, y - 1, z - 1));
-							addNeighborIfValid(node, FIntVector(x - 1, y + 0, z - 1));
-							addNeighborIfValid(node, FIntVector(x - 1, y + 1, z - 1));
-						}
-					}
-				}
 			}
 		}
 	}
 
+	//FPlatformProcess::Sleep(5.0);
 
-	double EndLoadTimer = FPlatformTime::Seconds();
-
-	double ElapsedLoadTimer = EndLoadTimer - LoadTimer;
-	UE_LOG(LogTemp, Warning, TEXT(" Loading time: %f seconds"), ElapsedLoadTimer);
+	areNodesLoaded = true;
 }
 
 void ANavigationVolume3D::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -406,6 +365,7 @@ void ANavigationVolume3D::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	// Delete the nodes
 	delete [] Nodes;
 	Nodes = nullptr;
+
 
 	Super::EndPlay(EndPlayReason);
 }
@@ -422,6 +382,8 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
                                    TArray<FVector>& out_path, const bool& useAStar)
 
 {
+	if (!areNodesLoaded) return false;
+
 	double StartTimeAStar = FPlatformTime::Seconds();
 
 	bool drawdebugenabled = false;
@@ -433,7 +395,7 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 	*/
 
 	// Create open and closed sets
-	std::priority_queue<NavNode*, std::vector<NavNode*>, NodeCompare> openSet;
+	std::priority_queue<NavNode*, std::vector<NavNode*>, FNodeCompare> openSet;
 	std::set<NavNode*> openSetCheck; //For checking if something is in open set.
 	std::set<NavNode*> closedSet;
 	std::unordered_map<NavNode*, NavNode*> parentMap; //parent system, to tell where can you come from to a particular node
@@ -627,7 +589,7 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 				Cleanup();
 				double EndTimeAStar = FPlatformTime::Seconds();
 				double ElapsedTimeAStar = EndTimeAStar - StartTimeAStar;
-				UE_LOG(LogTemp, Warning, TEXT(" A* elapsed time: %f seconds"), ElapsedTimeAStar);
+				//UE_LOG(LogTemp, Warning, TEXT(" A* elapsed time: %f seconds"), ElapsedTimeAStar);
 				return true;
 			}
 
@@ -640,7 +602,7 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 				                false, 1, 0, 5.0f);
 
 
-			if (optimize && current->Neighbors.size() == 0) AddNeighbors(current);
+			if (current->Neighbors.size() == 0) AddNeighbors(current);
 
 			for (NavNode* neighbor : current->Neighbors)
 			{
@@ -693,13 +655,13 @@ bool ANavigationVolume3D::FindPath(const FVector& start, const FVector& destinat
 				//UE_LOG(LogTemp, Warning, TEXT("Found path!"));
 				double EndTimeAStar = FPlatformTime::Seconds();
 				double ElapsedTimeAStar = EndTimeAStar - StartTimeAStar;
-				UE_LOG(LogTemp, Warning, TEXT("JPS elapsed time: %f seconds"), ElapsedTimeAStar);
+				//UE_LOG(LogTemp, Warning, TEXT("JPS elapsed time: %f seconds"), ElapsedTimeAStar);
 				return true;
 			}
 			//DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(currentNode->Coordinates), 30, 4, FColor::Blue, false, 2, 0, 5.0f);
 
 
-			if (optimize && currentNode->Neighbors.size() == 0) AddNeighbors(currentNode);
+			if (currentNode->Neighbors.size() == 0) AddNeighbors(currentNode);
 
 			for (auto neighbor : currentNode->Neighbors)
 			{
@@ -790,6 +752,7 @@ void ANavigationVolume3D::AddNeighbors(NavNode* currentNode) const
 		}
 	}
 }
+
 
 bool ANavigationVolume3D::Jump(const NavNode& CurrentNode, const NavNode& Neighbor, AActor* Target, NavNode** outJumpPoint)
 {
@@ -957,7 +920,7 @@ bool ANavigationVolume3D::Jump(const NavNode& CurrentNode, const NavNode& Neighb
 
 	if (!DiagonalMovement)
 	{
-		std::multiset<FHitResult, HitResultCompare> HitResultsSet;
+		std::multiset<FHitResult, FHitResultCompare> HitResultsSet;
 
 		for (int32 i = 0; i < PossibleStarts.size(); i++)
 		{

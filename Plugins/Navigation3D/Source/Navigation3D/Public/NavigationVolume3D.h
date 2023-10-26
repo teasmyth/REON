@@ -61,6 +61,9 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "A NavigationVolume3D|Aesthetics", meta = (AllowPrivateAccess = "true"))
 	bool DrawParallelogram = false;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "A NavigationVolume3D", meta = (AllowPrivateAccess = "true"))
+	AActor* TargetActor = nullptr;
+
 public:
 	/**
 	* Called when an instance of this class is placed (in editor) or spawned.
@@ -73,10 +76,6 @@ public:
 
 	// Gets the node at the specified coordinates
 	NavNode* GetNode(FIntVector coordinates) const;
-
-	UFUNCTION(BlueprintCallable, Category = "A NavigationVolume3D")
-	void VisualizeGrid();
-
 
 	//Visualizes the grid.
 	UFUNCTION(CallInEditor, Category = "A NavigationVolume3D")
@@ -151,6 +150,8 @@ protected:
 	float GetGridSizeZ() const { return DivisionsZ * DivisionSize; }
 
 private:
+	void PopulateNodesAsync();
+
 	// Helper function for creating the geometry for a single line of the grid
 	void CreateLine(const FVector& start, const FVector& end, const FVector& normal, TArray<FVector>& vertices, TArray<int32>& triangles);
 
@@ -182,16 +183,32 @@ private:
 
 	void AddNeighbors(NavNode* currentNode) const;
 
-	bool optimize = false;
+	UFUNCTION()
+	void OnOverlapBegin(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp,
+	                    int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void OnOverlapEnd(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+	bool areNodesLoaded = false;
 
 	// The nodes used for pathfinding
 	NavNode* Nodes = nullptr;
 };
 
-struct HitResultCompare
+struct FHitResultCompare
 {
 	bool operator()(const FHitResult& left, const FHitResult& right) const
 	{
 		return left.Distance < right.Distance;
+	}
+};
+
+struct FNodeCompare
+{
+	//Will put the highest FScore above all
+	bool operator()(const NavNode* NavNode1, const NavNode* NavNode2) const
+	{
+		return (NavNode1->FScore > NavNode2->FScore);
 	}
 };
