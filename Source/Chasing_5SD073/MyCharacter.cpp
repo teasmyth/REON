@@ -36,7 +36,7 @@ AMyCharacter::AMyCharacter()
 	Mesh1P->SetRelativeLocation(FVector(-30.f, 0.f, -150.f));
 
 	dash = false;
-	dashOnce = true;
+	dashOnce = false;
 }
 
 // Called when the game starts or when spawned
@@ -60,22 +60,21 @@ void AMyCharacter::Tick(float DeltaTime)
 	
 	if (GetCharacterMovement()->IsFalling() && !landed)
 	{
-		dash = true;
+		//dash = true;
 		fallingTimer += DeltaTime;
 	}
 	else
 	{
-		dash = false;
+		//dash = false;
 	}
 
 	if (GetCharacterMovement()->IsFalling())
 	{
 		dash = true;
-		
+	
 		//if(fallSliding)
 		//{
 		//	Slide();
-//
 		//	if(GetCharacterMovement()->IsMovingOnGround())
 		//	{
 		//		fallSliding = false;
@@ -85,9 +84,25 @@ void AMyCharacter::Tick(float DeltaTime)
 	else
 	{
 		dash = false;
+		dashOnce = true;
 	}
 
+	if(startDelay)
+	{
+		float timer = 1;
+		timer += DeltaTime;
+		if (GEngine)
+		{
+			const FString msg = FString::Printf(TEXT("timer: %f"), timer);
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
+		}
+		if(timer > airDashDelay)
+		{
+			startDash = true;
+		}
+	}
 
+	
 	if(onSlope) Slide();
 	
 	if(debugGroundRaycast) 	GroundRaycast(DeltaTime);
@@ -212,9 +227,15 @@ void AMyCharacter::Slide()
 {
 	FVector3d scale = GetActorScale3D();
 	FVector3d origin = FVector3d(1, 1, 1);
+	//GetCapsuleComponent()->GetScaledCapsuleHalfHeight()
+	//GetCapsuleComponent()->SetCapsuleHalfHeight()
+	//GetScaledCapsuleHalfHeight()
+	
 	if (scale == origin)
 	{
-		SetActorScale3D(scale / 2);
+		//SetActorScale3D(scale / 2);
+		GetCapsuleComponent()->SetCapsuleHalfHeight(GetCapsuleComponent()->GetScaledCapsuleHalfHeight()/2);
+
 		//GetCharacterMovement()->MaxAcceleration = 1.5f *  getCurrentAccelerationRate;
 
 		FVector speedMax = FVector(1000,1000,1000);
@@ -229,41 +250,43 @@ void AMyCharacter::Slide()
 void AMyCharacter::AirDash(const FInputActionValue& Value)
 {
 	FVector dashValue = Value.Get<FVector>();
-
+	
 	if (Controller != nullptr)
 	{
-		if (!dash)
+		if (!dash || !dashOnce)
 		{
-			dashOnce = true;
 			return;
 		}
 
-		FVector StartTrace = FVector(
-			GetCapsuleComponent()->GetSocketLocation(FName("Capsule Component")).X + 100 * dashValue.X,
-			GetCapsuleComponent()->GetSocketLocation(FName("Capsule Component")).Y + 100 * dashValue.Y,
-			GetCapsuleComponent()->GetSocketLocation(FName("Capsule Component")).Z + 100 * dashValue.Z);
+		startDelay = true;
 
-		FRotator CurrentTrace = GetCapsuleComponent()->GetSocketRotation(FName("Capsule Component"));
-		FVector EndTrace = StartTrace + CurrentTrace.Vector() * airDashDistance;
-
-		FVector start = GetActorLocation();
-		FVector forward = FrontCam->GetForwardVector();
-		start = FVector(start.X + (forward.X * airDashDistance), start.Y + (forward.Y * airDashDistance), start.Z + (forward.Z * airDashDistance));
-		FVector end = start + forward;
-		FHitResult hit;
-
-		if (GetWorld())
+		if(startDash)
 		{
-			bool actorHit = GetWorld()->LineTraceSingleByChannel(hit, start, end, ECC_Pawn, FCollisionQueryParams(),
-			                                                     FCollisionResponseParams());
-			DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
+			FVector StartTrace = FVector(
+				GetCapsuleComponent()->GetSocketLocation(FName("Capsule Component")).X + 100 * dashValue.X,
+				GetCapsuleComponent()->GetSocketLocation(FName("Capsule Component")).Y + 100 * dashValue.Y,
+				GetCapsuleComponent()->GetSocketLocation(FName("Capsule Component")).Z + 100 * dashValue.Z);
 
-			if (dash)
+			FRotator CurrentTrace = GetCapsuleComponent()->GetSocketRotation(FName("Capsule Component"));
+			FVector EndTrace = StartTrace + CurrentTrace.Vector() * airDashDistance;
+
+			FVector start = GetActorLocation();
+			FVector forward = FrontCam->GetForwardVector();
+			start = FVector(start.X + (forward.X * airDashDistance), start.Y + (forward.Y * airDashDistance), start.Z + (forward.Z * airDashDistance));
+			FVector end = start + forward;
+			FHitResult hit;
+
+			if (GetWorld())
 			{
+				bool actorHit = GetWorld()->LineTraceSingleByChannel(hit, start, end, ECC_Pawn, FCollisionQueryParams(),
+																	 FCollisionResponseParams());
+				DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
+			
 				SetActorLocation(end, true);
-
-				DebugSpeed();
+				
 				dashOnce = false;
+				startDash = false;
+				startDelay=false;
 			}
 		}
 	}
@@ -298,11 +321,14 @@ void AMyCharacter::ResetSize()
 {
 	FVector3d scale = GetActorScale3D();
 	FVector3d origin = FVector3d(1, 1, 1);
+	GetCapsuleComponent()->SetCapsuleSize(55.0f,96.0f);
+
 	if (scale != origin)
 	{
-		SetActorScale3D(scale * 2);
+		//SetActorScale3D(scale * 2);
 		GetCharacterMovement()->Velocity -= FVector(100,100,100);
-
+		//GetCapsuleComponent()->SetCapsuleHalfHeight(GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+		GetCapsuleComponent()->SetCapsuleSize(55.0f,96.0f);
 		//GetCharacterMovement()->MaxAcceleration = getCurrentAccelerationRate * slideSpeedBoostRate;
 	}
 	//DebugSize();
@@ -466,7 +492,7 @@ void AMyCharacter::DebugSpeed()
 
 void AMyCharacter::DebugLanding()
 {
-	UE_LOG(LogTemp, Warning, TEXT("landed %s"), ( landed ? TEXT("true") : TEXT("false") ));
+	//UE_LOG(LogTemp, Warning, TEXT("landed %s"), ( landed ? TEXT("true") : TEXT("false") ));
 	UE_LOG(LogTemp, Warning, TEXT("falling %s"),
 		   ( GetCharacterMovement()->IsFalling() ? TEXT("true") : TEXT("false") ));
 }

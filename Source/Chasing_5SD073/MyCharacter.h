@@ -102,13 +102,18 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float airDashDistance;
+
+	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	// Delay timer
+	float airDashDelay;
 	
 	float accelerationTimer;
 	float fallingTimer;
 	bool landed;
 	bool dash;
 	bool dashOnce;
-
+	bool startDelay;
+	bool startDash;
 	
 	// Movements
 	void Acceleration();
