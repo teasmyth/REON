@@ -132,8 +132,8 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
 
 		//Sliding
-		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Triggered, this, &AMyCharacter::Slide);
-		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::None, this, &AMyCharacter::ResetSize);
+		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Started, this, &AMyCharacter::Slide);
+		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Completed, this, &AMyCharacter::ResetAfterSlide);
 
 		//Looking Back
 		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Triggered, this,
@@ -228,13 +228,28 @@ void AMyCharacter::LookFront()
 
 void AMyCharacter::Slide()
 {
-	FVector3d scale = GetActorScale3D();
-	FVector3d origin = FVector3d(1, 1, 1);
-	//GetCapsuleComponent()->GetScaledCapsuleHalfHeight()
-	//GetCapsuleComponent()->SetCapsuleHalfHeight()
-	//GetScaledCapsuleHalfHeight()
+	GetCapsuleComponent()->SetCapsuleHalfHeight(GetCapsuleComponent()->GetScaledCapsuleHalfHeight()/2);
+
+	boostSlide = true;
 	
-	if (scale == origin)
+	if(boostSlide)
+	{
+		float currentSpeed = GetCharacterMovement()->Velocity.Length();
+		GetCharacterMovement()->Velocity += GetActorRotation().Vector() * slideBoost;
+
+		if(currentSpeed >= GetCharacterMovement()->Velocity.Length())
+		{
+			boostSlide = false;
+		}
+	}
+	
+	if(GetCharacterMovement()->Velocity.Length() >= 1000)
+	{
+		GetCharacterMovement()->MaxWalkSpeed = slideSpeedMax;
+	}
+	fallSliding = true;
+	
+	/*if (scale == origin)
 	{
 		//SetActorScale3D(scale / 2);
 		GetCapsuleComponent()->SetCapsuleHalfHeight(GetCapsuleComponent()->GetScaledCapsuleHalfHeight()/2);
@@ -247,7 +262,7 @@ void AMyCharacter::Slide()
 			GetCharacterMovement()->Velocity += GetActorRotation().Vector() * slideBoost;
 		}
 		fallSliding = true;
-	}
+	}*/
 }
 
 void AMyCharacter::AirDash(const FInputActionValue& Value)
@@ -312,7 +327,7 @@ void AMyCharacter::WallClimbing()
 
 #pragma endregion
 
-#pragma region Reset
+#pragma region Reset	
 
 // Reset
 void AMyCharacter::SpeedReset()
@@ -323,21 +338,14 @@ void AMyCharacter::SpeedReset()
 	accelerationTimer = 0;
 }
 
-void AMyCharacter::ResetSize()
+void AMyCharacter::ResetAfterSlide()
 {
-	FVector3d scale = GetActorScale3D();
-	FVector3d origin = FVector3d(1, 1, 1);
 	GetCapsuleComponent()->SetCapsuleSize(55.0f,96.0f);
 
-	if (scale != origin)
+	if(GetCharacterMovement()->Velocity.Length() >= 1000)
 	{
-		//SetActorScale3D(scale * 2);
-		GetCharacterMovement()->Velocity -= FVector(100,100,100);
-		//GetCapsuleComponent()->SetCapsuleHalfHeight(GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
-		GetCapsuleComponent()->SetCapsuleSize(55.0f,96.0f);
-		//GetCharacterMovement()->MaxAcceleration = getCurrentAccelerationRate * slideSpeedBoostRate;
+		GetCharacterMovement()->MaxWalkSpeed = 1000;
 	}
-	//DebugSize();
 }
 
 #pragma endregion

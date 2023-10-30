@@ -112,6 +112,9 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float gravityLow;
+
+	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	float slideSpeedMax;
 	
 	float accelerationTimer;
 	float fallingTimer;
@@ -121,6 +124,9 @@ public:
 	float airDashDelayTimer;
 	bool startDelay;
 	bool startDash;
+	float slideTimer;
+	bool boostSlide;
+
 	
 	// Movements
 	void Acceleration();
@@ -137,7 +143,7 @@ public:
 	
 	// Reset
 	void SpeedReset();
-	void ResetSize();
+	void ResetAfterSlide();
 
 	// Raycast
 	bool onSlope;
