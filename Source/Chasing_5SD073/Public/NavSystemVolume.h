@@ -80,7 +80,7 @@ public:
 	virtual void OnConstruction(const FTransform& Transform) override;
 
 	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+	virtual void Tick(float DeltaSeconds) override;
 
 	//Visualizes the grid.
 	UFUNCTION(CallInEditor, Category = "Navigation System Volume")
@@ -134,6 +134,8 @@ public:
 
 	void SetAI_AgentActor(AActor* Actor) { AI_AgentActor = Actor; }
 
+	void SetUnloadTimer(const float Timer) { UnloadTimer = Timer;}
+
 	FVector GetTargetActorEnterLocation() const { return TargetActorEnterLocation; }
 	FVector GetTargetActorEndLocation() const { return TargetActorEndLocation; }
 
@@ -148,7 +150,7 @@ private:
 	void PopulateNodesAsync();
 
 	// Helper function for creating the geometry for a single line of the grid
-	void CreateLine(const FVector& start, const FVector& end, const FVector& normal, TArray<FVector>& vertices, TArray<int32>& triangles);
+	void CreateLine(const FVector& start, const FVector& end, const FVector& normal, TArray<FVector>& vertices, TArray<int32>& triangles) const;
 
 	/*The front face's corners (usually clockwise or counterclockwise):
 	Top-left-front corner
@@ -167,12 +169,14 @@ private:
 
 
 	UFUNCTION()
-	void OnOverlapBegin(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp,
+	void OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	                    int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	UFUNCTION()
-	void OnOverlapEnd(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp,
+	void OnOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	                  int32 OtherBodyIndex);
+
+	void UnloadGridAsync();
 
 	//Visible for debug purposes.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation System Volume|Debug", meta = (AllowPrivateAccess = "true"))
@@ -185,6 +189,14 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation System Volume|Debug", meta = (AllowPrivateAccess = "true"))
 	bool bAreNodesLoaded = false;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation System Volume|Debug", meta = (AllowPrivateAccess = "true"))
+	float UnloadTimer;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation System Volume|Debug", meta = (AllowPrivateAccess = "true"))
+	bool bStartUnloading = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation System Volume|Debug", meta = (AllowPrivateAccess = "true"))
+	float m_unloadTimer;
 	// The nodes used for Grid Settings
 	NavSystemNode* Nodes = nullptr;
 };

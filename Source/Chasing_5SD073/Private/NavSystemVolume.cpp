@@ -17,6 +17,7 @@ ANavSystemVolume::ANavSystemVolume()
 {
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+	SetActorTickEnabled(false);
 
 	// Create the default scene component
 	DefaultSceneComponent = CreateDefaultSubobject<USceneComponent>("DefaultSceneComponent");
@@ -54,7 +55,7 @@ void ANavSystemVolume::BeginPlay()
 
 	ProceduralMesh->OnComponentBeginOverlap.AddDynamic(this, &ANavSystemVolume::OnOverlapBegin);
 	ProceduralMesh->OnComponentEndOverlap.AddDynamic(this, &ANavSystemVolume::OnOverlapEnd);
-	
+
 	//Defining the colliders borders
 	const TArray ConvexVerts = {
 		FVector(GetGridSizeX(), 0, GetGridSizeZ()),
@@ -91,9 +92,29 @@ void ANavSystemVolume::PopulateNodesAsync()
 			}
 		}
 	}
-
 	bAreNodesLoaded = true;
 }
+
+void ANavSystemVolume::UnloadGridAsync()
+{
+	// Run the function asynchronously using a Lambda function
+	FGraphEventRef Task = FFunctionGraphTask::CreateAndDispatchWhenReady([this]()
+	{
+		// This code will run asynchronously on a background thread
+		delete[] Nodes;
+		Nodes = nullptr;
+	}, TStatId(), nullptr, ENamedThreads::AnyThread);
+
+	// Ensure the task is completed before continuing
+	FTaskGraphInterface::Get().WaitUntilTaskCompletes(Task);
+
+	// This code will run on the game thread when the task is complete
+	//Do stuff()
+	SetActorTickEnabled(false);
+	bAreNodesLoaded = false;
+	bStartUnloading = false;
+}
+
 
 void ANavSystemVolume::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
@@ -106,9 +127,20 @@ void ANavSystemVolume::EndPlay(const EEndPlayReason::Type EndPlayReason)
 }
 
 // Called every frame
-void ANavSystemVolume::Tick(float DeltaTime)
+void ANavSystemVolume::Tick(float DeltaSeconds)
 {
-	Super::Tick(DeltaTime);
+	Super::Tick(DeltaSeconds);
+
+
+	if (bStartUnloading)
+	{
+		m_unloadTimer += DeltaSeconds;
+		if (m_unloadTimer >= UnloadTimer)
+		{
+			UnloadGridAsync();
+			GEngine->AddOnScreenDebugMessage(-1, 3, FColor::Red, ("Unloading Async"));
+		}
+	}
 }
 
 void ANavSystemVolume::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
@@ -125,39 +157,43 @@ void ANavSystemVolume::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActo
 
 	if (TargetActor != nullptr && OtherActor == TargetActor)
 	{
-		UNavSystemComponent* NavSystem = AI_AgentActor->FindComponentByClass<UNavSystemComponent>();
-		if (NavSystem != nullptr && NavSystem->GetTargetActorNavSystemVolume() != this)
+		if (AI_AgentActor != nullptr)
 		{
-			NavSystem->SetTargetActorNavSystemVolume(this);
-			TargetActorEnterLocation = TargetActor->GetActorLocation();
+			UNavSystemComponent* NavSystem = AI_AgentActor->FindComponentByClass<UNavSystemComponent>();
+			if (NavSystem != nullptr && NavSystem->GetTargetActorNavSystemVolume() != this)
+			{
+				NavSystem->SetTargetActorNavSystemVolume(this);
+				TargetActorEnterLocation = TargetActor->GetActorLocation();
+			}
 		}
 		if (!bAreNodesLoaded)
 		{
 			TFuture<void> AsyncTask = Async(EAsyncExecution::Thread, [&]() { PopulateNodesAsync(); });
 		}
+		bStartUnloading = false;
+		m_unloadTimer = 0;
 	}
 }
 
-void ANavSystemVolume::OnOverlapEnd(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp,
+void ANavSystemVolume::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
                                     int32 OtherBodyIndex)
 {
 	if (AI_AgentActor != nullptr && OtherActor == AI_AgentActor)
 	{
 		if (bAreNodesLoaded)
 		{
-			delete [] Nodes;
-			Nodes = nullptr;
+			SetActorTickEnabled(true);
+			bStartUnloading = true;
+			m_unloadTimer = 0;
 		}
 		UNavSystemComponent* NavSystem = AI_AgentActor->FindComponentByClass<UNavSystemComponent>();
 		if (NavSystem != nullptr)
 		{
 			NavSystem->SetAI_AgentActorNavSystemVolume(nullptr);
 		}
-		bAreNodesLoaded = false;
-		
 	}
 
-	if (TargetActor != nullptr && OtherActor == TargetActor)
+	if (AI_AgentActor != nullptr && TargetActor != nullptr && OtherActor == TargetActor)
 	{
 		UNavSystemComponent* NavSystem = AI_AgentActor->FindComponentByClass<UNavSystemComponent>();
 		if (NavSystem != nullptr)
@@ -372,16 +408,11 @@ void ANavSystemVolume::DeleteGrid() const
 {
 	ProceduralMesh->ClearAllMeshSections();
 	ProceduralMesh->SetMaterial(0, nullptr);
-	//ProceduralMesh->GetMaterial(0)->BeginDestroy();
-
-
-	//ProceduralMesh->UnregisterComponent();
-	//ProceduralMesh->ConditionalBeginDestroy();
 }
 
 
 void ANavSystemVolume::CreateLine(const FVector& start, const FVector& end, const FVector& normal, TArray<FVector>& vertices,
-                                  TArray<int32>& triangles)
+                                  TArray<int32>& triangles) const
 {
 	// Calculate the half line thickness and the thickness direction
 	float halfLineThickness = LineThickness / 2.0f;

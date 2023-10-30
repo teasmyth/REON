@@ -26,25 +26,20 @@ public:
 	bool FindPath(const FVector& start, AActor* target,
 	              const TArray<TEnumAsByte<EObjectTypeQuery>>& object_types,
 	              const float& meshBounds, UClass* actor_class_filter,
-	              FVector& OutDirectionToMove, const bool& useAStar);
+	              FVector& OutDirectionToMove, const bool& useAStar, const ECollisionChannel& CollisionChannel);
 
 
 	UPROPERTY(VisibleAnywhere, Category = "Navigation System|Debug")
 	ANavSystemVolume* AgentVolume = nullptr;
 
 	UPROPERTY(VisibleAnywhere, Category = "Navigation System|Debug")
-	ANavSystemVolume* PreviousAgentVolume = nullptr;
-
-	UPROPERTY(EditAnywhere, Category = "Navigation System|Debug")
 	ANavSystemVolume* TargetVolume = nullptr;
-
-	UPROPERTY(EditAnywhere, Category = "Navigation System|Debug")
-	ANavSystemVolume* PreviousTargetVolume= nullptr;
 
 	void SetAI_AgentActorNavSystemVolume(ANavSystemVolume* NavSystemVolume) { AgentVolume = NavSystemVolume; }
 
 	void SetTargetActorNavSystemVolume(ANavSystemVolume* NavSystemVolume) { TargetVolume = NavSystemVolume; }
 
+	UFUNCTION(BlueprintCallable, Category = "Navigation System")
 	void SetTarget(AActor* TargetActor) { Target = TargetActor; }
 
 	UFUNCTION(BlueprintPure, Category = "Navigation System")
@@ -65,7 +60,7 @@ protected:
 
 private:
 	bool Jump(const ANavSystemVolume& NavVolume, const NavSystemNode& CurrentNode, const NavSystemNode& Neighbor, AActor* TargetActor,
-	          NavSystemNode** OutJumpPoint);
+	          const float& meshBounds, const ECollisionChannel& CollisionChannel, NavSystemNode** OutJumpPoint);
 
 	void AddNeighbors(const ANavSystemVolume& NavVolume, NavSystemNode* CurrentNode);
 
@@ -74,8 +69,7 @@ private:
 	void ClampCoordinates(const ANavSystemVolume& NavVolume, FIntVector& Coordinates);
 
 	bool AreCoordinatesValid(const ANavSystemVolume& NavVolume, const FIntVector& Coordinates);
-
-
+	
 	/**
 	* Converts a coordinate into a world space location. If the coordinate is not within the bounds of the grid,
 	* the coordinate will be clamped to the closest coordinate.
@@ -96,12 +90,6 @@ private:
 
 	NavSystemNode* GetNode(const ANavSystemVolume& NavVolume, FIntVector Coordinates);
 
-	NavSystemNode* StartNode = nullptr;
-	NavSystemNode* LastStartNode = nullptr;
-
-	NavSystemNode* EndNode = nullptr;
-	NavSystemNode* LastEndNode = nullptr;
-
 	UPROPERTY()
 	AActor* Target = nullptr;
 };
@@ -113,6 +101,7 @@ struct FHitResultCompare
 		return left.Distance < right.Distance;
 	}
 };
+
 
 struct FNodeCompare
 {
