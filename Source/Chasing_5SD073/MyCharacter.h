@@ -106,12 +106,19 @@ public:
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	// Delay timer
 	float airDashDelay;
+
+	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	float gravityOrigin;
+
+	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	float gravityLow;
 	
 	float accelerationTimer;
 	float fallingTimer;
 	bool landed;
 	bool dash;
 	bool dashOnce;
+	float airDashDelayTimer;
 	bool startDelay;
 	bool startDash;
 	

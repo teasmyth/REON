@@ -4,6 +4,7 @@
 #include "MyCharacter.h"
 #include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
+#include "GenericPlatform/GenericPlatformProcess.h"
 
 #pragma region Character 
 // Sets default values
@@ -85,23 +86,25 @@ void AMyCharacter::Tick(float DeltaTime)
 	{
 		dash = false;
 		dashOnce = true;
+		airDashDelayTimer = 0;
+		startDelay = false;
+		startDash = false;
 	}
 
 	if(startDelay)
 	{
-		float timer = 1;
-		timer += DeltaTime;
+		airDashDelayTimer += DeltaTime;
+		
 		if (GEngine)
 		{
-			const FString msg = FString::Printf(TEXT("timer: %f"), timer);
+			const FString msg = FString::Printf(TEXT("timer: %f"), airDashDelayTimer);
 			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
 		}
-		if(timer > airDashDelay)
+		if(airDashDelayTimer > airDashDelay)
 		{
 			startDash = true;
 		}
 	}
-
 	
 	if(onSlope) Slide();
 	
@@ -259,7 +262,8 @@ void AMyCharacter::AirDash(const FInputActionValue& Value)
 		}
 
 		startDelay = true;
-
+		GetCharacterMovement()->GravityScale = gravityLow;
+		
 		if(startDash)
 		{
 			FVector StartTrace = FVector(
@@ -281,12 +285,14 @@ void AMyCharacter::AirDash(const FInputActionValue& Value)
 				bool actorHit = GetWorld()->LineTraceSingleByChannel(hit, start, end, ECC_Pawn, FCollisionQueryParams(),
 																	 FCollisionResponseParams());
 				DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
-			
+
+				GetCharacterMovement()->GravityScale = gravityOrigin;
 				SetActorLocation(end, true);
 				
 				dashOnce = false;
 				startDash = false;
-				startDelay=false;
+				startDelay = false;
+				airDashDelayTimer = 0;
 			}
 		}
 	}
