@@ -69,7 +69,6 @@ bool UNavSystemComponent::DecideNavigation(FVector& OutDirectionToMove)
 		if (bHit && HitResult.GetActor() == Target)
 		{
 			OutDirectionToMove = (Target->GetActorLocation() - GetOwner()->GetActorLocation()).GetSafeNormal();
-			UE_LOG(LogTemp,Display,TEXT("Out dir: X:%f, Y%f, Z%f"), OutDirectionToMove.X, OutDirectionToMove.Y, OutDirectionToMove.Z);
 		}
 		else
 		{
