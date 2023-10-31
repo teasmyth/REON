@@ -127,6 +127,8 @@ public:
 	float slideTimer;
 	bool boostSlide;
 
+	FVector dashValue;
+	void DashAction();
 	
 	// Movements
 	void Acceleration();

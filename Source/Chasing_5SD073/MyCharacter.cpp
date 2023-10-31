@@ -103,6 +103,7 @@ void AMyCharacter::Tick(float DeltaTime)
 		if(airDashDelayTimer > airDashDelay)
 		{
 			startDash = true;
+			DashAction();
 		}
 	}
 	
@@ -149,6 +150,31 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 #pragma endregion
 
 #pragma region Movement
+
+void AMyCharacter::DashAction()
+{
+	if(startDash)
+	{
+		FVector start = GetActorLocation();
+		FVector forward = FrontCam->GetForwardVector();
+		start = FVector(start.X + (forward.X * airDashDistance), start.Y + (forward.Y * airDashDistance), start.Z + (forward.Z * airDashDistance));
+		FVector end = start + forward;
+		FHitResult hit;
+
+		if (GetWorld())
+		{
+			DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
+
+			GetCharacterMovement()->GravityScale = gravityOrigin;
+			SetActorLocation(end, true);
+				
+			dashOnce = false;
+			startDash = false;
+			startDelay = false;
+			airDashDelayTimer = 0;
+		}
+	}
+}
 
 // Movement
 void AMyCharacter::Acceleration()
@@ -267,8 +293,6 @@ void AMyCharacter::Slide()
 
 void AMyCharacter::AirDash(const FInputActionValue& Value)
 {
-	FVector dashValue = Value.Get<FVector>();
-	
 	if (Controller != nullptr)
 	{
 		if (!dash || !dashOnce)
@@ -277,39 +301,10 @@ void AMyCharacter::AirDash(const FInputActionValue& Value)
 		}
 
 		startDelay = true;
+		dashValue = Value.Get<FVector>();
 		GetCharacterMovement()->GravityScale = gravityLow;
 		
-		if(startDash)
-		{
-			FVector StartTrace = FVector(
-				GetCapsuleComponent()->GetSocketLocation(FName("Capsule Component")).X + 100 * dashValue.X,
-				GetCapsuleComponent()->GetSocketLocation(FName("Capsule Component")).Y + 100 * dashValue.Y,
-				GetCapsuleComponent()->GetSocketLocation(FName("Capsule Component")).Z + 100 * dashValue.Z);
-
-			FRotator CurrentTrace = GetCapsuleComponent()->GetSocketRotation(FName("Capsule Component"));
-			FVector EndTrace = StartTrace + CurrentTrace.Vector() * airDashDistance;
-
-			FVector start = GetActorLocation();
-			FVector forward = FrontCam->GetForwardVector();
-			start = FVector(start.X + (forward.X * airDashDistance), start.Y + (forward.Y * airDashDistance), start.Z + (forward.Z * airDashDistance));
-			FVector end = start + forward;
-			FHitResult hit;
-
-			if (GetWorld())
-			{
-				bool actorHit = GetWorld()->LineTraceSingleByChannel(hit, start, end, ECC_Pawn, FCollisionQueryParams(),
-																	 FCollisionResponseParams());
-				DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
-
-				GetCharacterMovement()->GravityScale = gravityOrigin;
-				SetActorLocation(end, true);
-				
-				dashOnce = false;
-				startDash = false;
-				startDelay = false;
-				airDashDelayTimer = 0;
-			}
-		}
+		
 	}
 }
 
