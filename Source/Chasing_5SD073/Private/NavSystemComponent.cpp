@@ -33,23 +33,6 @@ bool UNavSystemComponent::DecideNavigation(FVector& OutDirectionToMove)
 {
 	if (AgentVolume)
 	{
-		if (TargetVolume == nullptr)
-		{
-			/*
-			auto result = std::find(StartNode->Neighbors.begin(), StartNode->Neighbors.end(), EndNode);
-			if (result != StartNode->Neighbors.end())
-			{
-				AgentVolume = nullptr;
-			}
-			
-			
-			float dist = FVector::Dist(ConvertCoordinatesToLocation(*AgentVolume, EndNode->Coordinates), AgentVolume->GetTargetActorEndLocation());
-			if (dist < 50)
-			{
-				AgentVolume = nullptr;
-			}
-			*/
-		}
 		return false;
 	}
 
@@ -65,7 +48,7 @@ bool UNavSystemComponent::DecideNavigation(FVector& OutDirectionToMove)
 	if (TargetVolume != nullptr) //Move towards the enter point of target's volume.
 	{
 		bool bHit = GetWorld()->SweepSingleByChannel(HitResult, GetOwner()->GetActorLocation(), Target->GetActorLocation(), FQuat::Identity,
-											 ECC_GameTraceChannel1, HitBox, TraceParams);
+		                                             ECC_GameTraceChannel1, HitBox, TraceParams);
 		if (bHit && HitResult.GetActor() == Target)
 		{
 			OutDirectionToMove = (Target->GetActorLocation() - GetOwner()->GetActorLocation()).GetSafeNormal();
@@ -90,10 +73,10 @@ void UNavSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	// ...
 }
 
-bool UNavSystemComponent::FindPath(const FVector& start, AActor* target,
-                                   const TArray<TEnumAsByte<EObjectTypeQuery>>& object_types,
-                                   const float& meshBounds, UClass* actor_class_filter,
-                                   FVector& OutDirectionToMove, const bool& useAStar, const ECollisionChannel& CollisionChannel)
+bool UNavSystemComponent::FindPath(const FVector& Start, AActor* target,
+                                   const TArray<TEnumAsByte<EObjectTypeQuery>>& Object_Types,
+                                   const float& MeshBounds, UClass* Actor_Class_Filter,
+                                   FVector& OutDirectionToMove, const bool& bUseAStar, const ECollisionChannel& CollisionChannel)
 
 {
 	const ANavSystemVolume* NavVolume = AgentVolume; //Too lazy to rewrite all.
@@ -102,7 +85,7 @@ bool UNavSystemComponent::FindPath(const FVector& start, AActor* target,
 	{
 		return false;
 	}
-	
+
 	bool drawdebugenabled = false;
 
 	// Create open and closed sets
@@ -192,31 +175,32 @@ bool UNavSystemComponent::FindPath(const FVector& start, AActor* target,
 		// Horizontal or vertical movement: Add a lower cost (e.g., 10)
 		return current.GScore + 100; // + AdditionalCosts(current, neighbor); // Consider terrain costs, etc.
 	};
-	
+
 
 	auto Cleanup = [&]()
 	{
 		for (NavSystemNode* item : OpenSetCheck)
 		{
-			item->FScore=item->GScore=item->HScore = FLT_MAX;
+			item->FScore = item->GScore = item->HScore = FLT_MAX;
 		}
 		for (NavSystemNode* item : ClosedSet)
 		{
-			item->FScore=item->GScore=item->HScore = FLT_MAX;
+			item->FScore = item->GScore = item->HScore = FLT_MAX;
 		}
 	};
 
 	auto IsBlocked = [&](const NavSystemNode* nodeToCheck)
 	{
 		TArray<AActor*> outActors;
-		return UKismetSystemLibrary::BoxOverlapActors(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, nodeToCheck->Coordinates),FVector(meshBounds) * 1.1f, object_types,
-		                                                  actor_class_filter, TArray<AActor*>(), outActors);
+		return UKismetSystemLibrary::BoxOverlapActors(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, nodeToCheck->Coordinates),
+		                                              FVector(MeshBounds) * 1.1f, Object_Types,
+		                                              Actor_Class_Filter, TArray<AActor*>(), outActors);
 	};
 
 #pragma  endregion
 
 	// Initialize start node
-	NavSystemNode* StartNode = GetNode(*NavVolume, ConvertLocationToCoordinates(*NavVolume, start));
+	NavSystemNode* StartNode = GetNode(*NavVolume, ConvertLocationToCoordinates(*NavVolume, Start));
 
 	/*
 	FIntVector origin = ConvertLocationToCoordinates(*NavVolume, destination);
@@ -248,7 +232,7 @@ bool UNavSystemComponent::FindPath(const FVector& start, AActor* target,
 	OpenSetCheck.insert(StartNode);
 	int infiniteloopindex = 0;
 
-	if (useAStar)
+	if (bUseAStar)
 	{
 		while (!OpenSet.empty())
 		{
@@ -269,7 +253,7 @@ bool UNavSystemComponent::FindPath(const FVector& start, AActor* target,
 			if (current->Coordinates == EndNode->Coordinates)
 			{
 				if (drawdebugenabled)
-					DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, current->Coordinates), meshBounds, 4, FColor::Blue, false, 2,
+					DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, current->Coordinates), MeshBounds, 4, FColor::Blue, false, 2,
 					                0,
 					                5.0f);
 
@@ -286,7 +270,7 @@ bool UNavSystemComponent::FindPath(const FVector& start, AActor* target,
 			ClosedSet.insert(current);
 
 			if (drawdebugenabled)
-				DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, current->Coordinates), meshBounds, 4, FColor::Green,
+				DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, current->Coordinates), MeshBounds, 4, FColor::Green,
 				                false, 1, 0, 5.0f);
 
 
@@ -348,7 +332,7 @@ bool UNavSystemComponent::FindPath(const FVector& start, AActor* target,
 			for (auto Neighbor : currentNode->Neighbors)
 			{
 				//If true, it means it was a successful jump.
-				if (Jump(*NavVolume, *currentNode, *Neighbor, target, meshBounds, CollisionChannel, &JumpPoint))
+				if (Jump(*NavVolume, *currentNode, *Neighbor, target, MeshBounds, CollisionChannel, &JumpPoint))
 				{
 					//Perhaps there is a better way, but for now, just calculating based on F yields good result, rest are commented out to save perf.
 					//Not gonna use G and H for the time being
@@ -376,28 +360,17 @@ bool UNavSystemComponent::FindPath(const FVector& start, AActor* target,
 }
 
 bool UNavSystemComponent::Jump(const ANavSystemVolume& NavVolume, const NavSystemNode& CurrentNode, const NavSystemNode& Neighbor,
-                               AActor* TargetActor, const float& meshBounds, const ECollisionChannel& CollisionChannel, NavSystemNode** OutJumpPoint)
+                               AActor* TargetActor, const float& MeshBounds, const ECollisionChannel& CollisionChannel, NavSystemNode** OutJumpPoint)
 {
 	FIntVector Direction = Neighbor.Coordinates - CurrentNode.Coordinates;
 
 	float MaxSweepDistance = CalculateMaxSweepDistance(NavVolume, CurrentNode, static_cast<FVector>(Direction));
 
-
-	FCollisionQueryParams TraceParams;
-	TraceParams.AddIgnoredActor(GetOwner()); // Ignore the agent itself.
-
 	FHitResult OriginLineResult;
 	FVector OriginStart = ConvertCoordinatesToLocation(NavVolume, CurrentNode.Coordinates);
 	FVector OriginEnd = OriginStart + static_cast<FVector>(Direction) * MaxSweepDistance;
 
-	//bool originHit = GetWorld()->LineTraceSingleByChannel(OriginLineResult, OriginStart, OriginEnd, ECC_GameTraceChannel1, TraceParams);
-
-	FCollisionShape HitBox = FCollisionShape::MakeBox(FVector(meshBounds));
-
-	bool originHit = GetWorld()->SweepSingleByChannel(OriginLineResult, OriginStart, OriginEnd, FQuat::Identity, CollisionChannel, HitBox,
-	                                                  TraceParams);
-
-	if (originHit && OriginLineResult.GetActor() == TargetActor)
+	if (SweepBoxShape(OriginStart, OriginEnd, CollisionChannel, MeshBounds, OriginLineResult) && OriginLineResult.GetActor() == TargetActor)
 	{
 		*OutJumpPoint = GetNode(NavVolume, ConvertLocationToCoordinates(NavVolume, TargetActor->GetActorLocation()));
 		return true;
@@ -554,9 +527,8 @@ bool UNavSystemComponent::Jump(const ANavSystemVolume& NavVolume, const NavSyste
 		{
 			FVector Start = PossibleStarts[i];
 			FVector End = Start + static_cast<FVector>(Direction) * MaxSweepDistance;
-
-			//if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_GameTraceChannel1, TraceParams))
-			if (GetWorld()->SweepSingleByChannel(HitResult, Start, End, FQuat::Identity, CollisionChannel, HitBox, TraceParams))
+			
+			if (SweepBoxShape(Start, End, CollisionChannel, MeshBounds, HitResult))
 			{
 				if (HitResult.Distance > 0 && HitResult.Distance < OriginLineResult.Distance - 1)
 				{
@@ -575,12 +547,11 @@ bool UNavSystemComponent::Jump(const ANavSystemVolume& NavVolume, const NavSyste
 		{
 			FHitResult closestHit = *HitResultsSet.begin();
 
-			//World Coords. Adding a tiny vector pointing towards hit object's center because when an object is just on the edge of the grid,
+			//TODO World Coords. Adding a tiny vector pointing towards hit object's center because when an object is just on the edge of the grid,
 			//the impact point is technically on the grid that's before it by fraction of a cm.
 
 			FVector JumpPointCoords = closestHit.ImpactPoint + (OriginLineResult.TraceStart - closestHit.TraceStart);
 			*OutJumpPoint = GetNode(NavVolume, ConvertLocationToCoordinates(NavVolume, JumpPointCoords));
-			//DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(tmp->Coordinates), 30, 4, FColor::Blue, false, 2, 0, 5.0f);
 			return true;
 		}
 	}
@@ -591,15 +562,11 @@ bool UNavSystemComponent::Jump(const ANavSystemVolume& NavVolume, const NavSyste
 		{
 			FVector Previous = ConvertCoordinatesToLocation(NavVolume, CurrentNode.Coordinates + Direction * (searchIndex - 1));
 			FVector Start = ConvertCoordinatesToLocation(NavVolume, CurrentNode.Coordinates + Direction * searchIndex);
-
-			//if (GetWorld()->LineTraceSingleByChannel(HitResult, Previous, Start, ECC_GameTraceChannel1, TraceParams)) return false;
-			//if (GetWorld()->SweepSingleByChannel(HitResult, Previous, Start, FQuat::Identity, ECC_GameTraceChannel1, HitBox, TraceParams)) return false;
-			if (GetWorld()->OverlapAnyTestByChannel(Start, FQuat::Identity, CollisionChannel, HitBox, TraceParams)) return false;
+			
+			if (OverlapBoxShape(Start, CollisionChannel, MeshBounds)) return false;
 
 			FVector NextDiagonal = ConvertCoordinatesToLocation(NavVolume, CurrentNode.Coordinates + Direction * (searchIndex + 1));
-			//if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, NextDiagonal, ECC_GameTraceChannel1, TraceParams))
-			//if (GetWorld()->SweepSingleByChannel(HitResult, Start, NextDiagonal, FQuat::Identity, ECC_GameTraceChannel1, HitBox, TraceParams))
-			if (GetWorld()->OverlapAnyTestByChannel(NextDiagonal, FQuat::Identity, CollisionChannel, HitBox, TraceParams))
+			if (OverlapBoxShape(NextDiagonal, CollisionChannel, MeshBounds))
 			{
 				*OutJumpPoint = GetNode(NavVolume, ConvertLocationToCoordinates(NavVolume, NextDiagonal));
 				return true;
@@ -613,12 +580,8 @@ bool UNavSystemComponent::Jump(const ANavSystemVolume& NavVolume, const NavSyste
 				if (RotatedSweep < 1) continue;
 
 				FVector End = Start + RotatedDirections[i] * RotatedSweep;
-
-
-				//DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 2, 0, 2);
-
-				//if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_GameTraceChannel1, TraceParams))
-				if (GetWorld()->SweepSingleByChannel(HitResult, Start, End, FQuat::Identity, CollisionChannel, HitBox, TraceParams))
+				
+				if (SweepBoxShape(Start, End, CollisionChannel, MeshBounds, HitResult))
 				{
 					*OutJumpPoint = GetNode(NavVolume, ConvertLocationToCoordinates(NavVolume, Start));
 					return true;
@@ -731,13 +694,29 @@ bool UNavSystemComponent::AreCoordinatesValid(const ANavSystemVolume& NavVolume,
 		Coordinates.Z >= 0 && Coordinates.Z < NavVolume.GetDivisionsZ();
 }
 
+bool UNavSystemComponent::SweepBoxShape(const FVector& Start, const FVector& End, const ECollisionChannel& CollisionChannel,
+                                        const float& BoxColliderSize, FHitResult& OutHitResult) const
+{
+	const FCollisionShape HitBox = FCollisionShape::MakeBox(FVector(BoxColliderSize));
+	FCollisionQueryParams TraceParams;
+	TraceParams.AddIgnoredActor(GetOwner());
+
+	return GetWorld()->SweepSingleByChannel(OutHitResult, Start, End, FQuat::Identity, CollisionChannel, HitBox, TraceParams);
+}
+
+bool UNavSystemComponent::OverlapBoxShape(const FVector& Location, const ECollisionChannel& CollisionChannel, const float& BoxColliderSize) const
+{
+	const FCollisionShape HitBox = FCollisionShape::MakeBox(FVector(BoxColliderSize));
+	FCollisionQueryParams TraceParams;
+	TraceParams.AddIgnoredActor(GetOwner());
+
+	return GetWorld()->OverlapAnyTestByChannel(Location, FQuat::Identity, CollisionChannel, HitBox, TraceParams);
+}
 
 NavSystemNode* UNavSystemComponent::GetNode(const ANavSystemVolume& NavVolume, FIntVector Coordinates)
 {
 	ClampCoordinates(NavVolume, Coordinates);
-	//if (!AreCoordinatesValid(NavVolume, Coordinates)) return nullptr;
 	
-
 	const int32 divisionPerLevel = NavVolume.GetDivisionsX() * NavVolume.GetDivisionsY();
 	const int32 index = (Coordinates.Z * divisionPerLevel) + (Coordinates.Y * NavVolume.GetDivisionsX()) + Coordinates.X;
 
