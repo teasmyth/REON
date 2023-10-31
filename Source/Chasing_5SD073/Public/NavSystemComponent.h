@@ -8,6 +8,7 @@
 #include "NavSystemVolume.h"
 #include "NavSystemComponent.generated.h"
 
+class ANavSystemVolumeManager;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class CHASING_5SD073_API UNavSystemComponent : public UActorComponent
@@ -28,16 +29,12 @@ public:
 	              const float& meshBounds, UClass* actor_class_filter,
 	              FVector& OutDirectionToMove, const bool& useAStar, const ECollisionChannel& CollisionChannel);
 
-
-	UPROPERTY(VisibleAnywhere, Category = "Navigation System|Debug")
-	ANavSystemVolume* AgentVolume = nullptr;
-
-	UPROPERTY(VisibleAnywhere, Category = "Navigation System|Debug")
-	ANavSystemVolume* TargetVolume = nullptr;
-
 	void SetAI_AgentActorNavSystemVolume(ANavSystemVolume* NavSystemVolume) { AgentVolume = NavSystemVolume; }
 
 	void SetTargetActorNavSystemVolume(ANavSystemVolume* NavSystemVolume) { TargetVolume = NavSystemVolume; }
+
+	UFUNCTION(BlueprintCallable)
+	void SetVolumeManager(ANavSystemVolumeManager* Manager) { NavSystemVolumeManager = Manager;}
 
 	UFUNCTION(BlueprintCallable, Category = "Navigation System")
 	void SetTarget(AActor* TargetActor) { Target = TargetActor; }
@@ -90,8 +87,18 @@ private:
 
 	NavSystemNode* GetNode(const ANavSystemVolume& NavVolume, FIntVector Coordinates);
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, Category = "Navigation System|Debug")
 	AActor* Target = nullptr;
+
+	UPROPERTY(VisibleAnywhere, Category = "Navigation System|Debug")
+	ANavSystemVolumeManager* NavSystemVolumeManager = nullptr;
+
+	
+	UPROPERTY(VisibleAnywhere, Category = "Navigation System|Debug")
+	ANavSystemVolume* AgentVolume = nullptr;
+
+	UPROPERTY(VisibleAnywhere, Category = "Navigation System|Debug")
+	ANavSystemVolume* TargetVolume = nullptr;
 };
 
 struct FHitResultCompare

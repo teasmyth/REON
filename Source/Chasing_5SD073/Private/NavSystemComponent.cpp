@@ -9,8 +9,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include "queue"
-#include "NavSystemVolumeManager.h"
-#include "Kismet/GameplayStatics.h"
 
 // Sets default values for this component's properties
 UNavSystemComponent::UNavSystemComponent()
@@ -62,12 +60,16 @@ bool UNavSystemComponent::DecideNavigation(FVector& OutDirectionToMove)
 
 	FHitResult HitResult;
 	FCollisionShape HitBox = FCollisionShape::MakeBox(FVector(32));
+	FCollisionQueryParams TraceParams;
+	TraceParams.AddIgnoredActor(GetOwner());
 	if (TargetVolume != nullptr) //Move towards the enter point of target's volume.
 	{
-		if (GetWorld()->SweepSingleByChannel(HitResult, GetOwner()->GetActorLocation(), Target->GetActorLocation(), FQuat::Identity,
-		                                     ECC_GameTraceChannel1, HitBox))
+		bool bHit = GetWorld()->SweepSingleByChannel(HitResult, GetOwner()->GetActorLocation(), Target->GetActorLocation(), FQuat::Identity,
+											 ECC_GameTraceChannel1, HitBox, TraceParams);
+		if (bHit && HitResult.GetActor() == Target)
 		{
 			OutDirectionToMove = (Target->GetActorLocation() - GetOwner()->GetActorLocation()).GetSafeNormal();
+			UE_LOG(LogTemp,Display,TEXT("Out dir: X:%f, Y%f, Z%f"), OutDirectionToMove.X, OutDirectionToMove.Y, OutDirectionToMove.Z);
 		}
 		else
 		{
@@ -95,15 +97,13 @@ bool UNavSystemComponent::FindPath(const FVector& start, AActor* target,
                                    FVector& OutDirectionToMove, const bool& useAStar, const ECollisionChannel& CollisionChannel)
 
 {
-	const ANavSystemVolume* NavVolume = AgentVolume;
+	const ANavSystemVolume* NavVolume = AgentVolume; //Too lazy to rewrite all.
 
 	if (!NavVolume->GetAreNodesLoaded() || Target == nullptr)
 	{
 		return false;
 	}
-
-	//const double StartTimeAStar = FPlatformTime::Seconds();
-
+	
 	bool drawdebugenabled = false;
 
 	// Create open and closed sets
@@ -193,68 +193,25 @@ bool UNavSystemComponent::FindPath(const FVector& start, AActor* target,
 		// Horizontal or vertical movement: Add a lower cost (e.g., 10)
 		return current.GScore + 100; // + AdditionalCosts(current, neighbor); // Consider terrain costs, etc.
 	};
-
-	auto ClearNode = [](NavSystemNode& nodeToClear)
-	{
-		nodeToClear.FScore = nodeToClear.GScore = nodeToClear.HScore = FLT_MAX;
-		//nodeToClear.Neighbors.clear();
-	};
+	
 
 	auto Cleanup = [&]()
 	{
 		for (NavSystemNode* item : OpenSetCheck)
 		{
-			ClearNode(*item);
+			item->FScore=item->GScore=item->HScore = FLT_MAX;
 		}
 		for (NavSystemNode* item : ClosedSet)
 		{
-			ClearNode(*item);
+			item->FScore=item->GScore=item->HScore = FLT_MAX;
 		}
 	};
 
 	auto IsBlocked = [&](const NavSystemNode* nodeToCheck)
 	{
 		TArray<AActor*> outActors;
-		bool tmp = UKismetSystemLibrary::BoxOverlapActors(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, nodeToCheck->Coordinates),
-		                                                  /*FVector(GetDivisionSize() / 2.1)*/ FVector(meshBounds) * 1.1f, object_types,
+		return UKismetSystemLibrary::BoxOverlapActors(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, nodeToCheck->Coordinates),FVector(meshBounds) * 1.1f, object_types,
 		                                                  actor_class_filter, TArray<AActor*>(), outActors);
-
-		if (tmp && drawdebugenabled)
-		{
-			DrawDebugBox(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, nodeToCheck->Coordinates), FVector(meshBounds), FColor::Red, false, 1,
-			             0,
-			             5.0f);
-		}
-		return tmp;
-	};
-
-
-	//todo doesnt work.
-	//D is cost of diagonal movement, default is 14. D2 is cost of cardinal/orthogonal movement, default is 10.
-	auto CalculateOctileDistance = [&](const NavSystemNode* startNode, const NavSystemNode* targetNode, const int32 D = 14, const int32 D2 = 10)
-	{
-		const FVector startNodeF = ConvertCoordinatesToLocation(*NavVolume, startNode->Coordinates);
-		const FVector targetNodeF = ConvertCoordinatesToLocation(*NavVolume, targetNode->Coordinates);
-		int dx = FMath::Abs(targetNodeF.X - startNodeF.X);
-		int dy = FMath::Abs(targetNodeF.Y - startNodeF.Y);
-		int dz = FMath::Abs(targetNodeF.Z - startNodeF.Z);
-
-		int d1 = FMath::Min3(dx, dy, dz);
-		int d2 = FMath::Abs(dx - dy) + FMath::Abs(dy - dz) + FMath::Abs(dz - dx);
-		int d3 = 0;
-
-		if (D == 1)
-		{
-			// The cost of diagonal movement is 1.
-			d3 = d1;
-		}
-		else
-		{
-			// The cost of diagonal movement is sqrt(3), approximately 1.7321.
-			d3 = static_cast<int32>(D * 0.7321f * d1);
-		}
-
-		return D * (d1 + d2) + (D2 - 2 * D) * d3;
 	};
 
 #pragma  endregion
@@ -382,13 +339,8 @@ bool UNavSystemComponent::FindPath(const FVector& start, AActor* target,
 			{
 				ReconstructPath(ParentMap, currentNode, OutDirectionToMove);
 				Cleanup();
-				//DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(currentNode->Coordinates), 30, 4, FColor::Purple, false, 2, 0, 5.0f);
-				//UE_LOG(LogTemp, Warning, TEXT("Found path!"));
-				//const double EndTimeAStar = FPlatformTime::Seconds();
-				//double ElapsedTimeAStar = EndTimeAStar - StartTimeAStar;
 				return true;
 			}
-			//DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(currentNode->Coordinates), 30, 4, FColor::Blue, false, 2, 0, 5.0f);
 
 
 			if (currentNode->Neighbors.size() == 0) AddNeighbors(*NavVolume, currentNode);
@@ -403,8 +355,6 @@ bool UNavSystemComponent::FindPath(const FVector& start, AActor* target,
 					//Not gonna use G and H for the time being
 					const float tentativeG = CalculateTentativeGScore(*currentNode, *JumpPoint);
 
-					//const float tentativeG = currentNode->GScore;// + 10;
-
 					const float tentativeF = tentativeG + FVector::Dist(ConvertCoordinatesToLocation(*NavVolume, JumpPoint->Coordinates),
 					                                                    ConvertCoordinatesToLocation(*NavVolume, EndNode->Coordinates));
 
@@ -418,7 +368,6 @@ bool UNavSystemComponent::FindPath(const FVector& start, AActor* target,
 					{
 						OpenSet.push(JumpPoint);
 						OpenSetCheck.emplace(JumpPoint);
-						//DrawDebugBox(GetWorld(), ConvertCoordinatesToLocation(jumpPoint->Coordinates), FVector(GetDivisionSize() / 2), FColor::Green, true, 1, 0, 2);
 					}
 				}
 			}

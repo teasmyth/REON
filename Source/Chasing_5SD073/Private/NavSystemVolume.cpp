@@ -7,8 +7,10 @@
 #include "NavSystemNode.h"
 #include "DrawDebugHelpers.h"
 #include "NavSystemComponent.h"
+#include "NavSystemVolumeManager.h"
 #include "queue"
 #include "Async/Async.h"
+#include "Kismet/GameplayStatics.h"
 
 static UMaterial* GridMaterial = nullptr;
 
@@ -146,26 +148,19 @@ void ANavSystemVolume::Tick(float DeltaSeconds)
 void ANavSystemVolume::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
                                       int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (AI_AgentActor != nullptr && OtherActor == AI_AgentActor)
+	if (VolumeManager == nullptr) return;
+
+
+	if (AI_AgentActor != nullptr && OtherActor == AI_AgentActor && VolumeManager->GetAI_AgentActorVolume() != this)
 	{
-		UNavSystemComponent* NavSystem = AI_AgentActor->FindComponentByClass<UNavSystemComponent>();
-		if (NavSystem != nullptr && NavSystem->GetAgentActorNavSystemVolume() != this)
-		{
-			NavSystem->SetAI_AgentActorNavSystemVolume(this);
-		}
+		VolumeManager->SetAI_AgentActorVolume(this);
 	}
 
-	if (TargetActor != nullptr && OtherActor == TargetActor)
+	if (TargetActor != nullptr && OtherActor == TargetActor && VolumeManager->GetTargetActorVolume() != this)
 	{
-		if (AI_AgentActor != nullptr)
-		{
-			UNavSystemComponent* NavSystem = AI_AgentActor->FindComponentByClass<UNavSystemComponent>();
-			if (NavSystem != nullptr && NavSystem->GetTargetActorNavSystemVolume() != this)
-			{
-				NavSystem->SetTargetActorNavSystemVolume(this);
-				TargetActorEnterLocation = TargetActor->GetActorLocation();
-			}
-		}
+		VolumeManager->SetTargetActorVolume(this);
+		TargetActorEnterLocation = TargetActor->GetActorLocation();
+
 		if (!bAreNodesLoaded)
 		{
 			TFuture<void> AsyncTask = Async(EAsyncExecution::Thread, [&]() { PopulateNodesAsync(); });
@@ -178,6 +173,9 @@ void ANavSystemVolume::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActo
 void ANavSystemVolume::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
                                     int32 OtherBodyIndex)
 {
+	if (VolumeManager == nullptr) return;
+
+
 	if (AI_AgentActor != nullptr && OtherActor == AI_AgentActor)
 	{
 		if (bAreNodesLoaded)
@@ -186,27 +184,35 @@ void ANavSystemVolume::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor*
 			bStartUnloading = true;
 			m_unloadTimer = 0;
 		}
-		UNavSystemComponent* NavSystem = AI_AgentActor->FindComponentByClass<UNavSystemComponent>();
-		if (NavSystem != nullptr)
-		{
-			NavSystem->SetAI_AgentActorNavSystemVolume(nullptr);
-		}
+
+		VolumeManager->SetAI_AgentActorVolume(nullptr);
 	}
 
 	if (AI_AgentActor != nullptr && TargetActor != nullptr && OtherActor == TargetActor)
 	{
-		UNavSystemComponent* NavSystem = AI_AgentActor->FindComponentByClass<UNavSystemComponent>();
-		if (NavSystem != nullptr)
-		{
-			NavSystem->SetTargetActorNavSystemVolume(nullptr);
-			TargetActorEndLocation = TargetActor->GetActorLocation();
-		}
+		VolumeManager->SetTargetActorVolume(nullptr);
+		TargetActorEndLocation = TargetActor->GetActorLocation();
 	}
 }
 
 void ANavSystemVolume::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
+	if (VolumeManager == nullptr)
+	{
+		VolumeManager = Cast<ANavSystemVolumeManager>(UGameplayStatics::GetActorOfClass(GetWorld(), ANavSystemVolumeManager::StaticClass()));
+
+		if (VolumeManager == nullptr)
+		{
+			if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Red, "Volume Manager Missing!");
+		}
+	}
+	else
+	{
+		if (VolumeManager->GetTargetActor() != nullptr) TargetActor = VolumeManager->GetTargetActor();
+		if (VolumeManager->GetAI_AgentActor() != nullptr) AI_AgentActor = VolumeManager->GetAI_AgentActor()->GetOwner();
+	}
+
 	CreateBorders();
 }
 

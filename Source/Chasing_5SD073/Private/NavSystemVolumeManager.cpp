@@ -2,7 +2,6 @@
 
 
 #include "NavSystemVolumeManager.h"
-
 #include "NavSystemComponent.h"
 #include "NavSystemVolume.h"
 #include "Kismet/GameplayStatics.h"
@@ -38,14 +37,15 @@ void ANavSystemVolumeManager::SetUpNavVolumes()
 		{
 			ANavSystemVolume* Volume = Cast<ANavSystemVolume>(Actor);
 			if (TargetActor != nullptr) Volume->SetTargetActor(TargetActor);
-			if (AI_AgentActor != nullptr)Volume->SetAI_AgentActor(AI_AgentActor);
+			if (AI_AgentActor != nullptr) Volume->SetAI_AgentActor(AI_AgentActor->GetOwner());
 			Volume->SetUnloadTimer(UnloadTimer);
+			Volume->SetVolumeManager(this);
 		}
 	}
 
 	if (TargetActor != nullptr && AI_AgentActor != nullptr)
 	{
-		AI_AgentActor->GetComponentByClass<UNavSystemComponent>()->SetTarget(TargetActor);
+		AI_AgentActor->SetTarget(TargetActor);
 	}
 }
 
@@ -78,19 +78,41 @@ void ANavSystemVolumeManager::SetUpAI_Agent()
 	{
 		for (const auto Actor : NavVolumeArray)
 		{
-			Cast<ANavSystemVolume>(Actor)->SetAI_AgentActor(AI_AgentActor);
+			Cast<ANavSystemVolume>(Actor)->SetAI_AgentActor(AI_AgentActor->GetOwner());
 		}
 	}
 }
 
-void ANavSystemVolumeManager::SetUpAI_Agent(AActor* NewAgent)
+void ANavSystemVolumeManager::SetUpAI_Agent(UNavSystemComponent* NewAgent)
 {
 	AI_AgentActor = NewAgent;
+	AI_AgentActor->SetVolumeManager(this);
+	AI_AgentActor->SetTarget(TargetActor);
+	//AI_AgentActor->SetAI_AgentActorNavSystemVolume(AI_AgentVolume);
+	if (TargetActor != nullptr) AI_AgentActor->SetTargetActorNavSystemVolume(TargetVolume); //Only set this if Target is in game, otherwise could be outdated.
 	if (NavVolumeArray.Num() > 0)
 	{
 		for (const auto Actor : NavVolumeArray)
 		{
-			Cast<ANavSystemVolume>(Actor)->SetAI_AgentActor(AI_AgentActor);
+			Cast<ANavSystemVolume>(Actor)->SetAI_AgentActor(AI_AgentActor->GetOwner());
 		}
+	}
+}
+
+void ANavSystemVolumeManager::SetTargetActorVolume(ANavSystemVolume* Volume)
+{
+	TargetVolume = Volume;
+	if (AI_AgentActor != nullptr)
+	{
+		AI_AgentActor->SetTargetActorNavSystemVolume(Volume);
+	}
+}
+
+void ANavSystemVolumeManager::SetAI_AgentActorVolume(ANavSystemVolume* Volume)
+{
+	AI_AgentVolume = Volume;
+	if (AI_AgentActor != nullptr)
+	{
+		AI_AgentActor->SetAI_AgentActorNavSystemVolume(Volume);
 	}
 }
