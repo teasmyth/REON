@@ -63,9 +63,9 @@ private:
 
 	float CalculateMaxSweepDistance(const ANavSystemVolume& NavVolume, const NavSystemNode& CurrentNode, const FVector& Direction);
 
-	static void ClampCoordinates(const ANavSystemVolume& NavVolume, FIntVector& Coordinates);
+	void ClampCoordinates(const ANavSystemVolume& NavVolume, FIntVector& Coordinates);
 
-	static bool AreCoordinatesValid(const ANavSystemVolume& NavVolume, const FIntVector& Coordinates);
+	bool AreCoordinatesValid(const ANavSystemVolume& NavVolume, const FIntVector& Coordinates);
 
 
 	/**
@@ -75,7 +75,7 @@ private:
 	* @param	Coordinates			The coordinates to convert into world space
 	* @return	The converted location in world space
 	*/
-	static FVector ConvertCoordinatesToLocation(const ANavSystemVolume& NavVolume, const FIntVector& Coordinates);
+	FVector ConvertCoordinatesToLocation(const ANavSystemVolume& NavVolume, const FIntVector& Coordinates);
 
 	/**
 	* Converts a world space location to a coordinate in the grid. If the location is not located within the grid,
@@ -84,9 +84,9 @@ private:
 	* @param	Location			The location to convert
 	* @return	The converted coordinates
 	*/
-	static FIntVector ConvertLocationToCoordinates(const ANavSystemVolume& NavVolume, const FVector& Location);
+	FIntVector ConvertLocationToCoordinates(const ANavSystemVolume& NavVolume, const FVector& Location);
 
-	static NavSystemNode* GetNode(const ANavSystemVolume& NavVolume, FIntVector Coordinates);
+	NavSystemNode* GetNode(const ANavSystemVolume& NavVolume, FIntVector Coordinates);
 
 	//Returns true if there was a hit.
 	bool SweepBoxShape(const FVector& Start, const FVector& End, const ECollisionChannel& CollisionChannel, const float& BoxColliderSize, FHitResult& OutHitResult) const;

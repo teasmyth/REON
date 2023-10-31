@@ -31,7 +31,7 @@ void UNavSystemComponent::BeginPlay()
 
 bool UNavSystemComponent::DecideNavigation(FVector& OutDirectionToMove)
 {
-	if (AgentVolume)
+	if (AgentVolume && TargetVolume)
 	{
 		return false;
 	}
@@ -41,12 +41,12 @@ bool UNavSystemComponent::DecideNavigation(FVector& OutDirectionToMove)
 		return true; //For safety reasons, in case it doesnt have reference (yet), doesnt crash the game.
 	}
 
-	FHitResult HitResult;
 	FCollisionShape HitBox = FCollisionShape::MakeBox(FVector(32));
 	FCollisionQueryParams TraceParams;
 	TraceParams.AddIgnoredActor(GetOwner());
 	if (TargetVolume != nullptr) //Move towards the enter point of target's volume.
 	{
+		FHitResult HitResult;
 		bool bHit = GetWorld()->SweepSingleByChannel(HitResult, GetOwner()->GetActorLocation(), Target->GetActorLocation(), FQuat::Identity,
 		                                             ECC_GameTraceChannel1, HitBox, TraceParams);
 		if (bHit && HitResult.GetActor() == Target)
@@ -230,133 +230,52 @@ bool UNavSystemComponent::FindPath(const FVector& Start, AActor* target,
 
 	OpenSet.push(StartNode);
 	OpenSetCheck.insert(StartNode);
-	int infiniteloopindex = 0;
-
-	if (bUseAStar)
+	int LoopIndex = 0;
+	
+	while (!OpenSet.empty() && LoopIndex < 100) //Gotta keep it a bit big in case the distance is too big. Low also for not to be laggy.
 	{
-		while (!OpenSet.empty())
+		LoopIndex++;
+		NavSystemNode* CurrentNode = OpenSet.top();
+		OpenSet.pop();
+		ClosedSet.emplace(CurrentNode);
+
+		if (CurrentNode->Coordinates == EndNode->Coordinates)
 		{
-			infiniteloopindex++;
-			if (infiniteloopindex > 99) //Gotta keep it a bit big in case 
+			ReconstructPath(ParentMap, CurrentNode, OutDirectionToMove);
+			Cleanup();
+			return true;
+		}
+		
+		if (CurrentNode->Neighbors.size() == 0) AddNeighbors(*NavVolume, CurrentNode);
+
+		NavSystemNode* JumpPoint = nullptr;
+		for (auto Neighbor : CurrentNode->Neighbors)
+		{
+			//If true, it means it was a successful jump.
+			if (Jump(*NavVolume, *CurrentNode, *Neighbor, target, MeshBounds, CollisionChannel, &JumpPoint))
 			{
-				auto startDebug = StartNode;
-				auto endDebug = EndNode;
-				auto openSetDebug = OpenSet;
-				auto closedSetDebug = ClosedSet;
-				UE_LOG(LogTemp, Error, TEXT("The destination is too far to find within time. or Infinite loop :("));
-				return false;
-			}
+				//Perhaps there is a better way, but for now, just calculating based on F yields good result, rest are commented out to save perf.
+				//Not gonna use G and H for the time being
+				const float TentativeG = CalculateTentativeGScore(*CurrentNode, *JumpPoint);
 
-			NavSystemNode* current = OpenSet.top();
+				const float TentativeF = TentativeG + FVector::Dist(ConvertCoordinatesToLocation(*NavVolume, JumpPoint->Coordinates),
+				                                                    ConvertCoordinatesToLocation(*NavVolume, EndNode->Coordinates));
 
-			//If the path to the destination is found, reconstruct the path.
-			if (current->Coordinates == EndNode->Coordinates)
-			{
-				if (drawdebugenabled)
-					DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, current->Coordinates), MeshBounds, 4, FColor::Blue, false, 2,
-					                0,
-					                5.0f);
+				if (JumpPoint->FScore <= TentativeF) continue; //should I check G or F?
 
-				ReconstructPath(ParentMap, current, OutDirectionToMove);
-				Cleanup();
-				//double EndTimeAStar = FPlatformTime::Seconds();
-				//double ElapsedTimeAStar = EndTimeAStar - StartTimeAStar;
-				//UE_LOG(LogTemp, Warning, TEXT(" A* elapsed time: %f seconds"), ElapsedTimeAStar);
-				return true;
-			}
+				JumpPoint->GScore = TentativeG;
+				JumpPoint->FScore = TentativeF;
+				ParentMap[JumpPoint] = CurrentNode;
 
-			OpenSet.pop();
-			OpenSetCheck.erase(current);
-			ClosedSet.insert(current);
-
-			if (drawdebugenabled)
-				DrawDebugSphere(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, current->Coordinates), MeshBounds, 4, FColor::Green,
-				                false, 1, 0, 5.0f);
-
-
-			if (current->Neighbors.size() == 0) AddNeighbors(*NavVolume, current);
-
-			for (NavSystemNode* neighbor : current->Neighbors)
-			{
-				//If blocked or is in closed list (meaning best path found), go on to the next iteration and skip this loop
-				if (IsBlocked(neighbor) || ClosedSet.find(neighbor) != ClosedSet.end()) continue;
-
-				const float tentativeGScore = CalculateTentativeGScore(*current, *neighbor);
-
-				//checking if hypothetical g score is worse, if so, skip
-				if (tentativeGScore > neighbor->GScore) continue;
-
-				ParentMap[neighbor] = current;
-				neighbor->GScore = tentativeGScore;
-				neighbor->HScore = FVector::Dist(ConvertCoordinatesToLocation(*NavVolume, neighbor->Coordinates),
-				                                 ConvertCoordinatesToLocation(*NavVolume, EndNode->Coordinates));
-				neighbor->FScore = neighbor->GScore + neighbor->HScore;
-
-				//add neighbor if its not in the open list. if its true, it means iterator couldn't find it.
-				if (OpenSetCheck.find(neighbor) == OpenSetCheck.end())
+				if (OpenSetCheck.find(Neighbor) == OpenSetCheck.end())
 				{
-					OpenSet.push(neighbor);
-					OpenSetCheck.insert(neighbor);
+					OpenSet.push(JumpPoint);
+					OpenSetCheck.emplace(JumpPoint);
 				}
 			}
 		}
-
-		UE_LOG(LogTemp, Display, TEXT("Path not found."));
-		return false; // No path found
 	}
-	else
-	{
-		//openSet.push(startNode);
-		while (!OpenSet.empty())
-		{
-			infiniteloopindex++;
-			if (infiniteloopindex > 200) //Gotta keep it a bit big in case 
-			{
-				return false;
-			}
-			NavSystemNode* currentNode = OpenSet.top();
-			OpenSet.pop();
-			ClosedSet.emplace(currentNode);
-
-			if (currentNode->Coordinates == EndNode->Coordinates)
-			{
-				ReconstructPath(ParentMap, currentNode, OutDirectionToMove);
-				Cleanup();
-				return true;
-			}
-
-
-			if (currentNode->Neighbors.size() == 0) AddNeighbors(*NavVolume, currentNode);
-
-			NavSystemNode* JumpPoint = nullptr;
-			for (auto Neighbor : currentNode->Neighbors)
-			{
-				//If true, it means it was a successful jump.
-				if (Jump(*NavVolume, *currentNode, *Neighbor, target, MeshBounds, CollisionChannel, &JumpPoint))
-				{
-					//Perhaps there is a better way, but for now, just calculating based on F yields good result, rest are commented out to save perf.
-					//Not gonna use G and H for the time being
-					const float tentativeG = CalculateTentativeGScore(*currentNode, *JumpPoint);
-
-					const float tentativeF = tentativeG + FVector::Dist(ConvertCoordinatesToLocation(*NavVolume, JumpPoint->Coordinates),
-					                                                    ConvertCoordinatesToLocation(*NavVolume, EndNode->Coordinates));
-
-					if (JumpPoint->FScore <= tentativeF) continue; //should I check G or F?
-
-					JumpPoint->GScore = tentativeG;
-					JumpPoint->FScore = tentativeF;
-					ParentMap[JumpPoint] = currentNode;
-
-					if (OpenSetCheck.find(Neighbor) == OpenSetCheck.end())
-					{
-						OpenSet.push(JumpPoint);
-						OpenSetCheck.emplace(JumpPoint);
-					}
-				}
-			}
-		}
-		return false;
-	}
+	return false;
 }
 
 bool UNavSystemComponent::Jump(const ANavSystemVolume& NavVolume, const NavSystemNode& CurrentNode, const NavSystemNode& Neighbor,
@@ -527,7 +446,7 @@ bool UNavSystemComponent::Jump(const ANavSystemVolume& NavVolume, const NavSyste
 		{
 			FVector Start = PossibleStarts[i];
 			FVector End = Start + static_cast<FVector>(Direction) * MaxSweepDistance;
-			
+
 			if (SweepBoxShape(Start, End, CollisionChannel, MeshBounds, HitResult))
 			{
 				if (HitResult.Distance > 0 && HitResult.Distance < OriginLineResult.Distance - 1)
@@ -562,7 +481,7 @@ bool UNavSystemComponent::Jump(const ANavSystemVolume& NavVolume, const NavSyste
 		{
 			FVector Previous = ConvertCoordinatesToLocation(NavVolume, CurrentNode.Coordinates + Direction * (searchIndex - 1));
 			FVector Start = ConvertCoordinatesToLocation(NavVolume, CurrentNode.Coordinates + Direction * searchIndex);
-			
+
 			if (OverlapBoxShape(Start, CollisionChannel, MeshBounds)) return false;
 
 			FVector NextDiagonal = ConvertCoordinatesToLocation(NavVolume, CurrentNode.Coordinates + Direction * (searchIndex + 1));
@@ -579,8 +498,8 @@ bool UNavSystemComponent::Jump(const ANavSystemVolume& NavVolume, const NavSyste
 				                                                     RotatedDirections[i]);
 				if (RotatedSweep < 1) continue;
 
-				FVector End = Start + RotatedDirections[i] * RotatedSweep;
-				
+				const FVector End = Start + RotatedDirections[i] * RotatedSweep;
+
 				if (SweepBoxShape(Start, End, CollisionChannel, MeshBounds, HitResult))
 				{
 					*OutJumpPoint = GetNode(NavVolume, ConvertLocationToCoordinates(NavVolume, Start));
@@ -596,10 +515,8 @@ bool UNavSystemComponent::Jump(const ANavSystemVolume& NavVolume, const NavSyste
 
 float UNavSystemComponent::CalculateMaxSweepDistance(const ANavSystemVolume& NavVolume, const NavSystemNode& CurrentNode, const FVector& Direction)
 {
-	// Define the size of your 3D navigation grid (GridWidth, GridHeight, and GridDepth)
 	const FIntVector GridSize = FIntVector(NavVolume.GetDivisionsX() - 1, NavVolume.GetDivisionsY() - 1, NavVolume.GetDivisionsZ() - 1);
-
-	// Calculate the maximum possible distance in the specified direction
+	
 	FIntVector MaxDistance = CurrentNode.Coordinates;
 
 
@@ -716,7 +633,7 @@ bool UNavSystemComponent::OverlapBoxShape(const FVector& Location, const ECollis
 NavSystemNode* UNavSystemComponent::GetNode(const ANavSystemVolume& NavVolume, FIntVector Coordinates)
 {
 	ClampCoordinates(NavVolume, Coordinates);
-	
+
 	const int32 divisionPerLevel = NavVolume.GetDivisionsX() * NavVolume.GetDivisionsY();
 	const int32 index = (Coordinates.Z * divisionPerLevel) + (Coordinates.Y * NavVolume.GetDivisionsX()) + Coordinates.X;
 
