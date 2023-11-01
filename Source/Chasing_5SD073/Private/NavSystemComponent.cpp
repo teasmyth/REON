@@ -79,6 +79,11 @@ bool UNavSystemComponent::FindPath(const FVector& Start, AActor* target,
                                    FVector& OutDirectionToMove, const bool& bUseAStar, const ECollisionChannel& CollisionChannel)
 
 {
+	//Gridless pathfinding that sweep by the distance betwee the player and enemy, or a minimum sweep distance
+	//Volume pathfinding that does not use nodes at all, just FVector points. Store them in a set with FVector as key and FScore as value
+	//Neighbours are redundant as right now they are only used for direction.
+	//However need to be prices about sweeping when not use nodes. Could potentially save lot of headache and RAM, especially.
+
 	const ANavSystemVolume* NavVolume = AgentVolume; //Too lazy to rewrite all.
 
 	if (!NavVolume->GetAreNodesLoaded() || Target == nullptr)
