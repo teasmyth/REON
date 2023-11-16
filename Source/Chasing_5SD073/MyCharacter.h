@@ -115,6 +115,10 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float slideSpeedMax;
+
+	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	// when this timer reaches the max, player stops slide
+	double slideTimer;
 	
 	float accelerationTimer;
 	float fallingTimer;
@@ -124,11 +128,19 @@ public:
 	float airDashDelayTimer;
 	bool startDelay;
 	bool startDash;
-	float slideTimer;
+	//float slideTime;
 	bool boostSlide;
 
+	UPROPERTY(VisibleAnywhere)
+	bool setupSlidingTimer;
+
+	UPROPERTY(VisibleAnywhere)
+	double currenttimer = 0;
+	
+	double initialSlideTimer = 0;
 	FVector dashValue;
 	void DashAction();
+	void SetupSlide();
 	
 	// Movements
 	void Acceleration();
@@ -138,10 +150,6 @@ public:
 	void LookBack();
 	void LookFront();
 	void AirDash(const FInputActionValue& Value);
-
-	void WallRun();
-	void WallJump();
-	void WallClimbing();
 	
 	// Reset
 	void SpeedReset();

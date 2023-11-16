@@ -6,7 +6,7 @@
 #include "EnhancedInputComponent.h"
 #include "GenericPlatform/GenericPlatformProcess.h"
 
-#pragma region Character 
+#pragma region Character
 // Sets default values
 AMyCharacter::AMyCharacter()
 {
@@ -58,7 +58,7 @@ void AMyCharacter::BeginPlay()
 void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
+
 	if (GetCharacterMovement()->IsFalling() && !landed)
 	{
 		//dash = true;
@@ -69,18 +69,25 @@ void AMyCharacter::Tick(float DeltaTime)
 		//dash = false;
 	}
 
+	// slide check
+	/*if(keepSliding)
+	{
+		slideTime += DeltaTime;
+		
+		if(slideTime >= slideTimer)
+		{
+			keepSliding = false;
+			slideTime = 0;
+		}
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("sliding: %s"),
+		   ( keepSliding ? TEXT("true") : TEXT("false") ));*/
+
+	// air dash starts
 	if (GetCharacterMovement()->IsFalling())
 	{
 		dash = true;
-	
-		//if(fallSliding)
-		//{
-		//	Slide();
-		//	if(GetCharacterMovement()->IsMovingOnGround())
-		//	{
-		//		fallSliding = false;
-		//	}
-		//}
 	}
 	else
 	{
@@ -91,28 +98,26 @@ void AMyCharacter::Tick(float DeltaTime)
 		startDash = false;
 	}
 
-	if(startDelay)
+	if (startDelay)
 	{
 		airDashDelayTimer += DeltaTime;
-		
-		if (GEngine)
-		{
-			const FString msg = FString::Printf(TEXT("timer: %f"), airDashDelayTimer);
-			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
-		}
-		if(airDashDelayTimer > airDashDelay)
+
+		if (airDashDelayTimer > airDashDelay)
 		{
 			startDash = true;
 			DashAction();
 		}
 	}
-	
-	if(onSlope) Slide();
-	
-	if(debugGroundRaycast) 	GroundRaycast(DeltaTime);
-	if(debugSlideRaycast)	SliderRaycast();
-	if(debugSpeed)			DebugSpeed();
-	if(debugLanding)		DebugLanding();
+	// air dash ends
+
+
+	if (onSlope) Slide();
+
+	// debugs
+	if (debugGroundRaycast) GroundRaycast(DeltaTime);
+	if (debugSlideRaycast) SliderRaycast();
+	if (debugSpeed) DebugSpeed();
+	if (debugLanding) DebugLanding();
 }
 
 // Called to bind functionality to input
@@ -133,8 +138,9 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
 
 		//Sliding
-		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Started, this, &AMyCharacter::Slide);
-		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Completed, this, &AMyCharacter::ResetAfterSlide);
+		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Started, this, &AMyCharacter::SetupSlide);
+		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Ongoing, this, &AMyCharacter::Slide);
+		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Canceled, this, &AMyCharacter::ResetAfterSlide);
 
 		//Looking Back
 		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Triggered, this,
@@ -153,11 +159,12 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 void AMyCharacter::DashAction()
 {
-	if(startDash)
+	if (startDash)
 	{
 		FVector start = GetActorLocation();
 		FVector forward = FrontCam->GetForwardVector();
-		start = FVector(start.X + (forward.X * airDashDistance), start.Y + (forward.Y * airDashDistance), start.Z + (forward.Z * airDashDistance));
+		start = FVector(start.X + (forward.X * airDashDistance), start.Y + (forward.Y * airDashDistance),
+		                start.Z + (forward.Z * airDashDistance));
 		FVector end = start + forward;
 		FHitResult hit;
 
@@ -167,7 +174,7 @@ void AMyCharacter::DashAction()
 
 			GetCharacterMovement()->GravityScale = gravityOrigin;
 			SetActorLocation(end, true);
-				
+
 			dashOnce = false;
 			startDash = false;
 			startDelay = false;
@@ -177,6 +184,7 @@ void AMyCharacter::DashAction()
 }
 
 // Movement
+
 void AMyCharacter::Acceleration()
 {
 	// accelerationSpeedRate = how long (seconds) it should take to reach maximum speed
@@ -190,7 +198,7 @@ void AMyCharacter::Acceleration()
 		{
 			fallingTimer = maxFallingPenaltyTime;
 		}
-		
+
 		currentAcceleration = GetCharacterMovement()->MaxCustomMovementSpeed / accelerationSpeedRate * (1 - (
 			fallingTimer / maxFallingPenaltyTime) * maxFallingSpeedSlowPenalty);
 
@@ -252,43 +260,57 @@ void AMyCharacter::LookFront()
 	BackCam->Activate(false);
 }
 
+void AMyCharacter::SetupSlide()
+{
+	if (!setupSlidingTimer)
+	{
+		initialSlideTimer = FApp::GetCurrentTime();
+		setupSlidingTimer = true;
+	}
+}
+
 void AMyCharacter::Slide()
 {
-	GetCapsuleComponent()->SetCapsuleHalfHeight(GetCapsuleComponent()->GetScaledCapsuleHalfHeight()/2);
+	if (!setupSlidingTimer) return;
 
-	boostSlide = true;
 	
-	if(boostSlide)
+	boostSlide = true;
+	currenttimer = FApp::GetCurrentTime() - initialSlideTimer;
+	
+	if (currenttimer < slideTimer)
 	{
-		float currentSpeed = GetCharacterMovement()->Velocity.Length();
+		GetCapsuleComponent()->SetCapsuleHalfHeight(GetCapsuleComponent()->GetScaledCapsuleHalfHeight() / 2);
+
+		const float currentSpeed = GetCharacterMovement()->Velocity.Length();
 		GetCharacterMovement()->Velocity += GetActorRotation().Vector() * slideBoost;
 
-		if(currentSpeed >= GetCharacterMovement()->Velocity.Length())
+		if (currentSpeed >= GetCharacterMovement()->Velocity.Length())
 		{
 			boostSlide = false;
 		}
-	}
-	
-	if(GetCharacterMovement()->Velocity.Length() >= 1000)
-	{
-		GetCharacterMovement()->MaxWalkSpeed = slideSpeedMax;
-	}
-	fallSliding = true;
-	
-	/*if (scale == origin)
-	{
-		//SetActorScale3D(scale / 2);
-		GetCapsuleComponent()->SetCapsuleHalfHeight(GetCapsuleComponent()->GetScaledCapsuleHalfHeight()/2);
 
-		//GetCharacterMovement()->MaxAcceleration = 1.5f *  getCurrentAccelerationRate;
-
-		FVector speedMax = FVector(1000,1000,1000);
-		if(GetCharacterMovement()->Velocity.Length() <= 1000)
+		if (GEngine)
 		{
-			GetCharacterMovement()->Velocity += GetActorRotation().Vector() * slideBoost;
+			const FString msg = FString::Printf(TEXT("Sliding"));
+			GEngine->AddOnScreenDebugMessage(-1, .2f, FColor::Yellow, *msg);
 		}
+
+		if (GetCharacterMovement()->Velocity.Length() >= 1000)
+		{
+			GetCharacterMovement()->MaxWalkSpeed = slideSpeedMax;
+		}
+		
 		fallSliding = true;
-	}*/
+	}
+	else
+	{
+		if (GEngine)
+		{
+			const FString msg = FString::Printf(TEXT("slide timed out"));
+			GEngine->AddOnScreenDebugMessage(-1, 1, FColor::Yellow, *msg);
+		}
+		ResetAfterSlide();
+	}
 }
 
 void AMyCharacter::AirDash(const FInputActionValue& Value)
@@ -303,26 +325,12 @@ void AMyCharacter::AirDash(const FInputActionValue& Value)
 		startDelay = true;
 		dashValue = Value.Get<FVector>();
 		GetCharacterMovement()->GravityScale = gravityLow;
-		
-		
 	}
-}
-
-void AMyCharacter::WallRun()
-{
-}
-
-void AMyCharacter::WallJump()
-{
-}
-
-void AMyCharacter::WallClimbing()
-{
 }
 
 #pragma endregion
 
-#pragma region Reset	
+#pragma region Reset
 
 // Reset
 void AMyCharacter::SpeedReset()
@@ -335,11 +343,20 @@ void AMyCharacter::SpeedReset()
 
 void AMyCharacter::ResetAfterSlide()
 {
-	GetCapsuleComponent()->SetCapsuleSize(55.0f,96.0f);
+	if (!setupSlidingTimer) return;
+	
+	GetCapsuleComponent()->SetCapsuleSize(55.0f, 96.0f);
+	setupSlidingTimer = false;
 
-	if(GetCharacterMovement()->Velocity.Length() >= 1000)
+	if (GetCharacterMovement()->Velocity.Length() >= 1000)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = 1000;
+	}
+
+	if (GEngine)
+	{
+		const FString msg = FString::Printf(TEXT("slide stop"));
+		GEngine->AddOnScreenDebugMessage(-1, 1, FColor::Yellow, *msg);
 	}
 }
 
@@ -436,13 +453,13 @@ void AMyCharacter::GroundRaycast(float DeltaTime)
 			FVector playerPoint = start;
 			FVector dis;
 			float distance = dis.Distance(playerPoint, hitActorPoint);
-			
+
 			if (distance <= 3 && GetCharacterMovement()->IsFalling())
 			{
 				landed = true;
 			}
 
-			if(debugGroundRaycast)
+			if (debugGroundRaycast)
 			{
 				UE_LOG(LogTemp, Log, TEXT("Distance between player and actor: %f"), distance);
 			}
@@ -476,7 +493,7 @@ void AMyCharacter::SliderRaycast()
 				onSlope = false;
 			}
 
-			if(debugGroundRaycast)
+			if (debugGroundRaycast)
 			{
 				UE_LOG(LogTemp, Warning, TEXT("slope %s"), ( onSlope ? TEXT("true") : TEXT("false") ));
 				//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("U are on a Slope")));
@@ -503,7 +520,7 @@ void AMyCharacter::DebugLanding()
 {
 	//UE_LOG(LogTemp, Warning, TEXT("landed %s"), ( landed ? TEXT("true") : TEXT("false") ));
 	UE_LOG(LogTemp, Warning, TEXT("falling %s"),
-		   ( GetCharacterMovement()->IsFalling() ? TEXT("true") : TEXT("false") ));
+	       ( GetCharacterMovement()->IsFalling() ? TEXT("true") : TEXT("false") ));
 }
 
 void AMyCharacter::DebugSize()
