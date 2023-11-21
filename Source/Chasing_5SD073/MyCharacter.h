@@ -11,7 +11,6 @@
 #include "InputActionValue.h"
 #include "EnhancedInputSubsystems.h"
 #include "Camera/CameraComponent.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "MyCharacter.generated.h"
 
 class UInputComponent;
@@ -78,10 +77,7 @@ public:
 	/** Returns FirstPersonCameraComponent subobject **/
 	UCameraComponent* GetFirstPersonCameraComponent() const { return FrontCam; }
 
-	
-	bool moving = false;
-	bool sprint = false;
-	
+	// custom values
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float slowPrecentage;
 	
@@ -108,9 +104,11 @@ public:
 	float airDashDelay;
 
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	// normal gravity 
 	float gravityOrigin;
 
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	// ur gravity is low when u want to air dash
 	float gravityLow;
 
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
@@ -119,16 +117,20 @@ public:
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	// when this timer reaches the max, player stops slide
 	double slideTimer;
-	
+
+	// accelerate
 	float accelerationTimer;
 	float fallingTimer;
+	
 	bool landed;
+
+	// airdash
 	bool dash;
 	bool dashOnce;
 	float airDashDelayTimer;
 	bool startDelay;
 	bool startDash;
-	//float slideTime;
+	
 	bool boostSlide;
 
 	UPROPERTY(VisibleAnywhere)
@@ -138,11 +140,16 @@ public:
 	double currenttimer = 0;
 	
 	double initialSlideTimer = 0;
-	FVector dashValue;
-	void DashAction();
-	void SetupSlide();
+	FVector dashValue; // how far u airDash
+
+	float getCurrentAccelerationRate;
+
+	UPROPERTY(EditAnywhere, Category = "CustomValues")
+	FVector slideBoost; 
 	
-	// Movements
+	bool fallSliding;
+
+	// Movements functions
 	void Acceleration();
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
@@ -150,6 +157,8 @@ public:
 	void LookBack();
 	void LookFront();
 	void AirDash(const FInputActionValue& Value);
+	void DashAction();
+	void SetupSlide();
 	
 	// Reset
 	void SpeedReset();
@@ -157,8 +166,7 @@ public:
 
 	// Raycast
 	bool onSlope;
-	void Ray();
-	void GroundRaycast(float DeltaTime);
+	void GroundRaycast();
 	void SliderRaycast();
 
 	// Debug
@@ -179,10 +187,4 @@ public:
 	void DebugSpeed();
 	void DebugLanding();
 	void DebugSize();
-
-	float getCurrentAccelerationRate;
-
-	UPROPERTY(EditAnywhere, Category = "CustomValues")
-	FVector slideBoost;
-	bool fallSliding;
 };

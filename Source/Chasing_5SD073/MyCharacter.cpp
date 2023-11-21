@@ -1,10 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "MyCharacter.h"
 #include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
-#include "GenericPlatform/GenericPlatformProcess.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 #pragma region Character
 // Sets default values
@@ -61,38 +60,22 @@ void AMyCharacter::Tick(float DeltaTime)
 
 	if (GetCharacterMovement()->IsFalling() && !landed)
 	{
-		//dash = true;
 		fallingTimer += DeltaTime;
 	}
 	else
 	{
-		//dash = false;
+		//
 	}
-
-	// slide check
-	/*if(keepSliding)
-	{
-		slideTime += DeltaTime;
-		
-		if(slideTime >= slideTimer)
-		{
-			keepSliding = false;
-			slideTime = 0;
-		}
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("sliding: %s"),
-		   ( keepSliding ? TEXT("true") : TEXT("false") ));*/
-
+	
 	// air dash starts
 	if (GetCharacterMovement()->IsFalling())
 	{
-		dash = true;
+		dash = true; // while u in the air, u can dash
 	}
 	else
 	{
-		dash = false;
-		dashOnce = true;
+		dash = false;  // reset back 
+		dashOnce = true;  //
 		airDashDelayTimer = 0;
 		startDelay = false;
 		startDash = false;
@@ -110,11 +93,11 @@ void AMyCharacter::Tick(float DeltaTime)
 	}
 	// air dash ends
 
-
+	// on slope automatically slide, onSlope is checked in SliderRaycast()
 	if (onSlope) Slide();
 
 	// debugs
-	if (debugGroundRaycast) GroundRaycast(DeltaTime);
+	if (debugGroundRaycast) GroundRaycast();
 	if (debugSlideRaycast) SliderRaycast();
 	if (debugSpeed) DebugSpeed();
 	if (debugLanding) DebugLanding();
@@ -159,6 +142,8 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 void AMyCharacter::DashAction()
 {
+	// the actual dash movement, using a ray to detect new location to dash to
+	
 	if (startDash)
 	{
 		FVector start = GetActorLocation();
@@ -166,7 +151,6 @@ void AMyCharacter::DashAction()
 		start = FVector(start.X + (forward.X * airDashDistance), start.Y + (forward.Y * airDashDistance),
 		                start.Z + (forward.Z * airDashDistance));
 		FVector end = start + forward;
-		FHitResult hit;
 
 		if (GetWorld())
 		{
@@ -238,6 +222,8 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 		AddControllerPitchInput(LookAxisVector.Y);
 	}
 
+	// since mouse input is using LookAxisVector, im checking how much the player is moving the mouse on x
+	// but its hard to know how much the mouse is input-ing
 	if (LookAxisVector.X >= cameraJitter || LookAxisVector.X <= -cameraJitter)
 	{
 		GetCharacterMovement()->Velocity *= slowPrecentage;
@@ -246,22 +232,21 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 
 void AMyCharacter::LookBack()
 {
-	//FString fru = moving ? "true" : "false";
-	//UE_LOG(LogTemp, Display, TEXT("%s"), *fru);
 	FrontCam->SetRelativeLocation(FVector(-10.f, 0.f, 60.f)); // Position the camera
 	BackCam->SetActive(true);
 	FrontCam->SetActive(false);
-	//FrontCam->Activate(false);
 }
 
 void AMyCharacter::LookFront()
 {
+	// calls this function after LookBack()
 	FrontCam->Activate(true);
 	BackCam->Activate(false);
 }
 
 void AMyCharacter::SetupSlide()
 {
+	// i worked with u on this, so u probably already know
 	if (!setupSlidingTimer)
 	{
 		initialSlideTimer = FApp::GetCurrentTime();
@@ -271,8 +256,8 @@ void AMyCharacter::SetupSlide()
 
 void AMyCharacter::Slide()
 {
+	// u already know this
 	if (!setupSlidingTimer) return;
-
 	
 	boostSlide = true;
 	currenttimer = FApp::GetCurrentTime() - initialSlideTimer;
@@ -289,12 +274,6 @@ void AMyCharacter::Slide()
 			boostSlide = false;
 		}
 
-		if (GEngine)
-		{
-			const FString msg = FString::Printf(TEXT("Sliding"));
-			GEngine->AddOnScreenDebugMessage(-1, .2f, FColor::Yellow, *msg);
-		}
-
 		if (GetCharacterMovement()->Velocity.Length() >= 1000)
 		{
 			GetCharacterMovement()->MaxWalkSpeed = slideSpeedMax;
@@ -304,11 +283,6 @@ void AMyCharacter::Slide()
 	}
 	else
 	{
-		if (GEngine)
-		{
-			const FString msg = FString::Printf(TEXT("slide timed out"));
-			GEngine->AddOnScreenDebugMessage(-1, 1, FColor::Yellow, *msg);
-		}
 		ResetAfterSlide();
 	}
 }
@@ -324,6 +298,7 @@ void AMyCharacter::AirDash(const FInputActionValue& Value)
 
 		startDelay = true;
 		dashValue = Value.Get<FVector>();
+		// after u pressed space when u are in the air(has to be jumping) ur gravity becomes low
 		GetCharacterMovement()->GravityScale = gravityLow;
 	}
 }
@@ -335,9 +310,6 @@ void AMyCharacter::AirDash(const FInputActionValue& Value)
 // Reset
 void AMyCharacter::SpeedReset()
 {
-	moving = false;
-	//currentSpeed = normalSpeed;
-	//GetCharacterMovement()->MaxWalkSpeed = normalSpeed;
 	accelerationTimer = 0;
 }
 
@@ -352,12 +324,6 @@ void AMyCharacter::ResetAfterSlide()
 	{
 		GetCharacterMovement()->MaxWalkSpeed = 1000;
 	}
-
-	if (GEngine)
-	{
-		const FString msg = FString::Printf(TEXT("slide stop"));
-		GEngine->AddOnScreenDebugMessage(-1, 1, FColor::Yellow, *msg);
-	}
 }
 
 #pragma endregion
@@ -365,79 +331,13 @@ void AMyCharacter::ResetAfterSlide()
 #pragma region RayCast
 // Raycast
 
-void AMyCharacter::Ray()
-{
-	FVector start = GetActorLocation();
-	FVector forward = FrontCam->GetForwardVector();
-	FVector down = -FrontCam->GetUpVector();
-	start = FVector(start.X + (forward.X * 100), start.Y + (forward.Y * 100), start.Z + (forward.Z * 100));
-	FVector end = start + (forward * 50);
-	FHitResult hit;
-
-	if (GetWorld())
-	{
-		bool actorHit = GetWorld()->LineTraceSingleByChannel(hit, start, end, ECC_Pawn, FCollisionQueryParams(),
-		                                                     FCollisionResponseParams());
-		DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
-		if (actorHit && hit.GetActor())
-		{
-			// is ground check
-			float dis = GetDistanceTo(hit.GetActor());
-			//if (GEngine)
-			//{
-			//	const FString msg = FString::Printf(TEXT("diss: %f"), dis);
-			//	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
-			//}
-
-			// slope check
-			if (hit.GetActor()->ActorHasTag(TEXT("Slope")))
-			{
-				if (GEngine)
-				{
-					const FString msg = FString::Printf(TEXT("diss: %s"), *hit.GetActor()->GetName());
-					GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
-				}
-			}
-			else
-			{
-			}
-			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red,
-			                                 FString::Printf(TEXT("You are htting: %s"), *hit.GetActor()->GetName()));
-			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red,
-			                                 FString::Printf(TEXT("Impact point: %s"), *hit.ImpactPoint.ToString()));
-
-			FVector hitActorPoint = hit.ImpactPoint;
-			FVector playerPoint = GetActorLocation();
-
-
-			//FName slider = "Slider";
-			//FName temp = FName(hit.GetActor()->Tags[0]);
-			//
-			////float dis = GetDistanceTo(hit.GetActor()->Tags);
-			////UE_LOG(LogTemp,Warning,TEXT("Hit actor: %s"),*hit.GetActor()->Tags;
-			//if (temp != nullptr)
-			//{
-			//	if (temp == slider)
-			//	{
-			//		if (GEngine)
-			//		{
-			//			const FString msg = FString::Printf(TEXT("diss: %s"), *temp.ToString());
-			//			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
-			//		}
-			//	}
-			//}
-		}
-	}
-}
-
-void AMyCharacter::GroundRaycast(float DeltaTime)
+void AMyCharacter::GroundRaycast()
 {
 	FVector start = GetActorLocation();
 	FVector bounds = GetCapsuleComponent()->Bounds.BoxExtent;
 	float minZ = bounds.Z + 0.1f;
 	start -= FVector(0, 0, minZ);
 	FVector down = -GetActorUpVector();
-	//start = FVector(start.X + (down.X * 100), start.Y + (down.Y * 100), start.Z + (down.Z * 100));
 	FVector end = start + (down * 10000.f);
 	FHitResult hit;
 
@@ -470,7 +370,6 @@ void AMyCharacter::GroundRaycast(float DeltaTime)
 void AMyCharacter::SliderRaycast()
 {
 	FVector start = GetActorLocation();
-	FVector forward = FrontCam->GetForwardVector();
 	FVector down = -FrontCam->GetUpVector();
 	start = FVector(start.X + (down.X * 100), start.Y + (down.Y * 100), start.Z + (down.Z * 100));
 	FVector end = start + (down * 50);
@@ -496,7 +395,6 @@ void AMyCharacter::SliderRaycast()
 			if (debugGroundRaycast)
 			{
 				UE_LOG(LogTemp, Warning, TEXT("slope %s"), ( onSlope ? TEXT("true") : TEXT("false") ));
-				//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("U are on a Slope")));
 			}
 		}
 	}
@@ -518,7 +416,6 @@ void AMyCharacter::DebugSpeed()
 
 void AMyCharacter::DebugLanding()
 {
-	//UE_LOG(LogTemp, Warning, TEXT("landed %s"), ( landed ? TEXT("true") : TEXT("false") ));
 	UE_LOG(LogTemp, Warning, TEXT("falling %s"),
 	       ( GetCharacterMovement()->IsFalling() ? TEXT("true") : TEXT("false") ));
 }
