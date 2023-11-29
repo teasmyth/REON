@@ -17,5 +17,5 @@ public:
 
 	float FScore = FLT_MAX;
 	float GScore = FLT_MAX;
-	float HScore = FLT_MAX;
+	//float HScore = FLT_MAX;
 };

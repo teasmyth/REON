@@ -33,6 +33,11 @@ bool UNavSystemComponent::DecideNavigation(FVector& OutDirectionToMove)
 {
 	if (AgentVolume && TargetVolume)
 	{
+		if (AgentVolume != TargetVolume) //How to deal with situations when they are both in volumes, but different ones.
+		{
+			
+			//blah
+		}
 		return false;
 	}
 
@@ -41,11 +46,11 @@ bool UNavSystemComponent::DecideNavigation(FVector& OutDirectionToMove)
 		return true; //For safety reasons, in case it doesnt have reference (yet), doesnt crash the game.
 	}
 
-	FCollisionShape HitBox = FCollisionShape::MakeBox(FVector(32));
-	FCollisionQueryParams TraceParams;
-	TraceParams.AddIgnoredActor(GetOwner());
 	if (TargetVolume != nullptr) //Move towards the enter point of target's volume.
 	{
+		FCollisionShape HitBox = FCollisionShape::MakeBox(FVector(32));
+		FCollisionQueryParams TraceParams;
+		TraceParams.AddIgnoredActor(GetOwner());
 		FHitResult HitResult;
 		bool bHit = GetWorld()->SweepSingleByChannel(HitResult, GetOwner()->GetActorLocation(), Target->GetActorLocation(), FQuat::Identity,
 		                                             ECC_GameTraceChannel1, HitBox, TraceParams);
@@ -84,6 +89,8 @@ bool UNavSystemComponent::FindPath(const FVector& Start, AActor* target,
 	//Neighbours are redundant as right now they are only used for direction.
 	//However need to be prices about sweeping when not use nodes. Could potentially save lot of headache and RAM, especially.
 
+	//Make find path every time the gap between player and rpevious end node is above certain distance, or blocked when sweeped, make it it async.
+
 	const ANavSystemVolume* NavVolume = AgentVolume; //Too lazy to rewrite all.
 
 	if (!NavVolume->GetAreNodesLoaded() || Target == nullptr)
@@ -106,38 +113,36 @@ bool UNavSystemComponent::FindPath(const FVector& Start, AActor* target,
 	{
 		TArray<FVector> Path;
 
+		int32 pathIndex = 0;
 		while (current)
 		{
+			FString text = FString::Printf(TEXT("%i"), pathIndex);
 			Path.Insert(ConvertCoordinatesToLocation(*NavVolume, current->Coordinates), 0);
-			//DrawDebugBox(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, current->Coordinates), FVector(meshBounds / 2), FColor::Blue, false, 1,
-			//           0, 5.0f);
+			DrawDebugBox(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, current->Coordinates), FVector(MeshBounds), FColor::Blue, false, 1,0, 5.0f);
+			DrawDebugString(GetWorld(),ConvertCoordinatesToLocation(*NavVolume, current->Coordinates),  text, nullptr, FColor::Red, -1, true, 200);
 			current = cameFrom.count(current) ? cameFrom.at(current) : nullptr;
+			UE_LOG(LogTemp, Warning, TEXT("%s"), *text);
+			pathIndex++;
 		}
 
 		/*
+		
 		if (Path.Num() > 2) //Smoothing path if its not right next to it.
 		{
 			TArray<FVector> SmoothenedPath;
-			ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(ECC_Visibility); // Specify the trace channel using ECC_Visibility
-			FVector currentPoint = *Path.begin();
-			FCollisionShape HitBox = FCollisionShape::MakeBox(FVector(meshBounds * 1.1f));
-			SmoothenedPath.Add(currentPoint);
-			FCollisionQueryParams TraceParams;
-			TraceParams.AddIgnoredActor(GetOwner());
+			FVector currentPoint = Path[0];
 
 			//out path num = 9  -> loop max is 8,
 			for (int i = 0; i < Path.Num() - 1; i++)
 			{
-				FHitResult hitResult;
-
-				//if (UKismetSystemLibrary::SphereTraceSingle(GetWorld(), currentPoint, Path[i + 1], meshBounds, TraceChannel, false,
-				//                                            TArray<AActor*>(), EDrawDebugTrace::Type::None, hitResult, true))
-				if (GetWorld()->SweepSingleByChannel(hitResult, currentPoint, Path[i + 1], FQuat::Identity, CollisionChannel, HitBox, TraceParams))
+				FHitResult HitResult;
+				
+				if (SweepBoxShape(currentPoint, Path[i + 1], CollisionChannel, MeshBounds*.99f, HitResult))
 				{
-					//DrawDebugLine(GetWorld(), currentPoint, Path[i + 1], FColor::Red, false, 1, 0, 5);
-					currentPoint = Path[i + 1];
-					SmoothenedPath.Add(Path[i + 1]);
-				//	DrawDebugBox(GetWorld(), currentPoint, FVector(meshBounds), FColor::Red, false, 1, 0, 5.0f);
+					DrawDebugLine(GetWorld(), currentPoint, Path[i + 1], FColor::Red, false, 1, 0, 5);
+					currentPoint = Path[i];
+					SmoothenedPath.Add(Path[i]);
+				    DrawDebugBox(GetWorld(), currentPoint, FVector(MeshBounds), FColor::Red, false, 1, 0, 5.0f);
 				}
 			}
 
@@ -148,6 +153,9 @@ bool UNavSystemComponent::FindPath(const FVector& Start, AActor* target,
 			Path = SmoothenedPath;
 		}
 		*/
+
+
+		
 		if (Path.Num() > 1)
 		{
 			OutDirection = Path[1] - GetOwner()->GetActorLocation();
@@ -180,26 +188,17 @@ bool UNavSystemComponent::FindPath(const FVector& Start, AActor* target,
 		// Horizontal or vertical movement: Add a lower cost (e.g., 10)
 		return current.GScore + 100; // + AdditionalCosts(current, neighbor); // Consider terrain costs, etc.
 	};
-
-
+	
 	auto Cleanup = [&]()
 	{
 		for (NavSystemNode* item : OpenSetCheck)
 		{
-			item->FScore = item->GScore = item->HScore = FLT_MAX;
+			item->FScore = item->GScore = /*item->HScore =*/ FLT_MAX;
 		}
 		for (NavSystemNode* item : ClosedSet)
 		{
-			item->FScore = item->GScore = item->HScore = FLT_MAX;
+			item->FScore = item->GScore = /*item->HScore =*/ FLT_MAX;
 		}
-	};
-
-	auto IsBlocked = [&](const NavSystemNode* nodeToCheck)
-	{
-		TArray<AActor*> outActors;
-		return UKismetSystemLibrary::BoxOverlapActors(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, nodeToCheck->Coordinates),
-		                                              FVector(MeshBounds) * 1.1f, Object_Types,
-		                                              Actor_Class_Filter, TArray<AActor*>(), outActors);
 	};
 
 #pragma  endregion
@@ -207,10 +206,10 @@ bool UNavSystemComponent::FindPath(const FVector& Start, AActor* target,
 	// Initialize start node
 	NavSystemNode* StartNode = GetNode(*NavVolume, ConvertLocationToCoordinates(*NavVolume, Start));
 
-	/*
-	FIntVector origin = ConvertLocationToCoordinates(*NavVolume, destination);
-	FIntVector up = origin + FIntVector(0, 0, 1);
-	*/
+	
+	FIntVector origin = ConvertLocationToCoordinates(*NavVolume, Target->GetActorLocation());
+	origin += FIntVector(0, 0, 1); //Cnat find path, an object above player is not ignoring pathfinding
+	
 
 	const NavSystemNode* EndNode = GetNode(*NavVolume, ConvertLocationToCoordinates(*NavVolume, Target->GetActorLocation()));
 
@@ -230,7 +229,7 @@ bool UNavSystemComponent::FindPath(const FVector& Start, AActor* target,
 	*/
 
 	StartNode->GScore = 0;
-	StartNode->HScore = 0;
+	//StartNode->HScore = 0;
 	StartNode->FScore = 0;
 
 	OpenSet.push(StartNode);
