@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <string>
+
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/Actor.h"
@@ -13,9 +15,11 @@
 #include "Camera/CameraComponent.h"
 #include "MyCharacter.generated.h"
 
+class ICharacterState;
 class UInputComponent;
 class USkeletalMeshComponent;
 class UCameraComponent;
+class UCharacterStateMachine;
 
 UCLASS()
 class CHASING_5SD073_API AMyCharacter : public ACharacter
@@ -32,6 +36,11 @@ class CHASING_5SD073_API AMyCharacter : public ACharacter
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* BackCam;
+
+	UPROPERTY()
+	UCharacterStateMachine* SM = nullptr;
+	
+	ICharacterState* Sliding = nullptr;
 	
 public:
 	// Sets default values for this character's properties
@@ -159,6 +168,9 @@ public:
 	void AirDash(const FInputActionValue& Value);
 	void DashAction();
 	void SetupSlide();
+
+
+	void WallMechanicsCheck();
 	
 	// Reset
 	void SpeedReset();

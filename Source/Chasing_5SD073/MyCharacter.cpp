@@ -1,6 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "MyCharacter.h"
+
+#include "CharacterStateMachine.h"
 #include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -51,6 +53,8 @@ void AMyCharacter::BeginPlay()
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
+
+	SM = GetComponentByClass<UCharacterStateMachine>();
 }
 
 // Called every frame
@@ -126,13 +130,12 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Canceled, this, &AMyCharacter::ResetAfterSlide);
 
 		//Looking Back
-		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Triggered, this,
-		                                   &AMyCharacter::LookBack);
-		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Completed, this,
-		                                   &AMyCharacter::LookFront);
+		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Triggered, this, &AMyCharacter::LookBack);
+		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Completed, this, &AMyCharacter::LookFront);
 
 		//AirDash
 		EnhancedInputComponent->BindAction(AirDashAction, ETriggerEvent::Triggered, this, &AMyCharacter::AirDash);
+		
 	}
 }
 
@@ -253,6 +256,15 @@ void AMyCharacter::SetupSlide()
 		setupSlidingTimer = true;
 	}
 }
+
+void AMyCharacter::WallMechanicsCheck()
+{
+	//calculate whether wer are trying to wall run or wall climb, if at all
+	//if (wallclimb) -> statemachine.setstate(wallclimb)
+	//if (wallrun) -> statemachine.setstate(wallrun)
+	
+}
+
 
 void AMyCharacter::Slide()
 {

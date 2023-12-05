@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "NavSystemNode.h"
 #include "NavSystemVolume.h"
+#include "Chasing_5SD073/MyCharacter.h"
 #include "NavSystemComponent.generated.h"
 
 class ANavSystemVolumeManager;

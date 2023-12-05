@@ -118,8 +118,8 @@ bool UNavSystemComponent::FindPath(const FVector& Start, AActor* target,
 		{
 			FString text = FString::Printf(TEXT("%i"), pathIndex);
 			Path.Insert(ConvertCoordinatesToLocation(*NavVolume, current->Coordinates), 0);
-			DrawDebugBox(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, current->Coordinates), FVector(MeshBounds), FColor::Blue, false, 1,0, 5.0f);
-			DrawDebugString(GetWorld(),ConvertCoordinatesToLocation(*NavVolume, current->Coordinates),  text, nullptr, FColor::Red, -1, true, 200);
+			//DrawDebugBox(GetWorld(), ConvertCoordinatesToLocation(*NavVolume, current->Coordinates), FVector(MeshBounds), FColor::Blue, false, 1,0, 5.0f);
+			//DrawDebugString(GetWorld(),ConvertCoordinatesToLocation(*NavVolume, current->Coordinates),  text, nullptr, FColor::Red, -1, true, 200);
 			current = cameFrom.count(current) ? cameFrom.at(current) : nullptr;
 			UE_LOG(LogTemp, Warning, TEXT("%s"), *text);
 			pathIndex++;
