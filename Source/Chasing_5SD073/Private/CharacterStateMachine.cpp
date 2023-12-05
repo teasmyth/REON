@@ -3,7 +3,15 @@
 
 #include "CharacterStateMachine.h"
 
+#include "AirDashingStateComponent.h"
+#include "FallingStateComponent.h"
+#include "IdleStateComponent.h"
+#include "WalkingStateComponent.h"
+#include "RunningStateComponent.h"
 #include "SlidingStateComponent.h"
+#include "WallClimbingStateComponent.h"
+#include "WallRunningStateComponent.h"
+
 
 // Sets default values for this component's properties
 UCharacterStateMachine::UCharacterStateMachine()
@@ -12,8 +20,20 @@ UCharacterStateMachine::UCharacterStateMachine()
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
 
-
+	
 	// ...
+}
+
+void UCharacterStateMachine::SetupStates()
+{
+	Idle = GetOwner()->GetComponentByClass<UIdleStateComponent>();
+	Walking = GetOwner()->GetComponentByClass<UWalkingStateComponent>();
+	Running = GetOwner()->GetComponentByClass<URunningStateComponent>();
+	Sliding = GetOwner()->GetComponentByClass<USlidingStateComponent>();
+	WallClimbing = GetOwner()->GetComponentByClass<UWallClimbingStateComponent>();
+	WallRunning = GetOwner()->GetComponentByClass<UWallRunningStateComponent>();
+	AirDashing = GetOwner()->GetComponentByClass<UAirDashingStateComponent>();
+	Falling = GetOwner()->GetComponentByClass<UFallingStateComponent>();
 }
 
 
@@ -21,17 +41,12 @@ UCharacterStateMachine::UCharacterStateMachine()
 void UCharacterStateMachine::BeginPlay()
 {
 	Super::BeginPlay();
-	SetUpStates();
-
+	SetupStates();
 	SetState(ECharacterState::Sliding);
 
 	// ...
 }
 
-void UCharacterStateMachine::SetUpStates()
-{
-	Sliding = GetOwner()->GetComponentByClass<USlidingStateComponent>();
-}
 
 
 // Called every frame
@@ -50,9 +65,9 @@ UStateComponentBase* UCharacterStateMachine::TranslateEnumToState(const ECharact
 {
 	switch (Enum)
 	{
-	case ECharacterState::Idle: return nullptr;
-	case ECharacterState::Walking: return nullptr;
-	case ECharacterState::Running: return nullptr;
+	case ECharacterState::Idle: return Idle;
+	case ECharacterState::Walking: return Walking;
+	case ECharacterState::Running: return Running;
 	case ECharacterState::Sliding: return Sliding;
 	case ECharacterState::WallClimbing: return WallClimbing;
 	case ECharacterState::WallRunning: return WallRunning;
@@ -67,14 +82,11 @@ void UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 {
 	//Making sure the translation is valid
 	if (TranslateEnumToState(NewStateEnum) == nullptr) return;
-
 	
-
-	//if (CurrentState->PossibleTransitions.Contains(NewStateEnum)) return;
 	
 	if (CurrentState != nullptr)
 	{
-		if (!CurrentState->PossibleTransitions[NewStateEnum]) return; //If the current state does not allow the change to the new state, return.
+		if (!CurrentState->CanTransitionFromStateList[NewStateEnum]) return; //If the current state does not allow the change to the new state, return.
 
 		//Green light! Setting new state is go!
 		
@@ -88,3 +100,5 @@ void UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 	CurrentState->OnEnterState();
 	RunUpdate = true;
 }
+
+

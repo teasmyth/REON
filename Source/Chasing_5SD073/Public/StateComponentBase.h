@@ -3,28 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "CharacterStateMachine.h"
 #include "Components/ActorComponent.h"
 #include "StateComponentBase.generated.h"
 
-//Using custom enum types and translating back and forth because I cannot make UInterface as making it would make it a UObject,
-//which cannot be inherited by other Actor Components. Hence the translation layer, which is also visible to BPs.
-//Instead, I am using an actor component base class (to have shared functionality) that all the other states inherit.
-//another reason is I am using bunch of switch statement which requires constants. Afaik, switching based on classes (if i were to use CurrentState
-//as a class, rather than an enum) wouldn't work. So, that is another why I am using enums for switching between states.
-
-UENUM(BlueprintType)
-enum class ECharacterState : uint8
-{
-	Idle,
-	Walking,
-	Running,
-	Sliding,
-	WallClimbing,
-	WallRunning,
-	AirDashing,
-	Falling
-	// Add other states as needed
-};
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class CHASING_5SD073_API UStateComponentBase : public UActorComponent
@@ -41,8 +23,8 @@ protected:
 
 public:
 
-	UPROPERTY(EditFixedSize, EditAnywhere, Category = "Settings", meta = (ToolTip = "The list describes TO which states this state can transtion"))
-	TMap<ECharacterState, bool> PossibleTransitions;
+	UPROPERTY(EditFixedSize, EditAnywhere, Category = "Settings", meta = (ToolTip = "The list describes FROM which states this state can transtion"))
+	TMap<ECharacterState, bool> CanTransitionFromStateList;
 	
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;

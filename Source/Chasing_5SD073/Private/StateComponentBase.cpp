@@ -27,7 +27,7 @@ UStateComponentBase::UStateComponentBase()
 				continue;
 			}
 
-			PossibleTransitions.Add(EnumValue, true); // Set the default value to false
+			CanTransitionFromStateList.Add(EnumValue, true); // Set the default value to false
 		}
 	}
 	// ...

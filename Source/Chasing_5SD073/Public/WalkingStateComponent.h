@@ -5,36 +5,28 @@
 #include "CoreMinimal.h"
 #include "StateComponentBase.h"
 #include "Components/ActorComponent.h"
-#include "SlidingStateComponent.generated.h"
+#include "WalkingStateComponent.generated.h"
 
 
-
-UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class CHASING_5SD073_API USlidingStateComponent : public UStateComponentBase
+UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+class CHASING_5SD073_API UWalkingStateComponent : public UStateComponentBase
 {
 	GENERATED_BODY()
 
-public:
+public:	
 	// Sets default values for this component's properties
-	USlidingStateComponent();
+	UWalkingStateComponent();
 
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
-public:
+public:	
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void OnEnterState() override;
 	virtual void OnUpdateState() override;
 	virtual void OnExitState() override;
 
-private:
-	UPROPERTY(VisibleAnywhere, Category= "Settings")
-	float MaxSlideDuration = 0;
-
-	UPROPERTY(VisibleAnywhere, Category= "Settings")
-	float SlidingSpeedBoost = 0;
-
-	
+		
 };

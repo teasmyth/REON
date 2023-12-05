@@ -3,12 +3,30 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "StateComponentBase.h"
 #include "Components/ActorComponent.h"
 #include "CharacterStateMachine.generated.h"
 
+//Using custom enum types and translating back and forth because I cannot make UInterface as making it would make it a UObject,
+//which cannot be inherited by other Actor Components. Hence the translation layer, which is also visible to BPs.
+//Instead, I am using an actor component base class (to have shared functionality) that all the other states inherit.
+//another reason is I am using bunch of switch statement which requires constants. Afaik, switching based on classes (if i were to use CurrentState
+//as a class, rather than an enum) wouldn't work. So, that is another why I am using enums for switching between states.
 
+UENUM(BlueprintType)
+enum class ECharacterState : uint8
+{
+	Idle,
+	Walking,
+	Running,
+	Sliding,
+	WallClimbing,
+	WallRunning,
+	AirDashing,
+	Falling
+	// Add other states as needed
+};
 
+class UStateComponentBase;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class CHASING_5SD073_API UCharacterStateMachine : public UActorComponent
@@ -28,30 +46,44 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, DisplayName= "Current State")
 	ECharacterState CurrentEnumState = ECharacterState::Idle;
+
 	UPROPERTY()
 	UStateComponentBase* CurrentState = nullptr;
 
+
+	//TODO research a more automated thing for this, instead of manually adding stuff.
+	
 	UPROPERTY()
-	UStateComponentBase* Sliding;
+	UStateComponentBase* Idle = nullptr;
 
 	UPROPERTY()
-	UStateComponentBase* WallRunning;
+	UStateComponentBase* Walking = nullptr;
 
 	UPROPERTY()
-	UStateComponentBase* WallClimbing;
+	UStateComponentBase* Running = nullptr;
+	
+	UPROPERTY()
+	UStateComponentBase* Sliding = nullptr;
 
 	UPROPERTY()
-	UStateComponentBase* AirDashing;
+	UStateComponentBase* WallRunning = nullptr;
 
 	UPROPERTY()
-	UStateComponentBase* Falling;
+	UStateComponentBase* WallClimbing = nullptr;
+
+	UPROPERTY()
+	UStateComponentBase* AirDashing = nullptr;
+
+	UPROPERTY()
+	UStateComponentBase* Falling = nullptr;
 
 	void SetState(const ECharacterState& NewStateEnum);
 
 private:
+	void SetupStates();
 	//Internal check whether the player can switch from current state to the new one.
-	void SetUpStates();
 	UStateComponentBase* TranslateEnumToState(const ECharacterState& Enum) const;
-	bool RunUpdate;
+	bool RunUpdate = false;
 };
