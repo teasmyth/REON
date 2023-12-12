@@ -42,7 +42,7 @@ void UCharacterStateMachine::BeginPlay()
 {
 	Super::BeginPlay();
 	SetupStates();
-	SetState(ECharacterState::Sliding);
+	//SetState(ECharacterState::Sliding);
 
 	// ...
 }
@@ -56,7 +56,7 @@ void UCharacterStateMachine::TickComponent(float DeltaTime, ELevelTick TickType,
 
 	if (CurrentState != nullptr && RunUpdate)
 	{
-		CurrentState->OnUpdateState();
+		CurrentState->OnUpdateState(*this);
 	}
 	// ...
 }
@@ -91,14 +91,25 @@ void UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 		//Green light! Setting new state is go!
 		
 		RunUpdate = false;
-		CurrentState->OnExitState();
+		CurrentState->OnExitState(*this);
 	}
 
 	
 	CurrentState = TranslateEnumToState(NewStateEnum);
 	CurrentEnumState = NewStateEnum;
-	CurrentState->OnEnterState();
+	CurrentState->OnEnterState(*this);
 	RunUpdate = true;
+}
+
+void UCharacterStateMachine::ResetState()
+{
+	if (CurrentState != nullptr)
+	{
+		RunUpdate = false;
+		CurrentState->OnExitState(*this);
+		CurrentState = nullptr;
+		CurrentEnumState = ECharacterState::None;
+	}
 }
 
 

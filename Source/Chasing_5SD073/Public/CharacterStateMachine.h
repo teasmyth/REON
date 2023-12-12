@@ -15,6 +15,7 @@
 UENUM(BlueprintType)
 enum class ECharacterState : uint8
 {
+	None,
 	Idle,
 	Walking,
 	Running,
@@ -80,6 +81,9 @@ public:
 	UStateComponentBase* Falling = nullptr;
 
 	void SetState(const ECharacterState& NewStateEnum);
+
+	//This is used for manual OnExit.
+	void ResetState();
 
 private:
 	void SetupStates();

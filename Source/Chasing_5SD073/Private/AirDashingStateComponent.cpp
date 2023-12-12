@@ -32,18 +32,18 @@ void UAirDashingStateComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 	// ...
 }
 
-void UAirDashingStateComponent::OnEnterState()
+void UAirDashingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
-	Super::OnEnterState();
+	Super::OnEnterState(SM);
 }
 
-void UAirDashingStateComponent::OnUpdateState()
+void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
-	Super::OnUpdateState();
+	Super::OnUpdateState(SM);
 }
 
-void UAirDashingStateComponent::OnExitState()
+void UAirDashingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
-	Super::OnExitState();
+	Super::OnExitState(SM);
 }
 

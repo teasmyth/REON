@@ -39,6 +39,9 @@ void UStateComponentBase::BeginPlay()
 {
 	Super::BeginPlay();
 
+	PlayerCapsule = GetOwner()->GetComponentByClass<UCapsuleComponent>();
+	PlayerMovement = GetOwner()->GetComponentByClass<UCharacterMovementComponent>();
+	PlayerCharacter = Cast<AMyCharacter>(GetOwner());
 	// ...
 	
 }
@@ -52,18 +55,28 @@ void UStateComponentBase::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	// ...
 }
 
-void UStateComponentBase::OnEnterState()
+void UStateComponentBase::OnEnterState(UCharacterStateMachine& SM)
 {
 	OnEnterStateDelegate.Broadcast();
 }
 
-void UStateComponentBase::OnUpdateState()
+void UStateComponentBase::OnUpdateState(UCharacterStateMachine& SM)
 {
 	OnUpdateStateDelegate.Broadcast();
 }
 
-void UStateComponentBase::OnExitState()
+void UStateComponentBase::OnExitState(UCharacterStateMachine& SM)
 {
 	OnExitStateDelegate.Broadcast();
 }
+
+void UStateComponentBase::OverrideMovement(FVector2d& NewMovementVector)
+{
+	
+}
+
+void UStateComponentBase::OverrideCamera(UCameraComponent& Camera, FVector2d& NewRotationVector)
+{
+}
+
 

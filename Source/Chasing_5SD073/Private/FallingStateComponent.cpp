@@ -32,18 +32,18 @@ void UFallingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	// ...
 }
 
-void UFallingStateComponent::OnEnterState()
+void UFallingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
-	Super::OnEnterState();
+	Super::OnEnterState(SM);
 }
 
-void UFallingStateComponent::OnUpdateState()
+void UFallingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
-	Super::OnUpdateState();
+	Super::OnUpdateState(SM);
 }
 
-void UFallingStateComponent::OnExitState()
+void UFallingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
-	Super::OnExitState();
+	Super::OnExitState(SM);
 }
 

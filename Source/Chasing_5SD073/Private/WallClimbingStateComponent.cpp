@@ -32,18 +32,18 @@ void UWallClimbingStateComponent::TickComponent(float DeltaTime, ELevelTick Tick
 	// ...
 }
 
-void UWallClimbingStateComponent::OnEnterState()
+void UWallClimbingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
-	Super::OnEnterState();
+	Super::OnEnterState(SM);
 }
 
-void UWallClimbingStateComponent::OnUpdateState()
+void UWallClimbingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
-	Super::OnUpdateState();
+	Super::OnUpdateState(SM);
 }
 
-void UWallClimbingStateComponent::OnExitState()
+void UWallClimbingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
-	Super::OnExitState();
+	Super::OnExitState(SM);
 }
 

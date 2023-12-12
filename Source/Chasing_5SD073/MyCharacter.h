@@ -21,6 +21,14 @@ class USkeletalMeshComponent;
 class UCameraComponent;
 class UCharacterStateMachine;
 
+UENUM(BlueprintType)
+enum class EMovementState : uint8
+{
+	Idle,
+	Walking,
+	Running
+};
+
 UCLASS()
 class CHASING_5SD073_API AMyCharacter : public ACharacter
 {
@@ -38,10 +46,7 @@ class CHASING_5SD073_API AMyCharacter : public ACharacter
 	UCameraComponent* BackCam;
 
 	UPROPERTY()
-	UCharacterStateMachine* SM = nullptr;
-	
-	ICharacterState* Sliding = nullptr;
-	
+	UCharacterStateMachine* StateMachine = nullptr;
 public:
 	// Sets default values for this character's properties
 	AMyCharacter();
@@ -69,6 +74,8 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category= "CustomInputs")
 	class UInputAction* SlideAction;
 
@@ -93,8 +100,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float cameraJitter;
 	
-	UPROPERTY(EditAnywhere, Category = "CustomValues")
-	float slideSpeedBoost;
 	
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float accelerationSpeedRate;
@@ -119,13 +124,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	// ur gravity is low when u want to air dash
 	float gravityLow;
-
-	UPROPERTY(EditAnywhere, Category = "CustomValues")
-	float slideSpeedMax;
-
-	UPROPERTY(EditAnywhere, Category = "CustomValues")
-	// when this timer reaches the max, player stops slide
-	double slideTimer;
+	
 
 	// accelerate
 	float accelerationTimer;
@@ -142,24 +141,18 @@ public:
 	
 	bool boostSlide;
 
-	UPROPERTY(VisibleAnywhere)
-	bool setupSlidingTimer;
-
-	UPROPERTY(VisibleAnywhere)
-	double currenttimer = 0;
+	
+	
 	
 	double initialSlideTimer = 0;
 	FVector dashValue; // how far u airDash
 
 	float getCurrentAccelerationRate;
-
-	UPROPERTY(EditAnywhere, Category = "CustomValues")
-	FVector slideBoost; 
 	
 	bool fallSliding;
 
 	// Movements functions
-	void Acceleration();
+	void Acceleration(const float& DeltaTime);
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void Slide();
@@ -167,14 +160,18 @@ public:
 	void LookFront();
 	void AirDash(const FInputActionValue& Value);
 	void DashAction();
-	void SetupSlide();
+
+	void SetCharacterSpeed(const float& NewSpeed) const;
+	void AddCharacterSpeed(const float& NewSpeed) const;
 
 
 	void WallMechanicsCheck();
+
+	void ResetCharacterState();
+	void MovementStateCheck();
 	
 	// Reset
 	void SpeedReset();
-	void ResetAfterSlide();
 
 	// Raycast
 	bool onSlope;
@@ -199,4 +196,26 @@ public:
 	void DebugSpeed();
 	void DebugLanding();
 	void DebugSize();
+
+private: //My stuff
+
+
+	//Movement
+	UPROPERTY(VisibleAnywhere, DisplayName= "Current Movement State")
+	EMovementState CurrentMovementState = EMovementState::Idle;
+	
+	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	UCurveFloat* WalkingAccelerationTime;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	UCurveFloat* RunningAccelerationTime;
+	
+	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	float RunningStateSpeedMinimum = 800;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	float MaxRunningSpeed;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Setting", meta = (Tooltip = "This is the maximum possible speed with any kind of bonus combined."))
+	float MaxPossibleSpeed;
 };

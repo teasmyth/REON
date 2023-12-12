@@ -5,6 +5,7 @@
 #include "CharacterStateMachine.h"
 #include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
+#include "StateComponentBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 #pragma region Character
@@ -54,13 +55,17 @@ void AMyCharacter::BeginPlay()
 		}
 	}
 
-	SM = GetComponentByClass<UCharacterStateMachine>();
+	StateMachine = GetComponentByClass<UCharacterStateMachine>();
+	GetCharacterMovement()->MaxCustomMovementSpeed = MaxRunningSpeed;
 }
 
 // Called every frame
 void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	MovementStateCheck();
+	Acceleration(DeltaTime);
 
 	if (GetCharacterMovement()->IsFalling() && !landed)
 	{
@@ -70,7 +75,7 @@ void AMyCharacter::Tick(float DeltaTime)
 	{
 		//
 	}
-	
+
 	// air dash starts
 	if (GetCharacterMovement()->IsFalling())
 	{
@@ -78,8 +83,8 @@ void AMyCharacter::Tick(float DeltaTime)
 	}
 	else
 	{
-		dash = false;  // reset back 
-		dashOnce = true;  //
+		dash = false; // reset back 
+		dashOnce = true; //
 		airDashDelayTimer = 0;
 		startDelay = false;
 		startDash = false;
@@ -125,9 +130,8 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
 
 		//Sliding
-		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Started, this, &AMyCharacter::SetupSlide);
-		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Ongoing, this, &AMyCharacter::Slide);
-		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Canceled, this, &AMyCharacter::ResetAfterSlide);
+		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Started, this, &AMyCharacter::Slide);
+		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Completed, this, &AMyCharacter::ResetCharacterState);
 
 		//Looking Back
 		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Triggered, this, &AMyCharacter::LookBack);
@@ -135,7 +139,6 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 		//AirDash
 		EnhancedInputComponent->BindAction(AirDashAction, ETriggerEvent::Triggered, this, &AMyCharacter::AirDash);
-		
 	}
 }
 
@@ -146,7 +149,7 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 void AMyCharacter::DashAction()
 {
 	// the actual dash movement, using a ray to detect new location to dash to
-	
+
 	if (startDash)
 	{
 		FVector start = GetActorLocation();
@@ -170,14 +173,36 @@ void AMyCharacter::DashAction()
 	}
 }
 
+void AMyCharacter::SetCharacterSpeed(const float& NewSpeed) const
+{
+	GetCharacterMovement()->MaxWalkSpeed = FMath::Clamp(NewSpeed, 0, MaxPossibleSpeed);
+}
+
+void AMyCharacter::AddCharacterSpeed(const float& NewSpeed) const
+{
+	GetCharacterMovement()->MaxWalkSpeed += FMath::Clamp(NewSpeed, 0, MaxPossibleSpeed);
+}
+
 // Movement
 
-void AMyCharacter::Acceleration()
+void AMyCharacter::Acceleration(const float& DeltaTime)
 {
-	// accelerationSpeedRate = how long (seconds) it should take to reach maximum speed
-	// when u are not falling the acceleration time doesnt get effected
-	float currentAcceleration = GetCharacterMovement()->MaxCustomMovementSpeed / accelerationSpeedRate;
+	accelerationTimer += DeltaTime; //This is reset the moment the player stops giving movement inputs.
 
+	//float currentAcceleration = GetCharacterMovement()->MaxCustomMovementSpeed / accelerationSpeedRate;
+
+
+	if (CurrentMovementState == EMovementState::Idle || CurrentMovementState == EMovementState::Walking)
+	{
+		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum * WalkingAccelerationTime->GetFloatValue(accelerationTimer);
+	}
+	else
+	{
+		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum + (MaxRunningSpeed - RunningStateSpeedMinimum) * RunningAccelerationTime->
+			GetFloatValue(accelerationTimer);
+	}
+
+	/*
 	//landed after falling
 	if (landed)
 	{
@@ -195,28 +220,72 @@ void AMyCharacter::Acceleration()
 			fallingTimer = 0;
 		}
 	}
+	*/
 
-	GetCharacterMovement()->MaxAcceleration = currentAcceleration;
-	getCurrentAccelerationRate = currentAcceleration;
+	//GetCharacterMovement()->MaxAcceleration = currentAcceleration;
+	//getCurrentAccelerationRate = currentAcceleration;
 }
+
+void AMyCharacter::MovementStateCheck()
+{
+	if (CurrentMovementState != EMovementState::Idle && GetMovementComponent()->Velocity.Size() <= 1)
+	{
+		CurrentMovementState = EMovementState::Idle;
+		accelerationTimer = 0;
+	}
+	else if (CurrentMovementState != EMovementState::Walking && GetMovementComponent()->Velocity.Size() > 1 && GetMovementComponent()->Velocity.Size()
+		< RunningStateSpeedMinimum)
+	{
+		CurrentMovementState = EMovementState::Walking;
+		accelerationTimer = 0;
+	}
+	else if (CurrentMovementState != EMovementState::Running && GetMovementComponent()->Velocity.Size() >= RunningStateSpeedMinimum)
+	{
+		CurrentMovementState = EMovementState::Running;
+		accelerationTimer = 0;
+	}
+}
+
 
 void AMyCharacter::Move(const FInputActionValue& Value)
 {
-	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
+
+	if (StateMachine != nullptr && StateMachine->CurrentState != nullptr)
+	{
+		//If the current state has implemented override, it will override the movement vector
+		//Otherwise it will return back the original vector.
+		StateMachine->CurrentState->OverrideMovement(MovementVector);
+	}
+
+	//Rounding the number up to 1 if its at 0.95 (or above) in cases when you look up and down a little which alters the input due to pitch/yaw.
+	if (MovementVector.Y >= 0.95f) MovementVector.Y = 1;
 
 	if (Controller != nullptr)
 	{
 		AddMovementInput(GetActorForwardVector(), MovementVector.Y);
 		AddMovementInput(GetActorRightVector(), MovementVector.X);
 	}
-	Acceleration();
+}
+
+void AMyCharacter::SpeedReset()
+{
+	//accelerationTimer = 0; Moved to movement state check
 }
 
 void AMyCharacter::Look(const FInputActionValue& Value)
 {
 	// input is a Vector2D
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
+
+
+	if (StateMachine != nullptr && StateMachine->CurrentState != nullptr)
+	{
+		//If the current state has implemented override, it will override the movement vector
+		//Otherwise it will return back the original vector.
+		StateMachine->CurrentState->OverrideCamera(*FrontCam, LookAxisVector);
+	}
+
 
 	if (Controller != nullptr)
 	{
@@ -229,7 +298,7 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 	// but its hard to know how much the mouse is input-ing
 	if (LookAxisVector.X >= cameraJitter || LookAxisVector.X <= -cameraJitter)
 	{
-		GetCharacterMovement()->Velocity *= slowPrecentage;
+		//GetCharacterMovement()->Velocity *= slowPrecentage; //Need a better solution
 	}
 }
 
@@ -247,13 +316,15 @@ void AMyCharacter::LookFront()
 	BackCam->Activate(false);
 }
 
-void AMyCharacter::SetupSlide()
+void AMyCharacter::Slide()
 {
-	// i worked with u on this, so u probably already know
-	if (!setupSlidingTimer)
+	if (StateMachine == nullptr) return;
+	
+	if (CurrentMovementState == EMovementState::Running && StateMachine->CurrentEnumState != ECharacterState::Sliding)
 	{
-		initialSlideTimer = FApp::GetCurrentTime();
-		setupSlidingTimer = true;
+		StateMachine->SetState(ECharacterState::Sliding);
+		FVector2d tmpvector = FVector2d::Zero();
+		StateMachine->CurrentState->OverrideCamera(*FrontCam, tmpvector);
 	}
 }
 
@@ -262,41 +333,11 @@ void AMyCharacter::WallMechanicsCheck()
 	//calculate whether wer are trying to wall run or wall climb, if at all
 	//if (wallclimb) -> statemachine.setstate(wallclimb)
 	//if (wallrun) -> statemachine.setstate(wallrun)
-	
 }
 
-
-void AMyCharacter::Slide()
+void AMyCharacter::ResetCharacterState()
 {
-	// u already know this
-	if (!setupSlidingTimer) return;
-	
-	boostSlide = true;
-	currenttimer = FApp::GetCurrentTime() - initialSlideTimer;
-	
-	if (currenttimer < slideTimer)
-	{
-		GetCapsuleComponent()->SetCapsuleHalfHeight(GetCapsuleComponent()->GetScaledCapsuleHalfHeight() / 2);
-
-		const float currentSpeed = GetCharacterMovement()->Velocity.Length();
-		GetCharacterMovement()->Velocity += GetActorRotation().Vector() * slideBoost;
-
-		if (currentSpeed >= GetCharacterMovement()->Velocity.Length())
-		{
-			boostSlide = false;
-		}
-
-		if (GetCharacterMovement()->Velocity.Length() >= 1000)
-		{
-			GetCharacterMovement()->MaxWalkSpeed = slideSpeedMax;
-		}
-		
-		fallSliding = true;
-	}
-	else
-	{
-		ResetAfterSlide();
-	}
+	if (StateMachine != nullptr) StateMachine->ResetState();
 }
 
 void AMyCharacter::AirDash(const FInputActionValue& Value)
@@ -312,29 +353,6 @@ void AMyCharacter::AirDash(const FInputActionValue& Value)
 		dashValue = Value.Get<FVector>();
 		// after u pressed space when u are in the air(has to be jumping) ur gravity becomes low
 		GetCharacterMovement()->GravityScale = gravityLow;
-	}
-}
-
-#pragma endregion
-
-#pragma region Reset
-
-// Reset
-void AMyCharacter::SpeedReset()
-{
-	accelerationTimer = 0;
-}
-
-void AMyCharacter::ResetAfterSlide()
-{
-	if (!setupSlidingTimer) return;
-	
-	GetCapsuleComponent()->SetCapsuleSize(55.0f, 96.0f);
-	setupSlidingTimer = false;
-
-	if (GetCharacterMovement()->Velocity.Length() >= 1000)
-	{
-		GetCharacterMovement()->MaxWalkSpeed = 1000;
 	}
 }
 

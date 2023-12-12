@@ -32,18 +32,18 @@ void UWallRunningStateComponent::TickComponent(float DeltaTime, ELevelTick TickT
 	// ...
 }
 
-void UWallRunningStateComponent::OnEnterState()
+void UWallRunningStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
-	Super::OnEnterState();
+	Super::OnEnterState(SM);
 }
 
-void UWallRunningStateComponent::OnUpdateState()
+void UWallRunningStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
-	Super::OnUpdateState();
+	Super::OnUpdateState(SM);
 }
 
-void UWallRunningStateComponent::OnExitState()
+void UWallRunningStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
-	Super::OnExitState();
+	Super::OnExitState(SM);
 }
 
