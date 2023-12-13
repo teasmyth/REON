@@ -159,9 +159,9 @@ public:
 	void LookBack();
 	void LookFront();
 	void AirDash(const FInputActionValue& Value);
-	void DashAction();
+	void JumpAndDash();
 
-	void SetCharacterSpeed(const float& NewSpeed) const;
+	void SetCharacterSpeed(const float& NewSpeed, const bool IgnoreClamp = false) const;
 	void AddCharacterSpeed(const float& NewSpeed) const;
 
 
@@ -196,6 +196,9 @@ public:
 	void DebugSpeed();
 	void DebugLanding();
 	void DebugSize();
+
+
+	float GetMaxRunningSpeed() const { return MaxRunningSpeed;}
 
 private: //My stuff
 

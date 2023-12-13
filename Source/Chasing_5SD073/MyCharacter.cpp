@@ -90,6 +90,7 @@ void AMyCharacter::Tick(float DeltaTime)
 		startDash = false;
 	}
 
+	/*
 	if (startDelay)
 	{
 		airDashDelayTimer += DeltaTime;
@@ -100,6 +101,7 @@ void AMyCharacter::Tick(float DeltaTime)
 			DashAction();
 		}
 	}
+	*/
 	// air dash ends
 
 	// on slope automatically slide, onSlope is checked in SliderRaycast()
@@ -119,7 +121,7 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		//Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &AMyCharacter::JumpAndDash);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 
 		//Moving
@@ -138,7 +140,7 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Completed, this, &AMyCharacter::LookFront);
 
 		//AirDash
-		EnhancedInputComponent->BindAction(AirDashAction, ETriggerEvent::Triggered, this, &AMyCharacter::AirDash);
+		//EnhancedInputComponent->BindAction(AirDashAction, ETriggerEvent::Triggered, this, &AMyCharacter::AirDash);
 	}
 }
 
@@ -146,10 +148,20 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 #pragma region Movement
 
-void AMyCharacter::DashAction()
+void AMyCharacter::JumpAndDash()
 {
+	if (GetCharacterMovement()->IsMovingOnGround())
+	{
+		Jump();
+	}
+	else if (StateMachine != nullptr && StateMachine->CurrentEnumState != ECharacterState::AirDashing)
+	{
+		StateMachine->SetState(ECharacterState::AirDashing);
+	}
+
 	// the actual dash movement, using a ray to detect new location to dash to
 
+	/*
 	if (startDash)
 	{
 		FVector start = GetActorLocation();
@@ -171,11 +183,17 @@ void AMyCharacter::DashAction()
 			airDashDelayTimer = 0;
 		}
 	}
+	*/
 }
 
-void AMyCharacter::SetCharacterSpeed(const float& NewSpeed) const
+void AMyCharacter::SetCharacterSpeed(const float& NewSpeed, const bool IgnoreClamp) const
 {
-	GetCharacterMovement()->MaxWalkSpeed = FMath::Clamp(NewSpeed, 0, MaxPossibleSpeed);
+	if (!IgnoreClamp)
+	{
+		GetCharacterMovement()->MaxWalkSpeed = NewSpeed;
+	}
+	else GetCharacterMovement()->MaxWalkSpeed = FMath::Clamp(NewSpeed, 0, MaxPossibleSpeed);
+	
 }
 
 void AMyCharacter::AddCharacterSpeed(const float& NewSpeed) const
@@ -200,6 +218,11 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum + (MaxRunningSpeed - RunningStateSpeedMinimum) * RunningAccelerationTime->
 			GetFloatValue(accelerationTimer);
+	}
+
+	if (StateMachine != nullptr && StateMachine->CurrentState != nullptr)
+	{
+		StateMachine->CurrentState->OverrideMovement(GetCharacterMovement()->MaxWalkSpeed);
 	}
 
 	/*
@@ -255,11 +278,13 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 	{
 		//If the current state has implemented override, it will override the movement vector
 		//Otherwise it will return back the original vector.
-		StateMachine->CurrentState->OverrideMovement(MovementVector);
+		StateMachine->CurrentState->OverrideMovementInputSensitivity(MovementVector);
 	}
 
 	//Rounding the number up to 1 if its at 0.95 (or above) in cases when you look up and down a little which alters the input due to pitch/yaw.
 	if (MovementVector.Y >= 0.95f) MovementVector.Y = 1;
+
+	MovementVector *= 3;
 
 	if (Controller != nullptr)
 	{
@@ -319,7 +344,7 @@ void AMyCharacter::LookFront()
 void AMyCharacter::Slide()
 {
 	if (StateMachine == nullptr) return;
-	
+
 	if (CurrentMovementState == EMovementState::Running && StateMachine->CurrentEnumState != ECharacterState::Sliding)
 	{
 		StateMachine->SetState(ECharacterState::Sliding);

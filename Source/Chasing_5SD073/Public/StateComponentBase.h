@@ -49,7 +49,9 @@ public:
 	//This is executed at the ending of the state. Do not completely override, leave the base.
 	virtual void OnExitState(UCharacterStateMachine& SM);
 
-	virtual void OverrideMovement(FVector2d& NewMovementVector);
+	virtual void OverrideMovementInputSensitivity(FVector2d& NewMovementVector);
+
+	virtual void OverrideMovement(float& NewSpeed);
 
 	virtual void OverrideCamera(UCameraComponent& Camera, FVector2d& NewRotationVector);
 

@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Sliding Settings.
+// Fill out your copyright notice in the Description page of Project Sliding.
 
 #pragma once
 
@@ -29,20 +29,20 @@ public:
 	virtual void OnUpdateState(UCharacterStateMachine& SM) override;
 	virtual void OnExitState(UCharacterStateMachine& SM) override;
 
-	virtual void OverrideMovement(FVector2d& NewMovementVector) override;
+	virtual void OverrideMovementInputSensitivity(FVector2d& NewMovementVector) override;
 	virtual void OverrideCamera(UCameraComponent& Camera, FVector2d& NewRotationVector) override;
 
 private:
-	UPROPERTY(EditAnywhere, Category= "Sliding Settings", meta = (Tooltip = "Max Slide Duration (seconds)"))
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "Max Slide Duration (seconds)"))
 	float MaxSlideDuration = 0;
 
-	UPROPERTY(EditAnywhere, Category= "Sliding Settings", meta = (ToolTip = "Maximum possible speed is running max + speed boost"))
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "Maximum possible speed is running max + speed boost"))
 	float SlidingSpeedBoost = 0;
 
-	UPROPERTY(EditAnywhere, Category= "Sliding Settings", meta = (ToolTip = "It is a % value, limiting the intensity of left right input."))
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "It is a % value, limiting the intensity of left right input."))
 	float SlidingLeftRightMovementModifier = 0;
 
-	UPROPERTY(EditAnywhere, Category= "Sliding Settings", meta = (ToolTip = "It is a % value, limiting the intensity of camera input. (all directions)"))
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "It is a % value, limiting the intensity of camera input. (all directions)"))
 	float SlidingCameraModifier = 0;
 
 	float InternalTimerStart;

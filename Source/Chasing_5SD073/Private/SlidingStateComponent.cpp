@@ -81,7 +81,7 @@ void USlidingStateComponent::OnExitState(UCharacterStateMachine& SM)
 	IsSlidingSetup = false;
 }
 
-void USlidingStateComponent::OverrideMovement(FVector2d& NewMovementVector)
+void USlidingStateComponent::OverrideMovementInputSensitivity(FVector2d& NewMovementVector)
 {
 	NewMovementVector.X *= SlidingLeftRightMovementModifier;
 }
