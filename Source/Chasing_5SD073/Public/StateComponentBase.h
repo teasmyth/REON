@@ -8,6 +8,7 @@
 #include "Chasing_5SD073/MyCharacter.h"
 #include "Components/ActorComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "StateComponentBase.generated.h"
 
 

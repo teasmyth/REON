@@ -33,15 +33,16 @@ void UWallRunningStateComponent::TickComponent(float DeltaTime, ELevelTick TickT
 
 void UWallRunningStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
-	if (PlayerCharacter->GetWallMechanicHitResult()->GetActor() == PreviousWall)
+	if (PlayerCharacter->GetWallMechanicHitResult()->GetActor() == PreviousWall && PreviousWall != nullptr)
 	{
+		GEngine->AddOnScreenDebugMessage(-1,2, FColor::Red,"Same wall");
 		SM.ManualExitState();
 		return;
 	}
 
 	Super::OnEnterState(SM);
-	//const FVector PrevVelocity = PlayerMovement->Velocity;
-	//PlayerMovement->Velocity = FVector(PrevVelocity.X, PrevVelocity.Y, 0);
+
+	
 	PreviousWall = PlayerCharacter->GetWallMechanicHitResult()->GetActor();
 
 	PlayerCharacter->bUseControllerRotationYaw = false;
@@ -49,7 +50,6 @@ void UWallRunningStateComponent::OnEnterState(UCharacterStateMachine& SM)
 
 	InternalTimer = 0;
 	InternalGravityScale = 0;
-	//PlayerMovement->GravityScale = 0;
 	PlayerMovement->Velocity.Z = 0;
 
 	//TODO Need to adjust this. Not super precise.
@@ -139,5 +139,11 @@ bool UWallRunningStateComponent::CheckWhetherStillWallRunning()
 	const bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, CollisionParams);
 	if (bDebug) DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, -1);
 
+	//If moving on ground, cancel wall run outright, otherwise, check the side if we are still wall running
+	if (PlayerMovement->IsMovingOnGround())
+	{
+		PreviousWall = nullptr;
+		return false;
+	}
 	return bHit;
 }

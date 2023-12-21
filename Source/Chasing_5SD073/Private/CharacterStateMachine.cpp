@@ -4,11 +4,7 @@
 #include "CharacterStateMachine.h"
 
 #include "AirDashingStateComponent.h"
-#include "FallingStateComponent.h"
-#include "IdleStateComponent.h"
 #include "NoneStateComponent.h"
-#include "WalkingStateComponent.h"
-#include "RunningStateComponent.h"
 #include "SlidingStateComponent.h"
 #include "WallClimbingStateComponent.h"
 #include "WallRunningStateComponent.h"
@@ -19,7 +15,7 @@ UCharacterStateMachine::UCharacterStateMachine()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 
 	
 	// ...
@@ -32,7 +28,6 @@ void UCharacterStateMachine::SetupStates()
 	WallClimbing = GetOwner()->GetComponentByClass<UWallClimbingStateComponent>();
 	WallRunning = GetOwner()->GetComponentByClass<UWallRunningStateComponent>();
 	AirDashing = GetOwner()->GetComponentByClass<UAirDashingStateComponent>();
-	Falling = GetOwner()->GetComponentByClass<UFallingStateComponent>();
 }
 
 
@@ -41,8 +36,7 @@ void UCharacterStateMachine::BeginPlay()
 {
 	Super::BeginPlay();
 	SetupStates();
-	//SetState(ECharacterState::Sliding);
-
+	
 	// ...
 }
 
@@ -53,10 +47,7 @@ void UCharacterStateMachine::TickComponent(float DeltaTime, ELevelTick TickType,
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (CurrentState != nullptr && RunUpdate)
-	{
-		CurrentState->OnUpdateState(*this);
-	}
+	
 	// ...
 }
 
@@ -69,7 +60,6 @@ UStateComponentBase* UCharacterStateMachine::TranslateEnumToState(const ECharact
 	case ECharacterState::WallClimbing: return WallClimbing;
 	case ECharacterState::WallRunning: return WallRunning;
 	case ECharacterState::AirDashing: return AirDashing;
-	case ECharacterState::Falling: return Falling;
 	default: return nullptr;
 	}
 }
@@ -96,6 +86,14 @@ void UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 	CurrentEnumState = NewStateEnum;
 	CurrentState->OnEnterState(*this);
 	RunUpdate = true;
+}
+
+void UCharacterStateMachine::UpdateStateMachine()
+{
+	if (CurrentState != nullptr && RunUpdate)
+	{
+		CurrentState->OnUpdateState(*this);
+	}
 }
 
 void UCharacterStateMachine::ManualExitState() 

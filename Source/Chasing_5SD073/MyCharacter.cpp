@@ -67,12 +67,17 @@ void AMyCharacter::Tick(float DeltaTime)
 	MovementStateCheck();
 	Acceleration(DeltaTime);
 	WallMechanicsCheck();
-	if (GetCharacterMovement()->IsMovingOnGround()) Dashed = false;
-
+	if (GetCharacterMovement()->IsMovingOnGround())
+	{
+		Dashed = false;
+	}
+	
 	if (GetCharacterMovement()->IsFalling() && !landed)
 	{
 		fallingTimer += DeltaTime;
 	}
+
+	StateMachine->UpdateStateMachine();
 
 	// on slope automatically slide, onSlope is checked in SliderRaycast()
 	//if (onSlope) Slide();
@@ -96,7 +101,7 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 		//Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::None, this, &AMyCharacter::SpeedReset);
+		//EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::None, this, &AMyCharacter::SpeedReset);
 
 		//Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
@@ -181,18 +186,20 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 
 void AMyCharacter::MovementStateCheck()
 {
-	if (CurrentMovementState != EMovementState::Idle && GetMovementComponent()->Velocity.Size() <= 1)
+	//This way the Z movement (for example jumping) does not alter the speed calculation.
+	const float VerticalSpeed = FVector2d(GetMovementComponent()->Velocity.X, GetMovementComponent()->Velocity.Y).Size();
+	
+	if (CurrentMovementState != EMovementState::Idle && VerticalSpeed <= 1)
 	{
 		CurrentMovementState = EMovementState::Idle;
 		accelerationTimer = 0;
 	}
-	else if (CurrentMovementState != EMovementState::Walking && GetMovementComponent()->Velocity.Size() > 1 && GetMovementComponent()->Velocity.Size()
-		< RunningStateSpeedMinimum)
+	else if (CurrentMovementState != EMovementState::Walking && VerticalSpeed > 1 && VerticalSpeed < RunningStateSpeedMinimum)
 	{
 		CurrentMovementState = EMovementState::Walking;
 		accelerationTimer = 0;
 	}
-	else if (CurrentMovementState != EMovementState::Running && GetMovementComponent()->Velocity.Size() >= RunningStateSpeedMinimum)
+	else if (CurrentMovementState != EMovementState::Running && VerticalSpeed >= RunningStateSpeedMinimum)
 	{
 		CurrentMovementState = EMovementState::Running;
 		accelerationTimer = 0;
@@ -210,9 +217,6 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 		//Otherwise it will return back the original vector.
 		StateMachine->CurrentState->OverrideMovementInput(MovementVector);
 	}
-
-	MovementVector *= 1.01f; //yaw and pitch affect acceleration and in some mouse angles it gets stuck.
-	//TODO this doesnt fix it. I need to make sure when players look slightly up or down, they still get full acceleration.!!!
 
 	//TODO because players keep input and velocity doesnt change, when they suddenly change from left to right the acceleration does not reset.
 

@@ -69,10 +69,9 @@ public:
 	UPROPERTY()
 	UStateComponentBase* AirDashing = nullptr;
 
-	UPROPERTY()
-	UStateComponentBase* Falling = nullptr;
 
 	void SetState(const ECharacterState& NewStateEnum);
+	void UpdateStateMachine();
 
 	//This is used for manual OnExit.
 	void ManualExitState();

@@ -26,7 +26,8 @@ enum class EMovementState : uint8
 {
 	Idle,
 	Walking,
-	Running
+	Running,
+	Fell
 };
 
 UCLASS()
