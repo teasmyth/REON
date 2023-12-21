@@ -47,10 +47,11 @@ class CHASING_5SD073_API AMyCharacter : public ACharacter
 
 	UPROPERTY()
 	UCharacterStateMachine* StateMachine = nullptr;
+
 public:
 	// Sets default values for this character's properties
 	AMyCharacter();
-	
+
 	/** MappingContext */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	class UInputMappingContext* DefaultMappingContext;
@@ -65,26 +66,25 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	class UInputAction* AirDashAction;
-	
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
+public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category= "CustomInputs")
 	class UInputAction* SlideAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="CustomInputs")
 	class UInputAction* LookBackAction;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	class UInputAction* LookAction;
-	
+
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
@@ -96,17 +96,17 @@ public:
 	// custom values
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float slowPrecentage;
-	
+
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float cameraJitter;
-	
-	
+
+
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float accelerationSpeedRate;
-	
+
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float maxFallingPenaltyTime;
-	
+
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	float maxFallingSpeedSlowPenalty;
 
@@ -124,12 +124,12 @@ public:
 	UPROPERTY(EditAnywhere, Category = "CustomValues")
 	// ur gravity is low when u want to air dash
 	float gravityLow;
-	
+
 
 	// accelerate
 	float accelerationTimer;
 	float fallingTimer;
-	
+
 	bool landed;
 
 	// airdash
@@ -138,17 +138,15 @@ public:
 	float airDashDelayTimer;
 	bool startDelay;
 	bool startDash;
-	
+
 	bool boostSlide;
 
-	
-	
-	
+
 	double initialSlideTimer = 0;
 	FVector dashValue; // how far u airDash
 
 	float getCurrentAccelerationRate;
-	
+
 	bool fallSliding;
 
 	// Movements functions
@@ -161,15 +159,12 @@ public:
 	void AirDash(const FInputActionValue& Value);
 	void JumpAndDash();
 
-	void SetCharacterSpeed(const float& NewSpeed, const bool IgnoreClamp = false) const;
-	void AddCharacterSpeed(const float& NewSpeed) const;
-
 
 	void WallMechanicsCheck();
 
 	void ResetCharacterState();
 	void MovementStateCheck();
-	
+
 	// Reset
 	void SpeedReset();
 
@@ -192,33 +187,56 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Debugging")
 	bool debugSlideRaycast;
-	
+
+	UPROPERTY(EditAnywhere, Category = "Debugging")
+	bool bDebugWallMechanics;
+
 	void DebugSpeed();
 	void DebugLanding();
 	void DebugSize();
 
+	UFUNCTION(BlueprintPure)
+	EMovementState GetCharacterMovementState() const { return CurrentMovementState; }
 
-	float GetMaxRunningSpeed() const { return MaxRunningSpeed;}
+	FORCEINLINE float GetMaxRunningSpeed() const { return MaxRunningSpeed; }
+	FORCEINLINE FHitResult* GetWallMechanicHitResult() const { return WallMechanicHitResult; }
+	FORCEINLINE float GetWallCheckDistance() const { return WallCheckForwardDistance; }
 
 private: //My stuff
 
 
 	//Movement
-	UPROPERTY(VisibleAnywhere, DisplayName= "Current Movement State")
+	UPROPERTY(VisibleAnywhere, Category = "Movement Setting", DisplayName= "Current Movement State")
 	EMovementState CurrentMovementState = EMovementState::Idle;
-	
+
 	UPROPERTY(EditAnywhere, Category = "Movement Setting")
 	UCurveFloat* WalkingAccelerationTime;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Setting")
 	UCurveFloat* RunningAccelerationTime;
-	
+
 	UPROPERTY(EditAnywhere, Category = "Movement Setting")
 	float RunningStateSpeedMinimum = 800;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Setting")
 	float MaxRunningSpeed;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Setting", meta = (Tooltip = "This is the maximum possible speed with any kind of bonus combined."))
-	float MaxPossibleSpeed;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	float WallCheckForwardDistance;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	float WallCheckSideDistance;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	float WallRunAngle;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	float WallRunSideAngle;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	float JumpStrength;
+
+	FHitResult* WallMechanicHitResult = nullptr;
+	bool Dashed = false;
 };

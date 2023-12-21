@@ -70,16 +70,16 @@ void UStateComponentBase::OnExitState(UCharacterStateMachine& SM)
 	OnExitStateDelegate.Broadcast();
 }
 
-void UStateComponentBase::OverrideMovementInputSensitivity(FVector2d& NewMovementVector)
+void UStateComponentBase::OverrideMovementInput(FVector2d& NewMovementVector)
 {
 	
 }
 
-void UStateComponentBase::OverrideMovement(float& NewSpeed)
+void UStateComponentBase::OverrideAcceleration(float& NewSpeed)
 {
 }
 
-void UStateComponentBase::OverrideCamera(UCameraComponent& Camera, FVector2d& NewRotationVector)
+void UStateComponentBase::OverrideCameraInput(UCameraComponent& Camera, FVector2d& NewRotationVector)
 {
 }
 

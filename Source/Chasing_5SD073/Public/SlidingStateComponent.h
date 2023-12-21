@@ -29,27 +29,28 @@ public:
 	virtual void OnUpdateState(UCharacterStateMachine& SM) override;
 	virtual void OnExitState(UCharacterStateMachine& SM) override;
 
-	virtual void OverrideMovementInputSensitivity(FVector2d& NewMovementVector) override;
-	virtual void OverrideCamera(UCameraComponent& Camera, FVector2d& NewRotationVector) override;
+	virtual void OverrideMovementInput(FVector2d& NewMovementVector) override;
+	virtual void OverrideCameraInput(UCameraComponent& Camera, FVector2d& NewRotationVector) override;
+	virtual void OverrideAcceleration(float& NewSpeed) override;
 
 private:
+
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "This does not represent the max time of the slide. The numbers represent the max speed of the player."))
+	UCurveFloat* SlideSpeedCurve;
+	
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "Max Slide Duration (seconds)"))
 	float MaxSlideDuration = 0;
-
-	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "Maximum possible speed is running max + speed boost"))
-	float SlidingSpeedBoost = 0;
-
+	
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "It is a % value, limiting the intensity of left right input."))
 	float SlidingLeftRightMovementModifier = 0;
 
-	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "It is a % value, limiting the intensity of camera input. (all directions)"))
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "If true, looking up and down is as fast as usual."))
+	bool OnlyModifyCameraLeftRight;
+	
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "It is a % value, limiting the intensity of camera input. All directions by default"))
 	float SlidingCameraModifier = 0;
 
-	float InternalTimerStart;
-
-	bool IsSlidingSetup = false;
-	UCameraComponent* UsedCamera = nullptr;
-
+	float InternalTimer;
 	float CameraFullHeight = 0;
 	float CameraReducedHeight = 0;
 };

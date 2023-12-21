@@ -1,7 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "MyCharacter.h"
-
 #include "CharacterStateMachine.h"
 #include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
@@ -56,6 +55,7 @@ void AMyCharacter::BeginPlay()
 	}
 
 	StateMachine = GetComponentByClass<UCharacterStateMachine>();
+	StateMachine->SetState(ECharacterState::DefaultState);
 	GetCharacterMovement()->MaxCustomMovementSpeed = MaxRunningSpeed;
 }
 
@@ -66,46 +66,16 @@ void AMyCharacter::Tick(float DeltaTime)
 
 	MovementStateCheck();
 	Acceleration(DeltaTime);
+	WallMechanicsCheck();
+	if (GetCharacterMovement()->IsMovingOnGround()) Dashed = false;
 
 	if (GetCharacterMovement()->IsFalling() && !landed)
 	{
 		fallingTimer += DeltaTime;
 	}
-	else
-	{
-		//
-	}
-
-	// air dash starts
-	if (GetCharacterMovement()->IsFalling())
-	{
-		dash = true; // while u in the air, u can dash
-	}
-	else
-	{
-		dash = false; // reset back 
-		dashOnce = true; //
-		airDashDelayTimer = 0;
-		startDelay = false;
-		startDash = false;
-	}
-
-	/*
-	if (startDelay)
-	{
-		airDashDelayTimer += DeltaTime;
-
-		if (airDashDelayTimer > airDashDelay)
-		{
-			startDash = true;
-			DashAction();
-		}
-	}
-	*/
-	// air dash ends
 
 	// on slope automatically slide, onSlope is checked in SliderRaycast()
-	if (onSlope) Slide();
+	//if (onSlope) Slide();
 
 	// debugs
 	if (debugGroundRaycast) GroundRaycast();
@@ -138,9 +108,6 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		//Looking Back
 		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Triggered, this, &AMyCharacter::LookBack);
 		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Completed, this, &AMyCharacter::LookFront);
-
-		//AirDash
-		//EnhancedInputComponent->BindAction(AirDashAction, ETriggerEvent::Triggered, this, &AMyCharacter::AirDash);
 	}
 }
 
@@ -150,55 +117,18 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 void AMyCharacter::JumpAndDash()
 {
-	if (GetCharacterMovement()->IsMovingOnGround())
+	if (GetCharacterMovement()->IsMovingOnGround() || StateMachine != nullptr && StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning)
 	{
-		Jump();
+		//Jump();
+		GetCharacterMovement()->AddImpulse(FVector(0, 0, JumpStrength), true);
+		StateMachine->SetState(ECharacterState::DefaultState);
 	}
-	else if (StateMachine != nullptr && StateMachine->CurrentEnumState != ECharacterState::AirDashing)
+	else if (StateMachine != nullptr && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing && !Dashed)
 	{
+		//another check whether you touched ground, otherwise you can endlessly spam it.
 		StateMachine->SetState(ECharacterState::AirDashing);
+		Dashed = true;
 	}
-
-	// the actual dash movement, using a ray to detect new location to dash to
-
-	/*
-	if (startDash)
-	{
-		FVector start = GetActorLocation();
-		FVector forward = FrontCam->GetForwardVector();
-		start = FVector(start.X + (forward.X * airDashDistance), start.Y + (forward.Y * airDashDistance),
-		                start.Z + (forward.Z * airDashDistance));
-		FVector end = start + forward;
-
-		if (GetWorld())
-		{
-			DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
-
-			GetCharacterMovement()->GravityScale = gravityOrigin;
-			SetActorLocation(end, true);
-
-			dashOnce = false;
-			startDash = false;
-			startDelay = false;
-			airDashDelayTimer = 0;
-		}
-	}
-	*/
-}
-
-void AMyCharacter::SetCharacterSpeed(const float& NewSpeed, const bool IgnoreClamp) const
-{
-	if (!IgnoreClamp)
-	{
-		GetCharacterMovement()->MaxWalkSpeed = NewSpeed;
-	}
-	else GetCharacterMovement()->MaxWalkSpeed = FMath::Clamp(NewSpeed, 0, MaxPossibleSpeed);
-	
-}
-
-void AMyCharacter::AddCharacterSpeed(const float& NewSpeed) const
-{
-	GetCharacterMovement()->MaxWalkSpeed += FMath::Clamp(NewSpeed, 0, MaxPossibleSpeed);
 }
 
 // Movement
@@ -222,7 +152,7 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 
 	if (StateMachine != nullptr && StateMachine->CurrentState != nullptr)
 	{
-		StateMachine->CurrentState->OverrideMovement(GetCharacterMovement()->MaxWalkSpeed);
+		StateMachine->CurrentState->OverrideAcceleration(GetCharacterMovement()->MaxWalkSpeed);
 	}
 
 	/*
@@ -274,17 +204,17 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 {
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
-	if (StateMachine != nullptr && StateMachine->CurrentState != nullptr)
+	if (StateMachine != nullptr && !StateMachine->IsCurrentStateNull())
 	{
 		//If the current state has implemented override, it will override the movement vector
 		//Otherwise it will return back the original vector.
-		StateMachine->CurrentState->OverrideMovementInputSensitivity(MovementVector);
+		StateMachine->CurrentState->OverrideMovementInput(MovementVector);
 	}
 
-	//Rounding the number up to 1 if its at 0.95 (or above) in cases when you look up and down a little which alters the input due to pitch/yaw.
-	if (MovementVector.Y >= 0.95f) MovementVector.Y = 1;
+	MovementVector *= 1.01f; //yaw and pitch affect acceleration and in some mouse angles it gets stuck.
+	//TODO this doesnt fix it. I need to make sure when players look slightly up or down, they still get full acceleration.!!!
 
-	MovementVector *= 3;
+	//TODO because players keep input and velocity doesnt change, when they suddenly change from left to right the acceleration does not reset.
 
 	if (Controller != nullptr)
 	{
@@ -304,11 +234,11 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
 
 
-	if (StateMachine != nullptr && StateMachine->CurrentState != nullptr)
+	if (StateMachine != nullptr && !StateMachine->IsCurrentStateNull())
 	{
 		//If the current state has implemented override, it will override the movement vector
 		//Otherwise it will return back the original vector.
-		StateMachine->CurrentState->OverrideCamera(*FrontCam, LookAxisVector);
+		StateMachine->CurrentState->OverrideCameraInput(*FrontCam, LookAxisVector);
 	}
 
 
@@ -348,37 +278,119 @@ void AMyCharacter::Slide()
 	if (CurrentMovementState == EMovementState::Running && StateMachine->CurrentEnumState != ECharacterState::Sliding)
 	{
 		StateMachine->SetState(ECharacterState::Sliding);
-		FVector2d tmpvector = FVector2d::Zero();
-		StateMachine->CurrentState->OverrideCamera(*FrontCam, tmpvector);
 	}
 }
 
 void AMyCharacter::WallMechanicsCheck()
 {
+	//Need to see the debug regardless of checking the wall or not.
+
+	//Helper lambda to rotate vector.
+	auto RotateVector = [](const FVector& InVector, const float AngleInDegrees, const float Length) {
+		const FRotator Rotation = FRotator(0.0f, AngleInDegrees, 0.0f);
+		const FQuat QuatRotation = FQuat(Rotation);
+		FVector RotatedVector = QuatRotation.RotateVector(InVector);
+		RotatedVector.Normalize();
+		RotatedVector *= Length;
+		return RotatedVector;
+	};
+
+	
+	const FVector Start = GetActorLocation();
+	const FVector End = Start + GetActorRotation().Vector() * WallCheckForwardDistance;
+	if (bDebugWallMechanics)
+	{
+		DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, -1, 0, 5);
+
+
+		
+		DrawDebugLine(GetWorld(), Start, Start + RotateVector(GetActorRotation().Vector(), WallRunAngle, WallCheckForwardDistance), FColor::Blue, false, -1, 0, 5);
+		DrawDebugLine(GetWorld(), Start, Start + RotateVector(GetActorRotation().Vector(), -WallRunAngle, WallCheckForwardDistance), FColor::Blue, false, -1, 0, 5);
+
+
+		//Side check debug. Right and Left
+		DrawDebugLine(GetWorld(), Start, Start + RotateVector(GetActorRotation().Vector(), WallRunSideAngle, WallCheckSideDistance), FColor::Red, false, -1, 0, 5);
+		DrawDebugLine(GetWorld(), Start, Start + RotateVector(GetActorRotation().Vector(), -WallRunSideAngle, WallCheckSideDistance), FColor::Red, false, -1, 0, 5);
+
+	}
+	
 	//calculate whether wer are trying to wall run or wall climb, if at all
-	//if (wallclimb) -> statemachine.setstate(wallclimb)
-	//if (wallrun) -> statemachine.setstate(wallrun)
+	if (CurrentMovementState != EMovementState::Running || StateMachine == nullptr || StateMachine != nullptr &&
+		(StateMachine->GetCurrentEnumState() == ECharacterState::WallClimbing || StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning))
+	{
+		return;
+	}
+	
+	FHitResult HitResult;
+	
+	FCollisionQueryParams CollisionParams;
+	CollisionParams.AddIgnoredActor(this);
+
+	const bool bAimHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, CollisionParams);
+	
+
+	if (bAimHit) //Prioritizing player's aim.
+	{
+		//Setting up reference for wall mechanics.
+		WallMechanicHitResult = &HitResult;
+
+		// Calculate the angle of incidence
+		const float AngleInDegrees = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(HitResult.Normal, -GetActorForwardVector())));
+
+		// AngleInDegrees now contains the angle between the wall and the actor's forward vector
+		if (AngleInDegrees >= WallRunAngle && !GetCharacterMovement()->IsMovingOnGround())
+		{
+			StateMachine->SetState(ECharacterState::WallRunning);
+			if (bDebugWallMechanics)GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "Can Wall Run");
+		}
+		else
+		{
+			//StateMachine->SetState(ECharacterState::WallClimbing);
+			if (bDebugWallMechanics) GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Blue, "Can Wall Climb (Not Implemented)");
+		}
+		Dashed = false;
+		return;
+	}
+
+	if (GetCharacterMovement()->IsMovingOnGround()) return; //We don' need side detection on the ground.s
+
+	//If player's aim fails but standing right next to ONE wall then it is also wall run.
+	//hardcoded sides, maybe make them editable in editor later. Also, maybe do a 45 degree side checks instead of 90.
+	FHitResult RightSide;
+	const bool bRightSideHit = GetWorld()->LineTraceSingleByChannel(RightSide, Start, Start + RotateVector(GetActorRotation().Vector(), WallRunSideAngle, WallCheckSideDistance),
+	                                                                ECC_Visibility, CollisionParams);
+
+	const bool bLeftSideHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, Start + RotateVector(GetActorRotation().Vector(), -WallRunSideAngle, WallCheckSideDistance),
+	                                                               ECC_Visibility, CollisionParams);
+
+
+	if (bRightSideHit && !bLeftSideHit || !bRightSideHit && bLeftSideHit)
+	{
+		if (bDebugWallMechanics) GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "Can Wall Run");
+
+		if (bRightSideHit)
+		{
+			WallMechanicHitResult = &RightSide;
+			if (bDebugWallMechanics) DrawDebugBox(GetWorld(), RightSide.ImpactPoint, FVector(10, 10, 10), FQuat::Identity, FColor::Green, false, 100);
+		}
+		else
+		{
+			WallMechanicHitResult = &HitResult;
+			if (bDebugWallMechanics) DrawDebugBox(GetWorld(), HitResult.ImpactPoint, FVector(10, 10, 10), FQuat::Identity, FColor::Green, false, 100);
+		}
+
+		StateMachine->SetState(ECharacterState::WallRunning);
+		Dashed = false;
+		return;
+	}
+
+
+	WallMechanicHitResult = nullptr;
 }
 
 void AMyCharacter::ResetCharacterState()
 {
-	if (StateMachine != nullptr) StateMachine->ResetState();
-}
-
-void AMyCharacter::AirDash(const FInputActionValue& Value)
-{
-	if (Controller != nullptr)
-	{
-		if (!dash || !dashOnce)
-		{
-			return;
-		}
-
-		startDelay = true;
-		dashValue = Value.Get<FVector>();
-		// after u pressed space when u are in the air(has to be jumping) ur gravity becomes low
-		GetCharacterMovement()->GravityScale = gravityLow;
-	}
+	if (StateMachine != nullptr) StateMachine->ManualExitState();
 }
 
 #pragma endregion

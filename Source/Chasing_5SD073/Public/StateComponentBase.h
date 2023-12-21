@@ -49,11 +49,11 @@ public:
 	//This is executed at the ending of the state. Do not completely override, leave the base.
 	virtual void OnExitState(UCharacterStateMachine& SM);
 
-	virtual void OverrideMovementInputSensitivity(FVector2d& NewMovementVector);
+	virtual void OverrideMovementInput(FVector2d& NewMovementVector);
 
-	virtual void OverrideMovement(float& NewSpeed);
+	virtual void OverrideAcceleration(float& NewSpeed);
 
-	virtual void OverrideCamera(UCameraComponent& Camera, FVector2d& NewRotationVector);
+	virtual void OverrideCameraInput(UCameraComponent& Camera, FVector2d& NewRotationVector);
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnStateEnterDelegate);
 

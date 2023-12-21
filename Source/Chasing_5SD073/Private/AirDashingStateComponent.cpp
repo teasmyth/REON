@@ -36,54 +36,32 @@ void UAirDashingStateComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 void UAirDashingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
 	Super::OnEnterState(SM);
-
-	InternalTimerStart = FApp::GetCurrentTime();
-	bIsDashing = true;
-	bDashed = false;
-
-	InitialLocation = PlayerCharacter->GetActorLocation();
-
-	PlayerMovement->MaxFlySpeed= AirDashSpeedBoost;
+	InternalTimer = 0;
+	//InitialForwardVector = PlayerCharacter->GetActorForwardVector();
+	InitialForwardVector = PlayerCharacter->GetFirstPersonCameraComponent()->GetForwardVector();
 }
 
 void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
 	Super::OnUpdateState(SM);
-	if (FApp::GetCurrentTime() - InternalTimerStart >= DashTimeFrame)
-	{
-		//SM.ResetState();
-	}
+	
+	//Instead of relying on physics, (cause it is janky) I am manually calculating where the player is supposed to be.
+	InternalTimer += GetWorld()->GetDeltaSeconds();
+	const FVector NextFrameLocation = PlayerCharacter->GetActorLocation() + InitialForwardVector * AirDashDistance * (InternalTimer / AirDashTime);
+	PlayerCharacter->SetActorLocation(NextFrameLocation, true); //true prevent player 'dashing' inside of a wall, stop at hitting.
 
-
-	if (FVector::Dist(InitialLocation, PlayerCharacter->GetActorLocation()) >= AirDashDistance)
-	{
-		PlayerMovement->SetMovementMode(MOVE_Walking);
-		//PlayerMovement->Velocity = FVector(0,0,0);
-		PlayerMovement->GravityScale = 1;
-		SM.ResetState();
-	}
+	if (InternalTimer >= AirDashTime) SM.ManualExitState();
 }
 
 void UAirDashingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
 	Super::OnExitState(SM);
-	bIsDashing = false;
-	bDashed = false;
 }
 
-void UAirDashingStateComponent::OverrideMovement(float& NewSpeed)
+
+void UAirDashingStateComponent::OverrideMovementInput(FVector2d& NewMovementVector)
 {
-	//PlayerCharacter->SetCharacterSpeed(PlayerCharacter->GetMaxRunningSpeed() * AirDashSpeedBoost, true);
-
-	PlayerMovement->GravityScale = 0;
-	PlayerMovement->SetMovementMode(MOVE_Flying);
-	//PlayerMovement->Launch(PlayerCharacter->GetActorRotation().Vector() * AirDashSpeedBoost);
-	//PlayerMovement->SetMovementMode(MOVE_Walking);
-	bDashed = true;
+	//This prevents any player inputs doing air dash.
+	NewMovementVector = FVector2d::ZeroVector;
 }
 
-void UAirDashingStateComponent::OverrideMovementInputSensitivity(FVector2d& NewMovementVector)
-{
-	//PlayerCharacter->SetCharacterSpeed(PlayerCharacter->GetMaxRunningSpeed() * AirDashSpeedBoost, true);
-	//bIsDashing = true;
-}

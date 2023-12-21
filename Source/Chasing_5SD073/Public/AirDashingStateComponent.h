@@ -28,21 +28,17 @@ public:
 	virtual void OnUpdateState(UCharacterStateMachine& SM) override;
 	virtual void OnExitState(UCharacterStateMachine& SM) override;
 	
-	virtual void OverrideMovement(float& NewSpeed) override;
-	virtual void OverrideMovementInputSensitivity(FVector2d& NewMovementVector) override;
-
-	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = ""))
-	float AirDashSpeedBoost = 0;
-
+	virtual void OverrideMovementInput(FVector2d& NewMovementVector) override;
 	
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = ""))
 	float AirDashDistance = 0;
-	FVector InitialLocation;
 
-	bool bIsDashing = false;
-	bool bDashed = false;
-	double InternalTimerStart;
-	float DashTimeFrame = 1;
-
-	FVector CurrentVelocity;
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "The duration of the 'blink'"))
+	float AirDashTime = 0;
+	
+private:
+	
+	FVector InitialForwardVector;
+	double InternalTimer;
+	
 };

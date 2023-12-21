@@ -15,10 +15,7 @@
 UENUM(BlueprintType)
 enum class ECharacterState : uint8
 {
-	None,
-	Idle,
-	Walking,
-	Running,
+	DefaultState,
 	Sliding,
 	WallClimbing,
 	WallRunning,
@@ -48,23 +45,18 @@ public:
 
 
 	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, DisplayName= "Current State")
-	ECharacterState CurrentEnumState = ECharacterState::Idle;
+	ECharacterState CurrentEnumState = ECharacterState::DefaultState;
 
 	UPROPERTY()
 	UStateComponentBase* CurrentState = nullptr;
 
 
 	//TODO research a more automated thing for this, instead of manually adding stuff.
-	
-	UPROPERTY()
-	UStateComponentBase* Idle = nullptr;
+
 
 	UPROPERTY()
-	UStateComponentBase* Walking = nullptr;
+	UStateComponentBase* DefaultState = nullptr;
 
-	UPROPERTY()
-	UStateComponentBase* Running = nullptr;
-	
 	UPROPERTY()
 	UStateComponentBase* Sliding = nullptr;
 
@@ -83,7 +75,11 @@ public:
 	void SetState(const ECharacterState& NewStateEnum);
 
 	//This is used for manual OnExit.
-	void ResetState();
+	void ManualExitState();
+
+	bool IsCurrentStateNull() const { return CurrentState == nullptr; }
+	UStateComponentBase* GetCurrentState() const { return CurrentState; } // make the private and use this instead this
+	ECharacterState GetCurrentEnumState() const { return CurrentEnumState; } // make the private and use this instead this
 
 private:
 	void SetupStates();

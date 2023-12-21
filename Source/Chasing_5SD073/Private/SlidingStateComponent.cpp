@@ -32,73 +32,71 @@ void USlidingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 void USlidingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
 	Super::OnEnterState(SM);
-	
-	InternalTimerStart = FApp::GetCurrentTime();
+
+	InternalTimer = 0;
 	PlayerCharacter->bUseControllerRotationYaw = false;
-	PlayerCharacter->bUseControllerRotationPitch = false;
-	
-	
+
+	PlayerCharacter->LaunchCharacter(PlayerCharacter->GetActorForwardVector() * SlideSpeedCurve->GetFloatValue(0), false, false);
+
+
+	CameraFullHeight = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation().Z;
+	CameraReducedHeight = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation().Z / 4;
+
+	FVector CamLoc = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation();
+	CamLoc.Z = CameraReducedHeight;
+	PlayerCharacter->GetFirstPersonCameraComponent()->SetRelativeLocation(CamLoc);
 }
 
 void USlidingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
 	Super::OnUpdateState(SM);
 
-	
 
-	if (FApp::GetCurrentTime() - InternalTimerStart < MaxSlideDuration)
+	if (InternalTimer <= MaxSlideDuration)
 	{
-		//PlayerCapsule->SetCapsuleHalfHeight(PlayerCapsule->GetScaledCapsuleHalfHeight() / 2);
-		PlayerCharacter->AddCharacterSpeed(SlidingSpeedBoost);
-		//slide boost, thought might change this if its an acceleration rather than static boost
+		InternalTimer += GetWorld()->GetDeltaSeconds();
 	}
 	else
 	{
-		SM.ResetState();
+		SM.ManualExitState();
 	}
 }
 
 void USlidingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
 	Super::OnExitState(SM);
-	//PlayerCapsule->SetCapsuleSize(55.0f, 96.0f);
-
-	if (UsedCamera != nullptr)
-	{
-		FVector CamLoc = UsedCamera->GetRelativeLocation();
-		CamLoc.Z = CameraFullHeight;
-		UsedCamera->SetRelativeLocation(CamLoc);
-	}
+	PlayerCapsule->SetCapsuleSize(55.0f, 96.0f); //todo remove hard code.
+	
+	FVector CamLoc = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation();
+	CamLoc.Z = CameraFullHeight;
+	PlayerCharacter->GetFirstPersonCameraComponent()->SetRelativeLocation(CamLoc);
 
 	PlayerCharacter->bUseControllerRotationYaw = true;
-	PlayerCharacter->bUseControllerRotationPitch = true;
 
-	if (PlayerMovement->Velocity.Length() >= 1000)
+
+	if (PlayerMovement->Velocity.Length() >= PlayerCharacter->GetMaxRunningSpeed())
 	{
-		PlayerMovement->MaxWalkSpeed = 1000; //rmeove hardcode later.
+		PlayerMovement->MaxWalkSpeed = PlayerCharacter->GetMaxRunningSpeed();
 	}
-
-	IsSlidingSetup = false;
 }
 
-void USlidingStateComponent::OverrideMovementInputSensitivity(FVector2d& NewMovementVector)
+void USlidingStateComponent::OverrideMovementInput(FVector2d& NewMovementVector)
 {
 	NewMovementVector.X *= SlidingLeftRightMovementModifier;
 }
 
-void USlidingStateComponent::OverrideCamera(UCameraComponent& Camera, FVector2d& NewRotationVector)
+void USlidingStateComponent::OverrideCameraInput(UCameraComponent& Camera, FVector2d& NewRotationVector)
 {
-	if (!IsSlidingSetup)
+	if (OnlyModifyCameraLeftRight)
 	{
-		UsedCamera = &Camera;
-		CameraFullHeight = Camera.GetRelativeLocation().Z;
-		CameraReducedHeight = Camera.GetRelativeLocation().Z / 4;
-		
-		FVector CamLoc = Camera.GetRelativeLocation();
-		CamLoc.Z = CameraReducedHeight;
-		Camera.SetRelativeLocation(CamLoc);
-		IsSlidingSetup = true;
+		NewRotationVector.X *= SlidingCameraModifier;
 	}
+	else NewRotationVector *= SlidingCameraModifier;
+}
 
-	NewRotationVector *= SlidingCameraModifier; 
+void USlidingStateComponent::OverrideAcceleration(float& NewSpeed)
+{
+	Super::OverrideAcceleration(NewSpeed);
+
+	NewSpeed = SlideSpeedCurve->GetFloatValue(InternalTimer);
 }

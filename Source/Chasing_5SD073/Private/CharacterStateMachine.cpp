@@ -6,6 +6,7 @@
 #include "AirDashingStateComponent.h"
 #include "FallingStateComponent.h"
 #include "IdleStateComponent.h"
+#include "NoneStateComponent.h"
 #include "WalkingStateComponent.h"
 #include "RunningStateComponent.h"
 #include "SlidingStateComponent.h"
@@ -26,9 +27,7 @@ UCharacterStateMachine::UCharacterStateMachine()
 
 void UCharacterStateMachine::SetupStates()
 {
-	Idle = GetOwner()->GetComponentByClass<UIdleStateComponent>();
-	Walking = GetOwner()->GetComponentByClass<UWalkingStateComponent>();
-	Running = GetOwner()->GetComponentByClass<URunningStateComponent>();
+	DefaultState = GetOwner()->GetComponentByClass<UNoneStateComponent>();
 	Sliding = GetOwner()->GetComponentByClass<USlidingStateComponent>();
 	WallClimbing = GetOwner()->GetComponentByClass<UWallClimbingStateComponent>();
 	WallRunning = GetOwner()->GetComponentByClass<UWallRunningStateComponent>();
@@ -65,9 +64,7 @@ UStateComponentBase* UCharacterStateMachine::TranslateEnumToState(const ECharact
 {
 	switch (Enum)
 	{
-	case ECharacterState::Idle: return Idle;
-	case ECharacterState::Walking: return Walking;
-	case ECharacterState::Running: return Running;
+	case ECharacterState::DefaultState: return DefaultState;
 	case ECharacterState::Sliding: return Sliding;
 	case ECharacterState::WallClimbing: return WallClimbing;
 	case ECharacterState::WallRunning: return WallRunning;
@@ -101,14 +98,11 @@ void UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 	RunUpdate = true;
 }
 
-void UCharacterStateMachine::ResetState()
+void UCharacterStateMachine::ManualExitState() 
 {
 	if (CurrentState != nullptr)
 	{
-		RunUpdate = false;
-		CurrentState->OnExitState(*this);
-		CurrentState = nullptr;
-		CurrentEnumState = ECharacterState::None;
+		SetState(ECharacterState::DefaultState);
 	}
 }
 
