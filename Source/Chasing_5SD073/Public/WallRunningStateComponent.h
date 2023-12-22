@@ -30,8 +30,8 @@ public:
 	virtual void OnUpdateState(UCharacterStateMachine& SM) override;
 	virtual void OnExitState(UCharacterStateMachine& SM) override;
 
-	virtual void OverrideMovementInput(FVector2d& NewMovementVector) override;
-	virtual void OverrideCameraInput(UCameraComponent& Camera, FVector2d& NewRotationVector) override;
+	virtual void OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector) override;
+	virtual void OverrideCameraInput(UCharacterStateMachine& SM, FVector2d& NewRotationVector) override;
 
 	UPROPERTY(EditAnywhere, Category= "Settings")
 	bool bDebug = false;
@@ -39,17 +39,14 @@ public:
 	UPROPERTY(EditAnywhere, Category= "Settings")
 	UCurveFloat* WallRunGravityCurve;
 
-	//UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "The tempory max speed of the player. If 0, it will use max running speed"))
-	//float TemporaryMaxSpeedDuringWallRun;
 
 private:
 	EWallOrientation WallOrientation = None;
 
 	FHitResult HitResult;
-	AActor* PreviousWall = nullptr;
 	float InternalTimer;
 	float InternalGravityScale;
 
-	void RotatePlayerAlongsideWall(const FHitResult& Hit);
+	void RotatePlayerAlongsideWall(const FHitResult& Hit) const;
 	bool CheckWhetherStillWallRunning();
 };

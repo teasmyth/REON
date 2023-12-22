@@ -69,7 +69,7 @@ void AMyCharacter::Tick(float DeltaTime)
 	WallMechanicsCheck();
 	if (GetCharacterMovement()->IsMovingOnGround())
 	{
-		Dashed = false;
+		TouchedGroundOrWall = true;
 	}
 	
 	if (GetCharacterMovement()->IsFalling() && !landed)
@@ -101,8 +101,7 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 		//Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
-		//EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::None, this, &AMyCharacter::SpeedReset);
-
+		
 		//Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
 
@@ -122,17 +121,18 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 void AMyCharacter::JumpAndDash()
 {
-	if (GetCharacterMovement()->IsMovingOnGround() || StateMachine != nullptr && StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning)
+	if (GetCharacterMovement()->IsMovingOnGround() || StateMachine != nullptr &&
+		(StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->GetCurrentEnumState() == ECharacterState::WallClimbing))
 	{
 		//Jump();
 		GetCharacterMovement()->AddImpulse(FVector(0, 0, JumpStrength), true);
 		StateMachine->SetState(ECharacterState::DefaultState);
 	}
-	else if (StateMachine != nullptr && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing && !Dashed)
+	else if (StateMachine != nullptr && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing && TouchedGroundOrWall)
 	{
-		//another check whether you touched ground, otherwise you can endlessly spam it.
 		StateMachine->SetState(ECharacterState::AirDashing);
-		Dashed = true;
+		TouchedGroundOrWall = false;
+		
 	}
 }
 
@@ -157,7 +157,7 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 
 	if (StateMachine != nullptr && StateMachine->CurrentState != nullptr)
 	{
-		StateMachine->CurrentState->OverrideAcceleration(GetCharacterMovement()->MaxWalkSpeed);
+		StateMachine->OverrideAcceleration(GetCharacterMovement()->MaxWalkSpeed);
 	}
 
 	/*
@@ -215,7 +215,7 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 	{
 		//If the current state has implemented override, it will override the movement vector
 		//Otherwise it will return back the original vector.
-		StateMachine->CurrentState->OverrideMovementInput(MovementVector);
+		StateMachine->OverrideMovementInput(MovementVector);
 	}
 
 	//TODO because players keep input and velocity doesnt change, when they suddenly change from left to right the acceleration does not reset.
@@ -225,11 +225,6 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 		AddMovementInput(GetActorForwardVector(), MovementVector.Y);
 		AddMovementInput(GetActorRightVector(), MovementVector.X);
 	}
-}
-
-void AMyCharacter::SpeedReset()
-{
-	//accelerationTimer = 0; Moved to movement state check
 }
 
 void AMyCharacter::Look(const FInputActionValue& Value)
@@ -242,7 +237,7 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 	{
 		//If the current state has implemented override, it will override the movement vector
 		//Otherwise it will return back the original vector.
-		StateMachine->CurrentState->OverrideCameraInput(*FrontCam, LookAxisVector);
+		StateMachine->OverrideCameraInput(LookAxisVector);
 	}
 
 
@@ -298,24 +293,20 @@ void AMyCharacter::WallMechanicsCheck()
 		RotatedVector *= Length;
 		return RotatedVector;
 	};
-
 	
 	const FVector Start = GetActorLocation();
 	const FVector End = Start + GetActorRotation().Vector() * WallCheckForwardDistance;
+	
 	if (bDebugWallMechanics)
 	{
 		DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, -1, 0, 5);
-
-
 		
 		DrawDebugLine(GetWorld(), Start, Start + RotateVector(GetActorRotation().Vector(), WallRunAngle, WallCheckForwardDistance), FColor::Blue, false, -1, 0, 5);
 		DrawDebugLine(GetWorld(), Start, Start + RotateVector(GetActorRotation().Vector(), -WallRunAngle, WallCheckForwardDistance), FColor::Blue, false, -1, 0, 5);
 
-
 		//Side check debug. Right and Left
 		DrawDebugLine(GetWorld(), Start, Start + RotateVector(GetActorRotation().Vector(), WallRunSideAngle, WallCheckSideDistance), FColor::Red, false, -1, 0, 5);
 		DrawDebugLine(GetWorld(), Start, Start + RotateVector(GetActorRotation().Vector(), -WallRunSideAngle, WallCheckSideDistance), FColor::Red, false, -1, 0, 5);
-
 	}
 	
 	//calculate whether wer are trying to wall run or wall climb, if at all
@@ -337,7 +328,8 @@ void AMyCharacter::WallMechanicsCheck()
 	{
 		//Setting up reference for wall mechanics.
 		WallMechanicHitResult = &HitResult;
-
+		TouchedGroundOrWall = true;
+		
 		// Calculate the angle of incidence
 		const float AngleInDegrees = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(HitResult.Normal, -GetActorForwardVector())));
 
@@ -349,17 +341,16 @@ void AMyCharacter::WallMechanicsCheck()
 		}
 		else
 		{
-			//StateMachine->SetState(ECharacterState::WallClimbing);
+			StateMachine->SetState(ECharacterState::WallClimbing);
 			if (bDebugWallMechanics) GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Blue, "Can Wall Climb (Not Implemented)");
 		}
-		Dashed = false;
+		
 		return;
 	}
 
 	if (GetCharacterMovement()->IsMovingOnGround()) return; //We don' need side detection on the ground.s
 
 	//If player's aim fails but standing right next to ONE wall then it is also wall run.
-	//hardcoded sides, maybe make them editable in editor later. Also, maybe do a 45 degree side checks instead of 90.
 	FHitResult RightSide;
 	const bool bRightSideHit = GetWorld()->LineTraceSingleByChannel(RightSide, Start, Start + RotateVector(GetActorRotation().Vector(), WallRunSideAngle, WallCheckSideDistance),
 	                                                                ECC_Visibility, CollisionParams);
@@ -383,8 +374,8 @@ void AMyCharacter::WallMechanicsCheck()
 			if (bDebugWallMechanics) DrawDebugBox(GetWorld(), HitResult.ImpactPoint, FVector(10, 10, 10), FQuat::Identity, FColor::Green, false, 100);
 		}
 
+		TouchedGroundOrWall = true;
 		StateMachine->SetState(ECharacterState::WallRunning);
-		Dashed = false;
 		return;
 	}
 

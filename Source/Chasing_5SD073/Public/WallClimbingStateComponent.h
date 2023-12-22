@@ -28,4 +28,30 @@ public:
 	virtual void OnEnterState(UCharacterStateMachine& SM) override;
 	virtual void OnUpdateState(UCharacterStateMachine& SM) override;
 	virtual void OnExitState(UCharacterStateMachine& SM) override;
+
+	virtual void OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector) override;
+
+
+private:
+
+	bool CheckLedge() const;
+	bool CheckLeg() const;
+	
+	UPROPERTY(EditAnywhere, Category= "Settings")
+	bool Debug;
+
+	UPROPERTY(EditAnywhere, Category= "Settings")
+	float WallClimbSpeed;
+	
+	UPROPERTY(EditAnywhere, Category= "Settings")
+	float LedgeGrabCheckZOffset;
+
+	UPROPERTY(EditAnywhere, Category= "Settings")
+	float LedgeGrabCheckDistance;
+
+	UPROPERTY(EditAnywhere, Category= "Settings")
+	float MaxWallClimbDuration;
+	
+
+	float InternalTimer;
 };

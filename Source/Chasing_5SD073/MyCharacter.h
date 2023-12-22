@@ -166,8 +166,6 @@ public:
 	void ResetCharacterState();
 	void MovementStateCheck();
 
-	// Reset
-	void SpeedReset();
 
 	// Raycast
 	bool onSlope;
@@ -199,6 +197,8 @@ public:
 	UFUNCTION(BlueprintPure)
 	EMovementState GetCharacterMovementState() const { return CurrentMovementState; }
 
+	FORCEINLINE void SetWhetherTouchedGroundOrWall(const bool b) { TouchedGroundOrWall = b; }
+	FORCEINLINE bool GetWhetherTouchedGroundOrWall() const { return TouchedGroundOrWall; }
 	FORCEINLINE float GetMaxRunningSpeed() const { return MaxRunningSpeed; }
 	FORCEINLINE FHitResult* GetWallMechanicHitResult() const { return WallMechanicHitResult; }
 	FORCEINLINE float GetWallCheckDistance() const { return WallCheckForwardDistance; }
@@ -222,7 +222,6 @@ private: //My stuff
 	UPROPERTY(EditAnywhere, Category = "Movement Setting")
 	float MaxRunningSpeed;
 
-
 	UPROPERTY(EditAnywhere, Category = "Movement Setting")
 	float WallCheckForwardDistance;
 
@@ -239,5 +238,7 @@ private: //My stuff
 	float JumpStrength;
 
 	FHitResult* WallMechanicHitResult = nullptr;
-	bool Dashed = false;
+	
+
+	bool TouchedGroundOrWall;
 };

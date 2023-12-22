@@ -28,7 +28,7 @@ public:
 	virtual void OnUpdateState(UCharacterStateMachine& SM) override;
 	virtual void OnExitState(UCharacterStateMachine& SM) override;
 	
-	virtual void OverrideMovementInput(FVector2d& NewMovementVector) override;
+	virtual void OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector) override;
 	
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = ""))
 	float AirDashDistance = 0;

@@ -73,6 +73,12 @@ public:
 	void SetState(const ECharacterState& NewStateEnum);
 	void UpdateStateMachine();
 
+	void OverrideMovementInput(FVector2d& NewMovementVector);
+
+	void OverrideAcceleration(float& NewSpeed);
+
+	void OverrideCameraInput(FVector2d& NewRotationVector);
+
 	//This is used for manual OnExit.
 	void ManualExitState();
 

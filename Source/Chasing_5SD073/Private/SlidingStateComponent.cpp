@@ -80,13 +80,15 @@ void USlidingStateComponent::OnExitState(UCharacterStateMachine& SM)
 	}
 }
 
-void USlidingStateComponent::OverrideMovementInput(FVector2d& NewMovementVector)
+void USlidingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
 {
+	Super::OverrideMovementInput(SM, NewMovementVector);
 	NewMovementVector.X *= SlidingLeftRightMovementModifier;
 }
 
-void USlidingStateComponent::OverrideCameraInput(UCameraComponent& Camera, FVector2d& NewRotationVector)
+void USlidingStateComponent::OverrideCameraInput(UCharacterStateMachine& SM, FVector2d& NewRotationVector)
 {
+	Super::OverrideCameraInput(SM, NewRotationVector);
 	if (OnlyModifyCameraLeftRight)
 	{
 		NewRotationVector.X *= SlidingCameraModifier;
@@ -94,9 +96,9 @@ void USlidingStateComponent::OverrideCameraInput(UCameraComponent& Camera, FVect
 	else NewRotationVector *= SlidingCameraModifier;
 }
 
-void USlidingStateComponent::OverrideAcceleration(float& NewSpeed)
+void USlidingStateComponent::OverrideAcceleration(UCharacterStateMachine& SM, float& NewSpeed)
 {
-	Super::OverrideAcceleration(NewSpeed);
+	Super::OverrideAcceleration(SM, NewSpeed);
 
 	NewSpeed = SlideSpeedCurve->GetFloatValue(InternalTimer);
 }

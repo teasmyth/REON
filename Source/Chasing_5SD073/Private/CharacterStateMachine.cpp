@@ -17,7 +17,7 @@ UCharacterStateMachine::UCharacterStateMachine()
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = false;
 
-	
+
 	// ...
 }
 
@@ -36,10 +36,9 @@ void UCharacterStateMachine::BeginPlay()
 {
 	Super::BeginPlay();
 	SetupStates();
-	
+
 	// ...
 }
-
 
 
 // Called every frame
@@ -47,7 +46,7 @@ void UCharacterStateMachine::TickComponent(float DeltaTime, ELevelTick TickType,
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	
+
 	// ...
 }
 
@@ -69,19 +68,20 @@ void UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 {
 	//Making sure the translation is valid
 	if (TranslateEnumToState(NewStateEnum) == nullptr) return;
-	
-	
+
+
 	if (CurrentState != nullptr)
 	{
-		if (!CurrentState->CanTransitionFromStateList[NewStateEnum]) return; //If the current state does not allow the change to the new state, return.
+		if (!CurrentState->CanTransitionFromStateList[NewStateEnum]) return;
+		//If the current state does not allow the change to the new state, return.
 
 		//Green light! Setting new state is go!
-		
+
 		RunUpdate = false;
 		CurrentState->OnExitState(*this);
 	}
 
-	
+
 	CurrentState = TranslateEnumToState(NewStateEnum);
 	CurrentEnumState = NewStateEnum;
 	CurrentState->OnEnterState(*this);
@@ -96,12 +96,34 @@ void UCharacterStateMachine::UpdateStateMachine()
 	}
 }
 
-void UCharacterStateMachine::ManualExitState() 
+void UCharacterStateMachine::OverrideMovementInput(FVector2d& NewMovementVector)
+{
+	if (CurrentState != nullptr)
+	{
+		CurrentState->OverrideMovementInput(*this, NewMovementVector);
+	}
+}
+
+void UCharacterStateMachine::OverrideAcceleration(float& NewSpeed)
+{
+	if (CurrentState != nullptr)
+	{
+		CurrentState->OverrideAcceleration(*this, NewSpeed);
+	}
+}
+
+void UCharacterStateMachine::OverrideCameraInput(FVector2d& NewRotationVector)
+{
+	if (CurrentState != nullptr)
+	{
+		CurrentState->OverrideCameraInput(*this, NewRotationVector);
+	}
+}
+
+void UCharacterStateMachine::ManualExitState()
 {
 	if (CurrentState != nullptr)
 	{
 		SetState(ECharacterState::DefaultState);
 	}
 }
-
-

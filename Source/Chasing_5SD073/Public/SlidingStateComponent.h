@@ -29,9 +29,9 @@ public:
 	virtual void OnUpdateState(UCharacterStateMachine& SM) override;
 	virtual void OnExitState(UCharacterStateMachine& SM) override;
 
-	virtual void OverrideMovementInput(FVector2d& NewMovementVector) override;
-	virtual void OverrideCameraInput(UCameraComponent& Camera, FVector2d& NewRotationVector) override;
-	virtual void OverrideAcceleration(float& NewSpeed) override;
+	virtual void OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector) override;
+	virtual void OverrideCameraInput(UCharacterStateMachine& SM, FVector2d& NewRotationVector) override;
+	virtual void OverrideAcceleration(UCharacterStateMachine& SM, float& NewSpeed) override;
 
 private:
 
