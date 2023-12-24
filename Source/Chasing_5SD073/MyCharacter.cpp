@@ -140,7 +140,7 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 	else if (CurrentMovementState == EMovementState::Fell)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum * PostFallAccelerationTime->GetFloatValue(
-			accelerationTimer * (1 -CalculatedPostFallMultiplier));
+			accelerationTimer * (1 - CalculatedPostFallMultiplier));
 	}
 	else
 	{
@@ -148,7 +148,7 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 			GetFloatValue(accelerationTimer);
 	}
 
-	if (StateMachine != nullptr && StateMachine->CurrentState != nullptr)
+	if (StateMachine != nullptr && !StateMachine->IsCurrentStateNull())
 	{
 		StateMachine->OverrideAcceleration(GetCharacterMovement()->MaxWalkSpeed);
 	}
@@ -157,47 +157,37 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 void AMyCharacter::MovementStateCheck()
 {
 	//Falling stuff
-	if (CurrentMovementState != EMovementState::Fell && IsFalling())
+	if (CurrentMovementState != EMovementState::Fell && IsFalling() && StateMachine != nullptr && StateMachine->GetCurrentState()->CountTowardsFalling)
 	{
-		//We dont need to check other acceleration while falling. However, dont count falling during mechanics
-		if (StateMachine != nullptr && (StateMachine->GetCurrentEnumState() == ECharacterState::DefaultState || StateMachine->GetCurrentEnumState() == ECharacterState::AirDashing))
+		FallingTimer += GetWorld()->GetDeltaSeconds();
+		Falling = true;
+	}
+
+	//TODO if a player doesnt move for a while, should it still stay in FELL or override it to walking?
+	if (CurrentMovementState != EMovementState::Fell)
+	{
+		if (Falling && GetCharacterMovement()->IsMovingOnGround() && FallingTimer >= MinimumFallTime)
 		{
-			FallingTimer += GetWorld()->GetDeltaSeconds();
+			const float Diff = (FallingTimer - MinimumFallTime) * PenaltyMultiplierPerSecond;
+			CalculatedPostFallMultiplier = Diff >= MaxPenaltyMultiplier ? MaxPenaltyMultiplier : Diff;
+			accelerationTimer = 0;
+			CurrentMovementState = EMovementState::Fell;
+			ResetFalling();
+			GetCharacterMovement()->Velocity = FVector::ZeroVector;
 		}
-		return;
+		else if (CurrentMovementState != EMovementState::Idle && GetHorizontalVelocity() <= 1)
+		{
+			CurrentMovementState = EMovementState::Idle;
+			accelerationTimer = 0;
+		}
+		else if (CurrentMovementState != EMovementState::Walking && GetHorizontalVelocity() > 1 && GetHorizontalVelocity() < RunningStateSpeedMinimum)
+		{
+			CurrentMovementState = EMovementState::Walking;
+			accelerationTimer = 0;
+		}
 	}
 
-	if (GetCharacterMovement()->IsMovingOnGround() && FallingTimer >= MinimumFallTime && CurrentMovementState != EMovementState::Fell)
-	{
-		const float Diff = (FallingTimer - MinimumFallTime) * PenaltyMultiplierPerSecond;
-		CalculatedPostFallMultiplier = Diff >= MaxPenaltyMultiplier ? MaxPenaltyMultiplier : Diff;
-		accelerationTimer = 0;
-		CurrentMovementState = EMovementState::Fell;
-		GetCharacterMovement()->Velocity = FVector::ZeroVector;
-	}
-	else
-	{
-		FallingTimer = 0;
-		CalculatedPostFallMultiplier = 1;
-	}
-
-
-	//This way the Z movement (for example jumping) does not alter the speed calculation.
-	const float VerticalSpeed = FVector2d(GetMovementComponent()->Velocity.X, GetMovementComponent()->Velocity.Y).Size();
-
-	if (CurrentMovementState != EMovementState::Idle && VerticalSpeed <= 1 && CurrentMovementState
-		!= EMovementState::Fell)
-	{
-		CurrentMovementState = EMovementState::Idle;
-		accelerationTimer = 0;
-	}
-	else if (CurrentMovementState != EMovementState::Walking && VerticalSpeed > 1 && VerticalSpeed < RunningStateSpeedMinimum && CurrentMovementState
-		!= EMovementState::Fell)
-	{
-		CurrentMovementState = EMovementState::Walking;
-		accelerationTimer = 0;
-	}
-	else if (CurrentMovementState != EMovementState::Running && VerticalSpeed >= RunningStateSpeedMinimum)
+	if (CurrentMovementState != EMovementState::Running && GetHorizontalVelocity() >= RunningStateSpeedMinimum)
 	{
 		CurrentMovementState = EMovementState::Running;
 		accelerationTimer = 0;
@@ -270,15 +260,8 @@ void AMyCharacter::LookFront()
 
 void AMyCharacter::Slide()
 {
-	if (StateMachine == nullptr) return;
-
-
-	if (CurrentMovementState == EMovementState::Running && StateMachine->CurrentEnumState != ECharacterState::Sliding)
-	{
-		StateMachine->SetState(ECharacterState::Sliding);
-	}
+	if (StateMachine != nullptr) StateMachine->SetState(ECharacterState::Sliding);
 }
-
 
 bool AMyCharacter::IsFalling() const
 {

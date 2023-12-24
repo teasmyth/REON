@@ -51,13 +51,13 @@ bool UWallRunningStateComponent::OnSetStateConditionCheck(UCharacterStateMachine
 void UWallRunningStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
 	Super::OnEnterState(SM);
-
-	PlayerCharacter->ResetDash();
+	
 	PlayerCharacter->bUseControllerRotationYaw = false;
 
 	GravityTimer = 0;
 	InternalGravityScale = 0;
 	PlayerMovement->Velocity.Z = 0;
+	
 
 	RotatePlayerAlongsideWall(HitResult);
 }
@@ -151,11 +151,11 @@ void UWallRunningStateComponent::DetectWallRun()
 	const FVector Start = GetOwner()->GetActorLocation();
 
 	FHitResult RightSide;
-	const FVector RightVector = UCharacterStateMachine::RotateVector(GetOwner()->GetActorRotation().Vector(), WallRunSideAngle, WallCheckDistance);
+	const FVector RightVector = RotateVector(GetOwner()->GetActorRotation().Vector(), WallRunSideAngle, WallCheckDistance);
 	const bool bRightSideHit = GetWorld()->LineTraceSingleByChannel(RightSide, Start, Start + RightVector, ECC_Visibility, CollisionParams);
 
 	FHitResult LeftSide;
-	const FVector LeftVector = UCharacterStateMachine::RotateVector(GetOwner()->GetActorRotation().Vector(), -WallRunSideAngle, WallCheckDistance);
+	const FVector LeftVector = RotateVector(GetOwner()->GetActorRotation().Vector(), -WallRunSideAngle, WallCheckDistance);
 	const bool bLeftSideHit = GetWorld()->LineTraceSingleByChannel(LeftSide, Start, Start + LeftVector, ECC_Visibility, CollisionParams);
 
 	if (bRightSideHit && !bLeftSideHit || !bRightSideHit && bLeftSideHit)
@@ -191,6 +191,6 @@ void UWallRunningStateComponent::OverrideDebug()
 	const FVector LengthVector = GetOwner()->GetActorRotation().Vector() * WallCheckDistance;
 
 	//Side check debug. Right and Left
-	DrawDebugLine(GetWorld(), Start, Start + UCharacterStateMachine::RotateVector(LengthVector, WallRunSideAngle), DebugColor, false, 0, 0, 3);
-	DrawDebugLine(GetWorld(), Start, Start + UCharacterStateMachine::RotateVector(LengthVector, -WallRunSideAngle), DebugColor, false, 0, 0, 3);
+	DrawDebugLine(GetWorld(), Start, Start + RotateVector(LengthVector, WallRunSideAngle), DebugColor, false, 0, 0, 3);
+	DrawDebugLine(GetWorld(), Start, Start + RotateVector(LengthVector, -WallRunSideAngle), DebugColor, false, 0, 0, 3);
 }

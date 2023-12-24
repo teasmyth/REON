@@ -8,7 +8,6 @@
 #include "SlidingStateComponent.generated.h"
 
 
-
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class CHASING_5SD073_API USlidingStateComponent : public UStateComponentBase
 {
@@ -33,23 +32,29 @@ public:
 	virtual void OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector) override;
 	virtual void OverrideCameraInput(UCharacterStateMachine& SM, FVector2d& NewRotationVector) override;
 	virtual void OverrideAcceleration(UCharacterStateMachine& SM, float& NewSpeed) override;
+	virtual void OverrideDebug() override;
+	bool DetectGround() const;
 
 private:
-
-	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "This does not represent the max time of the slide. The numbers represent the max speed of the player."))
+	UPROPERTY(EditAnywhere, Category= "Settings",
+		meta = (Tooltip = "This does not represent the max time of the slide. The numbers represent the max speed of the player."))
 	UCurveFloat* SlideSpeedCurve;
-	
+
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "Max Slide Duration (seconds)"))
 	float MaxSlideDuration = 0;
-	
+
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "It is a % value, limiting the intensity of left right input."))
 	float SlidingLeftRightMovementModifier = 0;
 
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "If true, looking up and down is as fast as usual."))
 	bool OnlyModifyCameraLeftRight;
-	
-	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "It is a % value, limiting the intensity of camera input. All directions by default"))
+
+	UPROPERTY(EditAnywhere, Category= "Settings",
+		meta = (ToolTip = "It is a % value, limiting the intensity of camera input. All directions by default"))
 	float SlidingCameraModifier = 0;
+
+	UPROPERTY(EditAnywhere, Category= "Settings")
+	float AboutToFallDetectionDistance;
 
 	float InternalTimer;
 	float CameraFullHeight = 0;

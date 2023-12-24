@@ -71,7 +71,7 @@ void UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 
 	//If OnSetStateCondition returns false, it means the conditions are not meant for the new state, thus aborting switching state.
 	if (TranslatedState == nullptr || TranslatedState != nullptr && !TranslatedState->OnSetStateConditionCheck(*this)) return;
-
+	
 	if (CurrentState != nullptr)
 	{
 		if (!TranslatedState->CanTransitionFromStateList[CurrentEnumState]) return;
@@ -128,16 +128,4 @@ void UCharacterStateMachine::ManualExitState()
 	}
 }
 
-//Didnt want to make a utility class just for this vector, though I admit, bad practice.
-FVector UCharacterStateMachine::RotateVector(const FVector& InVector, const float AngleInDegrees, const float Length)
-{
-	const FRotator Rotation = FRotator(0.0f, AngleInDegrees, 0.0f);
-	const FQuat QuatRotation = FQuat(Rotation);
-	FVector RotatedVector = QuatRotation.RotateVector(InVector);
-	if (Length != 1)
-	{
-		RotatedVector.Normalize();
-		RotatedVector *= Length;
-	}
-	return RotatedVector;
-}
+

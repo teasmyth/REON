@@ -12,7 +12,7 @@
 #include "StateComponentBase.generated.h"
 
 
-UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup=("Mechanics"), meta=(BlueprintSpawnableComponent))
 class CHASING_5SD073_API UStateComponentBase : public UActorComponent
 {
 	GENERATED_BODY()
@@ -35,13 +35,19 @@ protected:
 	AMyCharacter* PlayerCharacter = nullptr;
 
 public:
-	UPROPERTY(EditFixedSize, EditAnywhere, Category = "Settings", meta = (ToolTip = "The list describes FROM which states this state can transtion"))
+	UPROPERTY(EditFixedSize, EditAnywhere, Category = "Settings|General Settings", meta = (ToolTip = "The list describes FROM which states this state can transtion"))
 	TMap<ECharacterState, bool> CanTransitionFromStateList;
 
-	UPROPERTY(EditFixedSize, EditAnywhere, Category = "Settings")
+	UPROPERTY(EditAnywhere, Category= "Settings|General Settings") //Dont add space after general!
+	bool CountTowardsFalling = false;
+
+	UPROPERTY(EditAnywhere, Category= "Settings|General Settings")
+	bool ResetsDash = false;
+
+	UPROPERTY(EditAnywhere, Category = "Settings|General Settings")
 	bool DebugMechanic;
 
-	UPROPERTY(EditFixedSize, EditAnywhere, Category = "Settings")
+	UPROPERTY(EditAnywhere, Category = "Settings|General Settings")
 	FColor DebugColor;
 
 	// Called every frame
@@ -50,7 +56,7 @@ public:
 	//This runs before switching state, letting states access player variables before 'mechanically' entering a state.
 	//For example checking whether player is on ground. If returns false, switching state is aborted and the current state does not exit. 
 	virtual bool OnSetStateConditionCheck(UCharacterStateMachine& SM);
-	
+
 	//This is executed at the beginning of the state change. Do not completely override, leave the base.
 	virtual void OnEnterState(UCharacterStateMachine& SM);
 
@@ -72,6 +78,12 @@ public:
 
 	//This runs in Debug
 	virtual void OverrideDebug();
+
+	//Helper Methods
+	bool LineTraceSingle(FHitResult& HitR, const FVector& Start, const FVector& End) const;
+	bool LineTraceSingle(const FVector& Start, const FVector& End) const;
+	static FVector RotateVector(const FVector& InVector, const float AngleInDegrees, const float Length = 1);
+
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnStateEnterDelegate);
 

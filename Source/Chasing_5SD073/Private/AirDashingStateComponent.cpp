@@ -37,8 +37,8 @@ void UAirDashingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
 	Super::OnEnterState(SM);
 	InternalTimer = 0;
-	InitialForwardVector = PlayerCharacter->GetActorForwardVector();
-	const float Speed = PlayerCharacter->GetVerticalVelocity();
+	InitialForwardVector = PlayerCharacter->GetFirstPersonCameraComponent()->GetComponentRotation().Vector();
+	const float Speed = PlayerCharacter->GetHorizontalVelocity();
 	PlayerMovement->Velocity = FVector(InitialForwardVector.X * Speed, InitialForwardVector.Y * Speed, PlayerMovement->Velocity.Z);
 }
 
@@ -49,7 +49,7 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 	//Instead of relying on physics, (cause it is janky) I am manually calculating where the player is supposed to be.
 	InternalTimer += GetWorld()->GetDeltaSeconds();
 	const FVector NextFrameLocation = PlayerCharacter->GetActorLocation() + InitialForwardVector * AirDashDistance * (InternalTimer / AirDashTime) *
-		(PlayerCharacter->GetVerticalVelocity() / PlayerCharacter->GetMaxRunningSpeed());
+		(PlayerCharacter->GetHorizontalVelocity() / PlayerCharacter->GetMaxRunningSpeed());
 	PlayerCharacter->SetActorLocation(NextFrameLocation, true); //true prevent player 'dashing' inside of a wall, stop at hitting.
 
 	if (InternalTimer >= AirDashTime) SM.ManualExitState();
@@ -74,6 +74,6 @@ void UAirDashingStateComponent::OverrideDebug()
 
 
 	DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(),
-	              GetOwner()->GetActorLocation() + GetOwner()->GetActorForwardVector() * AirDashDistance * (PlayerCharacter->GetVerticalVelocity() /
+	              GetOwner()->GetActorLocation() + GetOwner()->GetActorForwardVector() * AirDashDistance * (PlayerCharacter->GetHorizontalVelocity() /
 		              PlayerCharacter->GetMaxRunningSpeed()), DebugColor, false, 0, 0, 3);
 }

@@ -43,13 +43,6 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category= "Character State Machine", DisplayName= "Current State")
-	ECharacterState CurrentEnumState = ECharacterState::DefaultState;
-
-	UPROPERTY()
-	UStateComponentBase* CurrentState = nullptr;
-
-
 	//TODO research a more automated thing for this, instead of manually adding stuff.
 
 
@@ -82,12 +75,17 @@ public:
 	bool IsCurrentStateNull() const { return CurrentState == nullptr; }
 	UStateComponentBase* GetCurrentState() const { return CurrentState; } // make the private and use this instead this
 	ECharacterState GetCurrentEnumState() const { return CurrentEnumState; } // make the private and use this instead this
-	static FVector RotateVector(const FVector& InVector, const float AngleInDegrees, const float Length = 1);
 
 private:
 	void SetupStates();
 	//Internal check whether the player can switch from current state to the new one.
 	UStateComponentBase* TranslateEnumToState(const ECharacterState& Enum) const;
+
+	UPROPERTY(VisibleAnywhere, Category= "Character State Machine", DisplayName= "Current State")
+	ECharacterState CurrentEnumState = ECharacterState::DefaultState;
+
+	UPROPERTY()
+	UStateComponentBase* CurrentState = nullptr;
 	bool RunUpdate = false;
 };
 

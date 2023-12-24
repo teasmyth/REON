@@ -177,8 +177,8 @@ void UWallClimbingStateComponent::OverrideDebug()
 	//Wall Climb Detection
 	const FVector ForwardVec = GetOwner()->GetActorForwardVector() * WallCheckDistance;
 	DrawDebugLine(GetWorld(), Start, Start + ForwardVec, DebugColor, false, 0, 0, 3);
-	DrawDebugLine(GetWorld(), Start, Start + UCharacterStateMachine::RotateVector(ForwardVec, WallClimbAngle), DebugColor, false, 0, 0, 3);
-	DrawDebugLine(GetWorld(), Start, Start + UCharacterStateMachine::RotateVector(ForwardVec, -WallClimbAngle), DebugColor, false, 0, 0, 3);
+	DrawDebugLine(GetWorld(), Start, Start + RotateVector(ForwardVec, WallClimbAngle), DebugColor, false, 0, 0, 3);
+	DrawDebugLine(GetWorld(), Start, Start + RotateVector(ForwardVec, -WallClimbAngle), DebugColor, false, 0, 0, 3);
 	
 	//Ledge Detection
 	const FVector LedgeStart = Start + FVector(0, 0, LedgeGrabCheckZOffset);

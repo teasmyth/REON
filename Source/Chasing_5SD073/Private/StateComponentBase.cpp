@@ -64,6 +64,8 @@ bool UStateComponentBase::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 void UStateComponentBase::OnEnterState(UCharacterStateMachine& SM)
 {
 	OnEnterStateDelegate.Broadcast();
+	if (CountTowardsFalling) PlayerCharacter->ResetFalling();
+	if (ResetsDash) PlayerCharacter->ResetDash();
 }
 
 void UStateComponentBase::OnUpdateState(UCharacterStateMachine& SM)
@@ -74,6 +76,7 @@ void UStateComponentBase::OnUpdateState(UCharacterStateMachine& SM)
 void UStateComponentBase::OnExitState(UCharacterStateMachine& SM)
 {
 	OnExitStateDelegate.Broadcast();
+	if (CountTowardsFalling) PlayerCharacter->ResetFalling();
 }
 
 void UStateComponentBase::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
@@ -92,5 +95,35 @@ void UStateComponentBase::OverrideCameraInput(UCharacterStateMachine& SM, FVecto
 void UStateComponentBase::OverrideDebug()
 {
 }
+
+#pragma region Helper Methods
+bool UStateComponentBase::LineTraceSingle(FHitResult& HitR, const FVector& Start, const FVector& End) const
+{
+	FCollisionQueryParams CollisionParams;
+	CollisionParams.AddIgnoredActor(GetOwner());
+	return GetWorld()->LineTraceSingleByChannel(HitR, Start, End, ECC_Visibility, CollisionParams);
+}
+
+bool UStateComponentBase::LineTraceSingle(const FVector& Start, const FVector& End) const
+{
+	FHitResult HitR;
+	FCollisionQueryParams CollisionParams;
+	CollisionParams.AddIgnoredActor(GetOwner());
+	return GetWorld()->LineTraceSingleByChannel(HitR, Start, End, ECC_Visibility, CollisionParams);
+}
+
+FVector UStateComponentBase::RotateVector(const FVector& InVector, const float AngleInDegrees, const float Length)
+{
+	const FRotator Rotation = FRotator(0.0f, AngleInDegrees, 0.0f);
+	const FQuat QuatRotation = FQuat(Rotation);
+	FVector RotatedVector = QuatRotation.RotateVector(InVector);
+	if (Length != 1)
+	{
+		RotatedVector.Normalize();
+		RotatedVector *= Length;
+	}
+	return RotatedVector;
+}
+#pragma endregion
 
 

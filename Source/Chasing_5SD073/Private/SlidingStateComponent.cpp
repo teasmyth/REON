@@ -31,7 +31,9 @@ void USlidingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 bool USlidingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	return PlayerMovement->IsMovingOnGround();
+	if (PlayerCharacter->GetCharacterMovementState() == EMovementState::Running && DetectGround())return true;
+
+	return false;
 }
 
 void USlidingStateComponent::OnEnterState(UCharacterStateMachine& SM)
@@ -40,7 +42,6 @@ void USlidingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 
 	InternalTimer = 0;
 	PlayerCharacter->bUseControllerRotationYaw = false;
-
 	PlayerCharacter->LaunchCharacter(PlayerCharacter->GetActorForwardVector() * SlideSpeedCurve->GetFloatValue(0), false, false);
 
 
@@ -71,7 +72,7 @@ void USlidingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
 	Super::OnExitState(SM);
 	PlayerCapsule->SetCapsuleSize(55.0f, 96.0f); //todo remove hard code.
-	
+
 	FVector CamLoc = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation();
 	CamLoc.Z = CameraFullHeight;
 	PlayerCharacter->GetFirstPersonCameraComponent()->SetRelativeLocation(CamLoc);
@@ -106,4 +107,18 @@ void USlidingStateComponent::OverrideAcceleration(UCharacterStateMachine& SM, fl
 	Super::OverrideAcceleration(SM, NewSpeed);
 
 	NewSpeed = SlideSpeedCurve->GetFloatValue(InternalTimer);
+}
+
+void USlidingStateComponent::OverrideDebug()
+{
+	Super::OverrideDebug();
+
+	DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(),
+	              GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance, DebugColor, false, 0, 0, 3);
+}
+
+bool USlidingStateComponent::DetectGround() const
+{
+	return LineTraceSingle(GetOwner()->GetActorLocation(),
+	                       GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance);
 }

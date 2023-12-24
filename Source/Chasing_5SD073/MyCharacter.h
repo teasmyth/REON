@@ -162,6 +162,11 @@ public:
 
 
 	void ResetDash() { TouchedGroundOrWall = true; }
+	void ResetFalling()
+	{
+		Falling = false;
+		FallingTimer = 0;
+	}
 	bool IsFalling() const;
 
 	void ResetSlide();
@@ -196,7 +201,7 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	EMovementState GetCharacterMovementState() const { return CurrentMovementState; }
-	FORCEINLINE float GetVerticalVelocity() const { return FVector2d(GetCharacterMovement()->Velocity.X, GetCharacterMovement()->Velocity.Y).Size(); }
+	FORCEINLINE float GetHorizontalVelocity() const { return FVector2d(GetCharacterMovement()->Velocity.X, GetCharacterMovement()->Velocity.Y).Size(); }
 	FORCEINLINE void SetWhetherTouchedGroundOrWall(const bool b) { TouchedGroundOrWall = b; }
 	FORCEINLINE bool GetWhetherTouchedGroundOrWall() const { return TouchedGroundOrWall; }
 	FORCEINLINE float GetMaxRunningSpeed() const { return MaxRunningSpeed; }
@@ -234,7 +239,10 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Movement Settings")
 	float JumpStrength;
 
+	
+
 	bool TouchedGroundOrWall;
 	float CalculatedPostFallMultiplier;
 	float FallingTimer = 0;
+	bool Falling;
 };
