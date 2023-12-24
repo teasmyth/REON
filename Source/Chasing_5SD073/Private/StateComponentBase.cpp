@@ -52,7 +52,13 @@ void UStateComponentBase::TickComponent(float DeltaTime, ELevelTick TickType, FA
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	if (DebugMechanic) OverrideDebug();
 	// ...
+}
+
+bool UStateComponentBase::OnSetStateConditionCheck(UCharacterStateMachine& SM)
+{
+	return true;
 }
 
 void UStateComponentBase::OnEnterState(UCharacterStateMachine& SM)
@@ -80,6 +86,10 @@ void UStateComponentBase::OverrideAcceleration(UCharacterStateMachine& SM, float
 }
 
 void UStateComponentBase::OverrideCameraInput(UCharacterStateMachine& SM, FVector2d& NewRotationVector)
+{
+}
+
+void UStateComponentBase::OverrideDebug()
 {
 }
 

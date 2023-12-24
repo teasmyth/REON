@@ -20,7 +20,6 @@ enum class ECharacterState : uint8
 	WallClimbing,
 	WallRunning,
 	AirDashing,
-	Falling
 	// Add other states as needed
 };
 
@@ -44,7 +43,7 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, DisplayName= "Current State")
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category= "Character State Machine", DisplayName= "Current State")
 	ECharacterState CurrentEnumState = ECharacterState::DefaultState;
 
 	UPROPERTY()
@@ -72,19 +71,18 @@ public:
 
 	void SetState(const ECharacterState& NewStateEnum);
 	void UpdateStateMachine();
-
-	void OverrideMovementInput(FVector2d& NewMovementVector);
-
-	void OverrideAcceleration(float& NewSpeed);
-
-	void OverrideCameraInput(FVector2d& NewRotationVector);
-
 	//This is used for manual OnExit.
 	void ManualExitState();
+	
+	void OverrideMovementInput(FVector2d& NewMovementVector);
+	void OverrideAcceleration(float& NewSpeed);
+	void OverrideCameraInput(FVector2d& NewRotationVector);
+
 
 	bool IsCurrentStateNull() const { return CurrentState == nullptr; }
 	UStateComponentBase* GetCurrentState() const { return CurrentState; } // make the private and use this instead this
 	ECharacterState GetCurrentEnumState() const { return CurrentEnumState; } // make the private and use this instead this
+	static FVector RotateVector(const FVector& InVector, const float AngleInDegrees, const float Length = 1);
 
 private:
 	void SetupStates();
@@ -92,3 +90,4 @@ private:
 	UStateComponentBase* TranslateEnumToState(const ECharacterState& Enum) const;
 	bool RunUpdate = false;
 };
+

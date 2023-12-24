@@ -26,27 +26,39 @@ protected:
 public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	virtual bool OnSetStateConditionCheck(UCharacterStateMachine& SM) override;
 	virtual void OnEnterState(UCharacterStateMachine& SM) override;
 	virtual void OnUpdateState(UCharacterStateMachine& SM) override;
 	virtual void OnExitState(UCharacterStateMachine& SM) override;
 
 	virtual void OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector) override;
 	virtual void OverrideCameraInput(UCharacterStateMachine& SM, FVector2d& NewRotationVector) override;
-
-	UPROPERTY(EditAnywhere, Category= "Settings")
-	bool bDebug = false;
-
-	UPROPERTY(EditAnywhere, Category= "Settings")
-	UCurveFloat* WallRunGravityCurve;
-
-
+	virtual void OverrideDebug() override;
+	
 private:
 	EWallOrientation WallOrientation = None;
 
+	FHitResult PrevResult;
 	FHitResult HitResult;
-	float InternalTimer;
+	FHitResult EmptyResult; 
+	float GravityTimer;
 	float InternalGravityScale;
 
 	void RotatePlayerAlongsideWall(const FHitResult& Hit) const;
 	bool CheckWhetherStillWallRunning();
+	void DetectWallRun();
+
+	UPROPERTY(EditAnywhere, Category= "Settings",
+		meta = (Tooltip = "This stops Wall Run sensors from being an insta trigger, preventing accidentals."))
+	float WallRunTriggerDelay;
+	float TriggerTimer;
+
+	UPROPERTY(EditAnywhere, Category= "Settings")
+	UCurveFloat* WallRunGravityCurve;
+
+	UPROPERTY(EditAnywhere, Category = "Settings")
+	float WallCheckDistance;
+
+	UPROPERTY(EditAnywhere, Category = "Settings")
+	float WallRunSideAngle;
 };

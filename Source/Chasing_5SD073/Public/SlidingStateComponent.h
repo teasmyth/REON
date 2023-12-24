@@ -25,6 +25,7 @@ protected:
 public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	virtual bool OnSetStateConditionCheck(UCharacterStateMachine& SM) override;
 	virtual void OnEnterState(UCharacterStateMachine& SM) override;
 	virtual void OnUpdateState(UCharacterStateMachine& SM) override;
 	virtual void OnExitState(UCharacterStateMachine& SM) override;

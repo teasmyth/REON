@@ -37,17 +37,19 @@ void UAirDashingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
 	Super::OnEnterState(SM);
 	InternalTimer = 0;
-	//InitialForwardVector = PlayerCharacter->GetActorForwardVector();
-	InitialForwardVector = PlayerCharacter->GetFirstPersonCameraComponent()->GetForwardVector();
+	InitialForwardVector = PlayerCharacter->GetActorForwardVector();
+	const float Speed = PlayerCharacter->GetVerticalVelocity();
+	PlayerMovement->Velocity = FVector(InitialForwardVector.X * Speed, InitialForwardVector.Y * Speed, PlayerMovement->Velocity.Z);
 }
 
 void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
 	Super::OnUpdateState(SM);
-	
+
 	//Instead of relying on physics, (cause it is janky) I am manually calculating where the player is supposed to be.
 	InternalTimer += GetWorld()->GetDeltaSeconds();
-	const FVector NextFrameLocation = PlayerCharacter->GetActorLocation() + InitialForwardVector * AirDashDistance * (InternalTimer / AirDashTime);
+	const FVector NextFrameLocation = PlayerCharacter->GetActorLocation() + InitialForwardVector * AirDashDistance * (InternalTimer / AirDashTime) *
+		(PlayerCharacter->GetVerticalVelocity() / PlayerCharacter->GetMaxRunningSpeed());
 	PlayerCharacter->SetActorLocation(NextFrameLocation, true); //true prevent player 'dashing' inside of a wall, stop at hitting.
 
 	if (InternalTimer >= AirDashTime) SM.ManualExitState();
@@ -62,7 +64,16 @@ void UAirDashingStateComponent::OnExitState(UCharacterStateMachine& SM)
 void UAirDashingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
 {
 	Super::OverrideMovementInput(SM, NewMovementVector);
-	//This prevents any player inputs doing air dash.
+	//This prevents any player inputs doing air dash.v
 	NewMovementVector = FVector2d::ZeroVector;
 }
 
+void UAirDashingStateComponent::OverrideDebug()
+{
+	Super::OverrideDebug();
+
+
+	DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(),
+	              GetOwner()->GetActorLocation() + GetOwner()->GetActorForwardVector() * AirDashDistance * (PlayerCharacter->GetVerticalVelocity() /
+		              PlayerCharacter->GetMaxRunningSpeed()), DebugColor, false, 0, 0, 3);
+}

@@ -15,7 +15,7 @@ UCharacterStateMachine::UCharacterStateMachine()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
 
 
 	// ...
@@ -46,7 +46,7 @@ void UCharacterStateMachine::TickComponent(float DeltaTime, ELevelTick TickType,
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-
+	//Debug();
 	// ...
 }
 
@@ -67,22 +67,22 @@ UStateComponentBase* UCharacterStateMachine::TranslateEnumToState(const ECharact
 void UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 {
 	//Making sure the translation is valid
-	if (TranslateEnumToState(NewStateEnum) == nullptr) return;
+	UStateComponentBase* TranslatedState = TranslateEnumToState(NewStateEnum);
 
+	//If OnSetStateCondition returns false, it means the conditions are not meant for the new state, thus aborting switching state.
+	if (TranslatedState == nullptr || TranslatedState != nullptr && !TranslatedState->OnSetStateConditionCheck(*this)) return;
 
 	if (CurrentState != nullptr)
 	{
-		if (!CurrentState->CanTransitionFromStateList[NewStateEnum]) return;
+		if (!TranslatedState->CanTransitionFromStateList[CurrentEnumState]) return;
 		//If the current state does not allow the change to the new state, return.
 
 		//Green light! Setting new state is go!
-
 		RunUpdate = false;
 		CurrentState->OnExitState(*this);
 	}
-
-
-	CurrentState = TranslateEnumToState(NewStateEnum);
+	
+	CurrentState = TranslatedState;
 	CurrentEnumState = NewStateEnum;
 	CurrentState->OnEnterState(*this);
 	RunUpdate = true;
@@ -126,4 +126,18 @@ void UCharacterStateMachine::ManualExitState()
 	{
 		SetState(ECharacterState::DefaultState);
 	}
+}
+
+//Didnt want to make a utility class just for this vector, though I admit, bad practice.
+FVector UCharacterStateMachine::RotateVector(const FVector& InVector, const float AngleInDegrees, const float Length)
+{
+	const FRotator Rotation = FRotator(0.0f, AngleInDegrees, 0.0f);
+	const FQuat QuatRotation = FQuat(Rotation);
+	FVector RotatedVector = QuatRotation.RotateVector(InVector);
+	if (Length != 1)
+	{
+		RotatedVector.Normalize();
+		RotatedVector *= Length;
+	}
+	return RotatedVector;
 }

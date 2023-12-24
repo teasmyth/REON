@@ -29,6 +29,11 @@ void USlidingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 }
 
+bool USlidingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
+{
+	return PlayerMovement->IsMovingOnGround();
+}
+
 void USlidingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
 	Super::OnEnterState(SM);

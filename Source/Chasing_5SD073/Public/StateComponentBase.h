@@ -38,9 +38,19 @@ public:
 	UPROPERTY(EditFixedSize, EditAnywhere, Category = "Settings", meta = (ToolTip = "The list describes FROM which states this state can transtion"))
 	TMap<ECharacterState, bool> CanTransitionFromStateList;
 
+	UPROPERTY(EditFixedSize, EditAnywhere, Category = "Settings")
+	bool DebugMechanic;
+
+	UPROPERTY(EditFixedSize, EditAnywhere, Category = "Settings")
+	FColor DebugColor;
+
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
+	//This runs before switching state, letting states access player variables before 'mechanically' entering a state.
+	//For example checking whether player is on ground. If returns false, switching state is aborted and the current state does not exit. 
+	virtual bool OnSetStateConditionCheck(UCharacterStateMachine& SM);
+	
 	//This is executed at the beginning of the state change. Do not completely override, leave the base.
 	virtual void OnEnterState(UCharacterStateMachine& SM);
 
@@ -50,11 +60,18 @@ public:
 	//This is executed at the ending of the state. Do not completely override, leave the base.
 	virtual void OnExitState(UCharacterStateMachine& SM);
 
+	//TODO make a debug function that is overriden too and put every debug shit of every mechanic into it.
+	//TODO then make a bool list in state machine where you can tick which ones you want
+	//TODO loop through the list and call of the debugs based on which one is ticked.
+
 	virtual void OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector);
 
 	virtual void OverrideAcceleration(UCharacterStateMachine& SM, float& NewSpeed);
 
 	virtual void OverrideCameraInput(UCharacterStateMachine& SM, FVector2d& NewRotationVector);
+
+	//This runs in Debug
+	virtual void OverrideDebug();
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnStateEnterDelegate);
 

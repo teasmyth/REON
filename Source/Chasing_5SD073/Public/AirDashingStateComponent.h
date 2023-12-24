@@ -29,6 +29,7 @@ public:
 	virtual void OnExitState(UCharacterStateMachine& SM) override;
 	
 	virtual void OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector) override;
+	virtual void OverrideDebug() override;
 	
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = ""))
 	float AirDashDistance = 0;
@@ -37,7 +38,6 @@ public:
 	float AirDashTime = 0;
 	
 private:
-	
 	FVector InitialForwardVector;
 	double InternalTimer;
 	

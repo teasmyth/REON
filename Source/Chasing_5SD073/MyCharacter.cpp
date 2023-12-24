@@ -66,21 +66,13 @@ void AMyCharacter::Tick(float DeltaTime)
 
 	MovementStateCheck();
 	Acceleration(DeltaTime);
-	WallMechanicsCheck();
+
 	if (GetCharacterMovement()->IsMovingOnGround())
 	{
 		TouchedGroundOrWall = true;
 	}
-	
-	if (GetCharacterMovement()->IsFalling() && !landed)
-	{
-		fallingTimer += DeltaTime;
-	}
 
-	StateMachine->UpdateStateMachine();
-
-	// on slope automatically slide, onSlope is checked in SliderRaycast()
-	//if (onSlope) Slide();
+	if (StateMachine != nullptr) StateMachine->UpdateStateMachine();
 
 	// debugs
 	if (debugGroundRaycast) GroundRaycast();
@@ -101,13 +93,13 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 		//Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
-		
+
 		//Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
 
 		//Sliding
 		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Started, this, &AMyCharacter::Slide);
-		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Completed, this, &AMyCharacter::ResetCharacterState);
+		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Completed, this, &AMyCharacter::ResetSlide);
 
 		//Looking Back
 		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Triggered, this, &AMyCharacter::LookBack);
@@ -132,7 +124,6 @@ void AMyCharacter::JumpAndDash()
 	{
 		StateMachine->SetState(ECharacterState::AirDashing);
 		TouchedGroundOrWall = false;
-		
 	}
 }
 
@@ -140,14 +131,16 @@ void AMyCharacter::JumpAndDash()
 
 void AMyCharacter::Acceleration(const float& DeltaTime)
 {
-	accelerationTimer += DeltaTime; //This is reset the moment the player stops giving movement inputs.
-
-	//float currentAcceleration = GetCharacterMovement()->MaxCustomMovementSpeed / accelerationSpeedRate;
-
+	accelerationTimer += DeltaTime; //This resets the moment the player stops giving movement inputs.
 
 	if (CurrentMovementState == EMovementState::Idle || CurrentMovementState == EMovementState::Walking)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum * WalkingAccelerationTime->GetFloatValue(accelerationTimer);
+	}
+	else if (CurrentMovementState == EMovementState::Fell)
+	{
+		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum * PostFallAccelerationTime->GetFloatValue(
+			accelerationTimer * (1 -CalculatedPostFallMultiplier));
 	}
 	else
 	{
@@ -159,42 +152,47 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 	{
 		StateMachine->OverrideAcceleration(GetCharacterMovement()->MaxWalkSpeed);
 	}
-
-	/*
-	//landed after falling
-	if (landed)
-	{
-		if (fallingTimer >= maxFallingPenaltyTime)
-		{
-			fallingTimer = maxFallingPenaltyTime;
-		}
-
-		currentAcceleration = GetCharacterMovement()->MaxCustomMovementSpeed / accelerationSpeedRate * (1 - (
-			fallingTimer / maxFallingPenaltyTime) * maxFallingSpeedSlowPenalty);
-
-		if (GetCharacterMovement()->Velocity.Length() >= GetCharacterMovement()->MaxCustomMovementSpeed)
-		{
-			landed = false;
-			fallingTimer = 0;
-		}
-	}
-	*/
-
-	//GetCharacterMovement()->MaxAcceleration = currentAcceleration;
-	//getCurrentAccelerationRate = currentAcceleration;
 }
 
 void AMyCharacter::MovementStateCheck()
 {
+	//Falling stuff
+	if (CurrentMovementState != EMovementState::Fell && IsFalling())
+	{
+		//We dont need to check other acceleration while falling. However, dont count falling during mechanics
+		if (StateMachine != nullptr && (StateMachine->GetCurrentEnumState() == ECharacterState::DefaultState || StateMachine->GetCurrentEnumState() == ECharacterState::AirDashing))
+		{
+			FallingTimer += GetWorld()->GetDeltaSeconds();
+		}
+		return;
+	}
+
+	if (GetCharacterMovement()->IsMovingOnGround() && FallingTimer >= MinimumFallTime && CurrentMovementState != EMovementState::Fell)
+	{
+		const float Diff = (FallingTimer - MinimumFallTime) * PenaltyMultiplierPerSecond;
+		CalculatedPostFallMultiplier = Diff >= MaxPenaltyMultiplier ? MaxPenaltyMultiplier : Diff;
+		accelerationTimer = 0;
+		CurrentMovementState = EMovementState::Fell;
+		GetCharacterMovement()->Velocity = FVector::ZeroVector;
+	}
+	else
+	{
+		FallingTimer = 0;
+		CalculatedPostFallMultiplier = 1;
+	}
+
+
 	//This way the Z movement (for example jumping) does not alter the speed calculation.
 	const float VerticalSpeed = FVector2d(GetMovementComponent()->Velocity.X, GetMovementComponent()->Velocity.Y).Size();
-	
-	if (CurrentMovementState != EMovementState::Idle && VerticalSpeed <= 1)
+
+	if (CurrentMovementState != EMovementState::Idle && VerticalSpeed <= 1 && CurrentMovementState
+		!= EMovementState::Fell)
 	{
 		CurrentMovementState = EMovementState::Idle;
 		accelerationTimer = 0;
 	}
-	else if (CurrentMovementState != EMovementState::Walking && VerticalSpeed > 1 && VerticalSpeed < RunningStateSpeedMinimum)
+	else if (CurrentMovementState != EMovementState::Walking && VerticalSpeed > 1 && VerticalSpeed < RunningStateSpeedMinimum && CurrentMovementState
+		!= EMovementState::Fell)
 	{
 		CurrentMovementState = EMovementState::Walking;
 		accelerationTimer = 0;
@@ -274,118 +272,22 @@ void AMyCharacter::Slide()
 {
 	if (StateMachine == nullptr) return;
 
+
 	if (CurrentMovementState == EMovementState::Running && StateMachine->CurrentEnumState != ECharacterState::Sliding)
 	{
 		StateMachine->SetState(ECharacterState::Sliding);
 	}
 }
 
-void AMyCharacter::WallMechanicsCheck()
+
+bool AMyCharacter::IsFalling() const
 {
-	//Need to see the debug regardless of checking the wall or not.
-
-	//Helper lambda to rotate vector.
-	auto RotateVector = [](const FVector& InVector, const float AngleInDegrees, const float Length) {
-		const FRotator Rotation = FRotator(0.0f, AngleInDegrees, 0.0f);
-		const FQuat QuatRotation = FQuat(Rotation);
-		FVector RotatedVector = QuatRotation.RotateVector(InVector);
-		RotatedVector.Normalize();
-		RotatedVector *= Length;
-		return RotatedVector;
-	};
-	
-	const FVector Start = GetActorLocation();
-	const FVector End = Start + GetActorRotation().Vector() * WallCheckForwardDistance;
-	
-	if (bDebugWallMechanics)
-	{
-		DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, -1, 0, 5);
-		
-		DrawDebugLine(GetWorld(), Start, Start + RotateVector(GetActorRotation().Vector(), WallRunAngle, WallCheckForwardDistance), FColor::Blue, false, -1, 0, 5);
-		DrawDebugLine(GetWorld(), Start, Start + RotateVector(GetActorRotation().Vector(), -WallRunAngle, WallCheckForwardDistance), FColor::Blue, false, -1, 0, 5);
-
-		//Side check debug. Right and Left
-		DrawDebugLine(GetWorld(), Start, Start + RotateVector(GetActorRotation().Vector(), WallRunSideAngle, WallCheckSideDistance), FColor::Red, false, -1, 0, 5);
-		DrawDebugLine(GetWorld(), Start, Start + RotateVector(GetActorRotation().Vector(), -WallRunSideAngle, WallCheckSideDistance), FColor::Red, false, -1, 0, 5);
-	}
-	
-	//calculate whether wer are trying to wall run or wall climb, if at all
-	if (CurrentMovementState != EMovementState::Running || StateMachine == nullptr || StateMachine != nullptr &&
-		(StateMachine->GetCurrentEnumState() == ECharacterState::WallClimbing || StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning))
-	{
-		return;
-	}
-	
-	FHitResult HitResult;
-	
-	FCollisionQueryParams CollisionParams;
-	CollisionParams.AddIgnoredActor(this);
-
-	const bool bAimHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, CollisionParams);
-	
-
-	if (bAimHit) //Prioritizing player's aim.
-	{
-		//Setting up reference for wall mechanics.
-		WallMechanicHitResult = &HitResult;
-		TouchedGroundOrWall = true;
-		
-		// Calculate the angle of incidence
-		const float AngleInDegrees = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(HitResult.Normal, -GetActorForwardVector())));
-
-		// AngleInDegrees now contains the angle between the wall and the actor's forward vector
-		if (AngleInDegrees >= WallRunAngle && !GetCharacterMovement()->IsMovingOnGround())
-		{
-			StateMachine->SetState(ECharacterState::WallRunning);
-			if (bDebugWallMechanics)GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "Can Wall Run");
-		}
-		else
-		{
-			StateMachine->SetState(ECharacterState::WallClimbing);
-			if (bDebugWallMechanics) GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Blue, "Can Wall Climb (Not Implemented)");
-		}
-		
-		return;
-	}
-
-	if (GetCharacterMovement()->IsMovingOnGround()) return; //We don' need side detection on the ground.s
-
-	//If player's aim fails but standing right next to ONE wall then it is also wall run.
-	FHitResult RightSide;
-	const bool bRightSideHit = GetWorld()->LineTraceSingleByChannel(RightSide, Start, Start + RotateVector(GetActorRotation().Vector(), WallRunSideAngle, WallCheckSideDistance),
-	                                                                ECC_Visibility, CollisionParams);
-
-	const bool bLeftSideHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, Start + RotateVector(GetActorRotation().Vector(), -WallRunSideAngle, WallCheckSideDistance),
-	                                                               ECC_Visibility, CollisionParams);
-
-
-	if (bRightSideHit && !bLeftSideHit || !bRightSideHit && bLeftSideHit)
-	{
-		if (bDebugWallMechanics) GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "Can Wall Run");
-
-		if (bRightSideHit)
-		{
-			WallMechanicHitResult = &RightSide;
-			if (bDebugWallMechanics) DrawDebugBox(GetWorld(), RightSide.ImpactPoint, FVector(10, 10, 10), FQuat::Identity, FColor::Green, false, 100);
-		}
-		else
-		{
-			WallMechanicHitResult = &HitResult;
-			if (bDebugWallMechanics) DrawDebugBox(GetWorld(), HitResult.ImpactPoint, FVector(10, 10, 10), FQuat::Identity, FColor::Green, false, 100);
-		}
-
-		TouchedGroundOrWall = true;
-		StateMachine->SetState(ECharacterState::WallRunning);
-		return;
-	}
-
-
-	WallMechanicHitResult = nullptr;
+	return GetCharacterMovement()->Velocity.Z <= 0 && GetCharacterMovement()->IsFalling();
 }
 
-void AMyCharacter::ResetCharacterState()
+void AMyCharacter::ResetSlide()
 {
-	if (StateMachine != nullptr) StateMachine->ManualExitState();
+	if (StateMachine != nullptr && StateMachine->GetCurrentEnumState() == ECharacterState::Sliding) StateMachine->ManualExitState();
 }
 
 #pragma endregion
@@ -444,6 +346,7 @@ void AMyCharacter::SliderRaycast()
 		DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 0.5f, 0.0f, 5.0f);
 		if (actorHit && hit.GetActor())
 		{
+			/*
 			// slope check
 			if (hit.GetActor()->ActorHasTag(TEXT("Slope")))
 			{
@@ -458,6 +361,7 @@ void AMyCharacter::SliderRaycast()
 			{
 				UE_LOG(LogTemp, Warning, TEXT("slope %s"), ( onSlope ? TEXT("true") : TEXT("false") ));
 			}
+			*/
 		}
 	}
 }

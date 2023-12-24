@@ -13,6 +13,7 @@
 #include "InputActionValue.h"
 #include "EnhancedInputSubsystems.h"
 #include "Camera/CameraComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "MyCharacter.generated.h"
 
 class ICharacterState;
@@ -129,7 +130,7 @@ public:
 
 	// accelerate
 	float accelerationTimer;
-	float fallingTimer;
+
 
 	bool landed;
 
@@ -157,18 +158,17 @@ public:
 	void Slide();
 	void LookBack();
 	void LookFront();
-	void AirDash(const FInputActionValue& Value);
 	void JumpAndDash();
 
 
-	void WallMechanicsCheck();
+	void ResetDash() { TouchedGroundOrWall = true; }
+	bool IsFalling() const;
 
-	void ResetCharacterState();
+	void ResetSlide();
 	void MovementStateCheck();
 
 
 	// Raycast
-	bool onSlope;
 	void GroundRaycast();
 	void SliderRaycast();
 
@@ -196,49 +196,45 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	EMovementState GetCharacterMovementState() const { return CurrentMovementState; }
-
+	FORCEINLINE float GetVerticalVelocity() const { return FVector2d(GetCharacterMovement()->Velocity.X, GetCharacterMovement()->Velocity.Y).Size(); }
 	FORCEINLINE void SetWhetherTouchedGroundOrWall(const bool b) { TouchedGroundOrWall = b; }
 	FORCEINLINE bool GetWhetherTouchedGroundOrWall() const { return TouchedGroundOrWall; }
 	FORCEINLINE float GetMaxRunningSpeed() const { return MaxRunningSpeed; }
-	FORCEINLINE FHitResult* GetWallMechanicHitResult() const { return WallMechanicHitResult; }
-	FORCEINLINE float GetWallCheckDistance() const { return WallCheckForwardDistance; }
+	FORCEINLINE UCharacterStateMachine* GetCharacterStateMachine() const { return StateMachine; }
 
-private: //My stuff
-
-
+private:
 	//Movement
-	UPROPERTY(VisibleAnywhere, Category = "Movement Setting", DisplayName= "Current Movement State")
+	UPROPERTY(VisibleAnywhere, Category = "Movement Settings", DisplayName= "Current Movement State")
 	EMovementState CurrentMovementState = EMovementState::Idle;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	UPROPERTY(EditAnywhere, Category = "Movement Settings")
 	UCurveFloat* WalkingAccelerationTime;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	UPROPERTY(EditAnywhere, Category = "Movement Settings")
+	UCurveFloat* PostFallAccelerationTime;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Settings")
+	float MinimumFallTime;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Settings")
+	float PenaltyMultiplierPerSecond;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Settings")
+	float MaxPenaltyMultiplier;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Settings")
 	UCurveFloat* RunningAccelerationTime;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	UPROPERTY(EditAnywhere, Category = "Movement Settings")
 	float RunningStateSpeedMinimum = 800;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	UPROPERTY(EditAnywhere, Category = "Movement Settings")
 	float MaxRunningSpeed;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Setting")
-	float WallCheckForwardDistance;
-
-	UPROPERTY(EditAnywhere, Category = "Movement Setting")
-	float WallCheckSideDistance;
-
-	UPROPERTY(EditAnywhere, Category = "Movement Setting")
-	float WallRunAngle;
-
-	UPROPERTY(EditAnywhere, Category = "Movement Setting")
-	float WallRunSideAngle;
-
-	UPROPERTY(EditAnywhere, Category = "Movement Setting")
+	UPROPERTY(EditAnywhere, Category = "Movement Settings")
 	float JumpStrength;
 
-	FHitResult* WallMechanicHitResult = nullptr;
-	
-
 	bool TouchedGroundOrWall;
+	float CalculatedPostFallMultiplier;
+	float FallingTimer = 0;
 };
