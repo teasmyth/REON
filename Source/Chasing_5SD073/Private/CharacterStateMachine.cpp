@@ -74,7 +74,7 @@ void UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 	
 	if (CurrentState != nullptr)
 	{
-		if (!TranslatedState->CanTransitionFromStateList[CurrentEnumState]) return;
+		if (!TranslatedState->GetTransitionList()[CurrentEnumState]) return;
 		//If the current state does not allow the change to the new state, return.
 
 		//Green light! Setting new state is go!

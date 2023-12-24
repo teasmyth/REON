@@ -12,7 +12,7 @@
 #include "StateComponentBase.generated.h"
 
 
-UCLASS(ClassGroup=("Mechanics"), meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup = (Custom), BlueprintType, Blueprintable, meta = (BlueprintSpawnableComponent))
 class CHASING_5SD073_API UStateComponentBase : public UActorComponent
 {
 	GENERATED_BODY()
@@ -34,8 +34,8 @@ protected:
 	UPROPERTY()
 	AMyCharacter* PlayerCharacter = nullptr;
 
-public:
-	UPROPERTY(EditFixedSize, EditAnywhere, Category = "Settings|General Settings", meta = (ToolTip = "The list describes FROM which states this state can transtion"))
+	UPROPERTY(EditFixedSize, EditAnywhere, Category = "Settings|General Settings",
+		meta = (ToolTip = "The list describes FROM which states this state can transtion"))
 	TMap<ECharacterState, bool> CanTransitionFromStateList;
 
 	UPROPERTY(EditAnywhere, Category= "Settings|General Settings") //Dont add space after general!
@@ -45,11 +45,12 @@ public:
 	bool ResetsDash = false;
 
 	UPROPERTY(EditAnywhere, Category = "Settings|General Settings")
-	bool DebugMechanic;
+	bool DebugMechanic = false;
 
 	UPROPERTY(EditAnywhere, Category = "Settings|General Settings")
 	FColor DebugColor;
 
+public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
@@ -66,10 +67,6 @@ public:
 	//This is executed at the ending of the state. Do not completely override, leave the base.
 	virtual void OnExitState(UCharacterStateMachine& SM);
 
-	//TODO make a debug function that is overriden too and put every debug shit of every mechanic into it.
-	//TODO then make a bool list in state machine where you can tick which ones you want
-	//TODO loop through the list and call of the debugs based on which one is ticked.
-
 	virtual void OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector);
 
 	virtual void OverrideAcceleration(UCharacterStateMachine& SM, float& NewSpeed);
@@ -79,6 +76,11 @@ public:
 	//This runs in Debug
 	virtual void OverrideDebug();
 
+	bool DoesItCountTowardsFalling() const { return CountTowardsFalling; }
+	bool DoesItResetDash() const { return ResetsDash; }
+	TMap<ECharacterState, bool>  GetTransitionList() const { return CanTransitionFromStateList;}
+
+protected:
 	//Helper Methods
 	bool LineTraceSingle(FHitResult& HitR, const FVector& Start, const FVector& End) const;
 	bool LineTraceSingle(const FVector& Start, const FVector& End) const;

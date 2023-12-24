@@ -46,7 +46,7 @@ private:
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "It is a % value, limiting the intensity of left right input."))
 	float SlidingLeftRightMovementModifier = 0;
 
-	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "If true, looking up and down is as fast as usual."))
+	UPROPERTY(EditAnywhere, Category= "Settings",  meta = (ToolTip = "If true, looking up and down is as fast as usual."))
 	bool OnlyModifyCameraLeftRight;
 
 	UPROPERTY(EditAnywhere, Category= "Settings",

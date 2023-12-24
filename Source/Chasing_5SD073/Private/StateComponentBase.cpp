@@ -64,19 +64,20 @@ bool UStateComponentBase::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 void UStateComponentBase::OnEnterState(UCharacterStateMachine& SM)
 {
 	OnEnterStateDelegate.Broadcast();
-	if (CountTowardsFalling) PlayerCharacter->ResetFalling();
+	if (!CountTowardsFalling) PlayerCharacter->ResetFalling();
 	if (ResetsDash) PlayerCharacter->ResetDash();
 }
 
 void UStateComponentBase::OnUpdateState(UCharacterStateMachine& SM)
 {
 	OnUpdateStateDelegate.Broadcast();
+	
 }
 
 void UStateComponentBase::OnExitState(UCharacterStateMachine& SM)
 {
 	OnExitStateDelegate.Broadcast();
-	if (CountTowardsFalling) PlayerCharacter->ResetFalling();
+	if (!CountTowardsFalling) PlayerCharacter->ResetFalling();
 }
 
 void UStateComponentBase::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
