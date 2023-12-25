@@ -20,7 +20,6 @@ UWallClimbingStateComponent::UWallClimbingStateComponent()
 void UWallClimbingStateComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
 	// ...
 }
 
@@ -47,10 +46,7 @@ void UWallClimbingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	InternalTimer = 0;
 	PlayerMovement->Velocity = FVector(0, 0, PlayerMovement->Velocity.Z / 4);
 	PlayerMovement->UpdateComponentVelocity();
-
-
-	const FVector Normal = -HitResult.Normal;
-	PlayerCharacter->SetActorRotation(Normal.Rotation());
+	PlayerCharacter->SetActorRotation((-HitResult.Normal).Rotation());
 }
 
 void UWallClimbingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
@@ -76,8 +72,7 @@ void UWallClimbingStateComponent::OnExitState(UCharacterStateMachine& SM)
 void UWallClimbingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
 {
 	Super::OverrideMovementInput(SM, NewMovementVector);
-
-
+	
 	if (NewMovementVector.Y <= 0)
 	{
 		SM.ManualExitState();
@@ -94,14 +89,8 @@ bool UWallClimbingStateComponent::CheckLedge() const
 {
 	const FVector Start = PlayerCapsule->GetComponentLocation() + FVector(0, 0, LedgeGrabCheckZOffset);
 	const FVector End = Start + PlayerCharacter->GetActorForwardVector() * LedgeGrabCheckDistance;
-
-	FHitResult LedgeResult;
-	FCollisionQueryParams CollisionParams;
-	CollisionParams.AddIgnoredActor(GetOwner());
-
-	//Checking above the head.
-
-	if (!GetWorld()->LineTraceSingleByChannel(LedgeResult, Start, End, ECC_Visibility, CollisionParams))
+	
+	if (!LineTraceSingle(Start, End))
 	{
 		return true;
 	}
@@ -112,18 +101,8 @@ bool UWallClimbingStateComponent::CheckLeg() const
 {
 	const FVector Start = PlayerCapsule->GetComponentLocation() - FVector(0, 0, PlayerCapsule->GetScaledCapsuleHalfHeight());
 	const FVector End = Start + PlayerCharacter->GetActorForwardVector() * LedgeGrabCheckDistance;
-
-	if (DebugMechanic)
-	{
-		DrawDebugLine(GetWorld(), Start, End, FColor::Green, false, -1, 0, 5);
-	}
-
-	FHitResult LegResult;
-	FCollisionQueryParams CollisionParams;
-	CollisionParams.AddIgnoredActor(GetOwner());
-
-	//Checking above the head.
-	if (!GetWorld()->LineTraceSingleByChannel(LegResult, Start, End, ECC_Visibility, CollisionParams))
+	
+	if (!LineTraceSingle(Start, End))
 	{
 		return true;
 	}
@@ -132,18 +111,16 @@ bool UWallClimbingStateComponent::CheckLeg() const
 
 void UWallClimbingStateComponent::DetectWallClimb()
 {
-	if (PlayerCharacter->GetCharacterStateMachine() == nullptr ||
-		PlayerCharacter->GetCharacterStateMachine() != nullptr && PlayerCharacter->GetCharacterStateMachine()->GetCurrentEnumState() ==
-		ECharacterState::WallClimbing)
+	if (PlayerCharacter->GetCharacterStateMachine() == nullptr || PlayerCharacter->GetCharacterStateMachine()->IsThisCurrentState(*this))
+	{
 		return;
-
-	FCollisionQueryParams CollisionParams;
-	CollisionParams.AddIgnoredActor(GetOwner());
+	}
+	
 	const FVector Start = GetOwner()->GetActorLocation();
+	const FVector End = Start + GetOwner()->GetActorRotation().Vector() * WallCheckDistance;
 
 	//Prioritizing player's aim.
-	if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, Start + GetOwner()->GetActorRotation().Vector() * WallCheckDistance, ECC_Visibility,
-	                                         CollisionParams))
+	if (LineTraceSingle(HitResult, Start, End))
 	{
 		// Calculate the angle of incidence
 		const float AngleInDegrees =

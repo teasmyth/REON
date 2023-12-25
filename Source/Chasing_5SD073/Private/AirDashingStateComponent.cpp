@@ -11,7 +11,6 @@ UAirDashingStateComponent::UAirDashingStateComponent()
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
-
 	// ...
 }
 
@@ -20,7 +19,6 @@ UAirDashingStateComponent::UAirDashingStateComponent()
 void UAirDashingStateComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
 	// ...
 }
 
@@ -29,8 +27,12 @@ void UAirDashingStateComponent::BeginPlay()
 void UAirDashingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
 	// ...
+}
+
+bool UAirDashingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
+{
+	return !PlayerCharacter->GetCharacterStateMachine()->IsThisCurrentState(*this);
 }
 
 void UAirDashingStateComponent::OnEnterState(UCharacterStateMachine& SM)
@@ -49,7 +51,7 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 	//Instead of relying on physics, (cause it is janky) I am manually calculating where the player is supposed to be.
 	InternalTimer += GetWorld()->GetDeltaSeconds();
 	const FVector NextFrameLocation = PlayerCharacter->GetActorLocation() + InitialForwardVector * AirDashDistance * (InternalTimer / AirDashTime) *
-		(PlayerCharacter->GetHorizontalVelocity() / PlayerCharacter->GetMaxRunningSpeed());
+		(PlayerCharacter->GetHorizontalVelocity() / PlayerCharacter->GetMaxRunningSpeed()); //Last part provides boost on current speed
 	PlayerCharacter->SetActorLocation(NextFrameLocation, true); //true prevent player 'dashing' inside of a wall, stop at hitting.
 
 	if (InternalTimer >= AirDashTime) SM.ManualExitState();
@@ -71,9 +73,7 @@ void UAirDashingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM
 void UAirDashingStateComponent::OverrideDebug()
 {
 	Super::OverrideDebug();
-
-
-	DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(),
-	              GetOwner()->GetActorLocation() + GetOwner()->GetActorForwardVector() * AirDashDistance * (PlayerCharacter->GetHorizontalVelocity() /
+	const FVector Start = GetOwner()->GetActorLocation();
+	DrawDebugLine(GetWorld(), Start, Start + GetOwner()->GetActorForwardVector() * AirDashDistance * (PlayerCharacter->GetHorizontalVelocity() /
 		              PlayerCharacter->GetMaxRunningSpeed()), DebugColor, false, 0, 0, 3);
 }

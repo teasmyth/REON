@@ -64,17 +64,17 @@ UStateComponentBase* UCharacterStateMachine::TranslateEnumToState(const ECharact
 }
 
 
-void UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
+bool UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 {
 	//Making sure the translation is valid
 	UStateComponentBase* TranslatedState = TranslateEnumToState(NewStateEnum);
 
 	//If OnSetStateCondition returns false, it means the conditions are not meant for the new state, thus aborting switching state.
-	if (TranslatedState == nullptr || TranslatedState != nullptr && !TranslatedState->OnSetStateConditionCheck(*this)) return;
+	if (TranslatedState == nullptr || TranslatedState != nullptr && !TranslatedState->OnSetStateConditionCheck(*this)) return false;
 	
 	if (CurrentState != nullptr)
 	{
-		if (!TranslatedState->GetTransitionList()[CurrentEnumState]) return;
+		if (!TranslatedState->GetTransitionList()[CurrentEnumState]) return false;
 		//If the current state does not allow the change to the new state, return.
 
 		//Green light! Setting new state is go!
@@ -86,6 +86,7 @@ void UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 	CurrentEnumState = NewStateEnum;
 	CurrentState->OnEnterState(*this);
 	RunUpdate = true;
+	return true;
 }
 
 void UCharacterStateMachine::UpdateStateMachine()
@@ -126,6 +127,11 @@ void UCharacterStateMachine::ManualExitState()
 	{
 		SetState(ECharacterState::DefaultState);
 	}
+}
+
+bool UCharacterStateMachine::IsThisCurrentState(const UStateComponentBase& Component) const
+{
+	return CurrentState == &Component;
 }
 
 

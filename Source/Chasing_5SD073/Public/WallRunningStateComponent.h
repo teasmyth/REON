@@ -36,29 +36,31 @@ public:
 	virtual void OverrideDebug() override;
 	
 private:
-	EWallOrientation WallOrientation = None;
-
-	FHitResult PrevResult;
-	FHitResult HitResult;
-	FHitResult EmptyResult; 
-	float GravityTimer;
-	float InternalGravityScale;
-
 	void RotatePlayerAlongsideWall(const FHitResult& Hit) const;
 	bool CheckWhetherStillWallRunning();
-	void DetectWallRun();
+	void DetectAndSetWallRun();
 
-	UPROPERTY(EditAnywhere, Category= "Settings",
-		meta = (Tooltip = "This stops Wall Run sensors from being an insta trigger, preventing accidentals."))
-	float WallRunTriggerDelay;
-	float TriggerTimer;
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "This stops sensors from being an insta trigger, preventing accidentals.", ClampMin = 0))
+	float WallRunTriggerDelay = 0;
 
 	UPROPERTY(EditAnywhere, Category= "Settings")
 	UCurveFloat* WallRunGravityCurve;
 
-	UPROPERTY(EditAnywhere, Category = "Settings")
-	float WallCheckDistance;
+	UPROPERTY(EditAnywhere, Category = "Settings", meta = (ClampMin = 0))
+	float WallCheckDistance = 0;
 
-	UPROPERTY(EditAnywhere, Category = "Settings")
-	float WallRunSideAngle;
+	UPROPERTY(EditAnywhere, Category = "Settings", meta = (ClampMin = 0))
+	float WallRunSideAngle = 0;
+
+	UPROPERTY(EditAnywhere, Category = "Settings", meta = (ClampMin = 0))
+	float MinimumDistanceFromGround = 0;
+	
+	//Internal
+	EWallOrientation WallOrientation = None;
+	FHitResult PrevResult;
+	FHitResult HitResult;
+	FHitResult EmptyResult; 
+	float GravityTimer;
+	float TriggerTimer;
+	float InternalGravityScale;
 };

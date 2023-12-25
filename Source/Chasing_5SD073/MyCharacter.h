@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "CharacterStateMachine.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/PlayerController.h"
@@ -84,6 +85,9 @@ protected:
 	void LookFront();
 	void JumpAndDash();
 	void DebugSpeed() const;
+	//Returns true if successful
+	bool SetStateBool(ECharacterState NewState) const;
+	void SetState(ECharacterState NewState) const;
 
 public:
 	void ResetDash() { TouchedGroundOrWall = true; }

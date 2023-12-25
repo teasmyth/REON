@@ -104,15 +104,15 @@ void AMyCharacter::JumpAndDash()
 	if (GetCharacterMovement()->IsMovingOnGround() || StateMachine != nullptr &&
 		(StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->GetCurrentEnumState() == ECharacterState::WallClimbing))
 	{
-		GetCharacterMovement()->AddImpulse(FVector(0, 0, JumpStrength), true);
-		StateMachine->SetState(ECharacterState::DefaultState);
+		GetCharacterMovement()->AddImpulse(GetActorUpVector() * JumpStrength, true);
+		SetState(ECharacterState::DefaultState);
 	}
-	else if (StateMachine != nullptr && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing && TouchedGroundOrWall)
+	else if (TouchedGroundOrWall && SetStateBool(ECharacterState::AirDashing))
 	{
-		StateMachine->SetState(ECharacterState::AirDashing);
 		TouchedGroundOrWall = false;
 	}
 }
+
 
 void AMyCharacter::Acceleration(const float& DeltaTime)
 {
@@ -142,10 +142,10 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 void AMyCharacter::MovementStateCheck()
 {
 	//Falling
-	if (CurrentMovementState != EMovementState::Fell && GetCharacterMovement()->IsFalling() && StateMachine != nullptr && StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
+	if (CurrentMovementState != EMovementState::Fell && GetCharacterMovement()->IsFalling() && StateMachine != nullptr && StateMachine->
+		GetCurrentState()->DoesItCountTowardsFalling())
 	{
 		FallingTimer += GetWorld()->GetDeltaSeconds();
-		GEngine->AddOnScreenDebugMessage(-1,0,FColor::Red,"Falling");
 		Falling = true;
 	}
 
@@ -241,7 +241,7 @@ void AMyCharacter::LookFront()
 
 void AMyCharacter::Slide()
 {
-	if (StateMachine != nullptr) StateMachine->SetState(ECharacterState::Sliding);
+	SetState(ECharacterState::Sliding);
 }
 
 
@@ -257,6 +257,23 @@ void AMyCharacter::DebugSpeed() const
 	{
 		const FString msg = FString::Printf(TEXT("Player speed: %lf"), GetCharacterMovement()->Velocity.Length());
 		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
+	}
+}
+
+bool AMyCharacter::SetStateBool(const ECharacterState NewState) const
+{
+	if (StateMachine != nullptr)
+	{
+		return StateMachine->SetState(NewState);
+	}
+	else return false;
+}
+
+void AMyCharacter::SetState(const ECharacterState NewState) const
+{
+	if (StateMachine != nullptr)
+	{
+		StateMachine->SetState(NewState);
 	}
 }
 #pragma endregion

@@ -30,7 +30,7 @@ void UWallRunningStateComponent::TickComponent(float DeltaTime, ELevelTick TickT
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	DetectWallRun();
+	DetectAndSetWallRun();
 	if (PlayerMovement->IsMovingOnGround())
 	{
 		PrevResult = EmptyResult;
@@ -39,8 +39,8 @@ void UWallRunningStateComponent::TickComponent(float DeltaTime, ELevelTick TickT
 
 bool UWallRunningStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	if (!PlayerMovement->IsMovingOnGround() && PrevResult.GetActor() != HitResult.GetActor())
-	//Ismoving on ground sucks, need a higher check dist check
+	if (!LineTraceSingle(GetOwner()->GetActorLocation(), GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * MinimumDistanceFromGround)
+		&& PrevResult.GetActor() != HitResult.GetActor())
 	{
 		return true;
 	}
@@ -51,14 +51,10 @@ bool UWallRunningStateComponent::OnSetStateConditionCheck(UCharacterStateMachine
 void UWallRunningStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
 	Super::OnEnterState(SM);
-	
 	PlayerCharacter->bUseControllerRotationYaw = false;
-
 	GravityTimer = 0;
 	InternalGravityScale = 0;
 	PlayerMovement->Velocity.Z = 0;
-	
-
 	RotatePlayerAlongsideWall(HitResult);
 }
 
@@ -93,7 +89,6 @@ void UWallRunningStateComponent::OverrideCameraInput(UCharacterStateMachine& SM,
 	Super::OverrideCameraInput(SM, NewRotationVector);
 }
 
-
 void UWallRunningStateComponent::RotatePlayerAlongsideWall(const FHitResult& Hit) const
 {
 	FVector RotatedVector;
@@ -103,24 +98,15 @@ void UWallRunningStateComponent::RotatePlayerAlongsideWall(const FHitResult& Hit
 		RotatedVector.X = Hit.Normal.Y;
 		RotatedVector.Y = -Hit.Normal.X;
 	}
-
-	if (WallOrientation == Right)
+	else if (WallOrientation == Right)
 	{
 		RotatedVector.X = -Hit.Normal.Y;
 		RotatedVector.Y = Hit.Normal.X;
 	}
-
 	PlayerCharacter->SetActorRotation(RotatedVector.Rotation());
-
-
+	
 	const FVector NewVel = PlayerCharacter->GetActorForwardVector() * FVector(PlayerMovement->Velocity.X, PlayerMovement->Velocity.Y, 0).Size();
-
 	PlayerMovement->Velocity = FVector(NewVel.X, NewVel.Y, PlayerMovement->Velocity.Z);
-
-
-	FVector PushToWallForce = -Hit.Normal * 100;
-	if (WallOrientation == Left) PushToWallForce = -PushToWallForce;
-	//PlayerMovement->AddForce(PushToWallForce);
 }
 
 bool UWallRunningStateComponent::CheckWhetherStillWallRunning()
@@ -134,29 +120,26 @@ bool UWallRunningStateComponent::CheckWhetherStillWallRunning()
 	const FVector Start = PlayerCharacter->GetActorLocation();
 	const int SideMultiplier = WallOrientation == Right ? 1 : -1; //return - 1 if it is left, to negate RightVector()
 	const FVector End = Start + PlayerCharacter->GetActorRightVector() * WallCheckDistance * SideMultiplier * 3; //x3 to have a safer check at wall
-	FCollisionQueryParams CollisionParams;
-	CollisionParams.AddIgnoredActor(GetOwner());
-	if (DebugMechanic) DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, -1);
-	return GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, CollisionParams);;
+
+	return LineTraceSingle(HitResult, Start, End);
 }
 
-void UWallRunningStateComponent::DetectWallRun()
+void UWallRunningStateComponent::DetectAndSetWallRun()
 {
-	if (PlayerCharacter->GetCharacterStateMachine() == nullptr || PlayerCharacter->GetCharacterStateMachine() != nullptr && PlayerCharacter->
-		GetCharacterStateMachine()->GetCurrentEnumState() == ECharacterState::WallRunning)
+	if (PlayerCharacter->GetCharacterStateMachine() == nullptr || PlayerCharacter->	GetCharacterStateMachine()->IsThisCurrentState(*this))
+	{
 		return;
+	}
 
-	FCollisionQueryParams CollisionParams;
-	CollisionParams.AddIgnoredActor(GetOwner());
 	const FVector Start = GetOwner()->GetActorLocation();
 
 	FHitResult RightSide;
 	const FVector RightVector = RotateVector(GetOwner()->GetActorRotation().Vector(), WallRunSideAngle, WallCheckDistance);
-	const bool bRightSideHit = GetWorld()->LineTraceSingleByChannel(RightSide, Start, Start + RightVector, ECC_Visibility, CollisionParams);
+	const bool bRightSideHit = LineTraceSingle(RightSide, Start, Start + RightVector);
 
 	FHitResult LeftSide;
 	const FVector LeftVector = RotateVector(GetOwner()->GetActorRotation().Vector(), -WallRunSideAngle, WallCheckDistance);
-	const bool bLeftSideHit = GetWorld()->LineTraceSingleByChannel(LeftSide, Start, Start + LeftVector, ECC_Visibility, CollisionParams);
+	const bool bLeftSideHit = LineTraceSingle(LeftSide, Start, Start + LeftVector);
 
 	if (bRightSideHit && !bLeftSideHit || !bRightSideHit && bLeftSideHit)
 	{
@@ -193,4 +176,13 @@ void UWallRunningStateComponent::OverrideDebug()
 	//Side check debug. Right and Left
 	DrawDebugLine(GetWorld(), Start, Start + RotateVector(LengthVector, WallRunSideAngle), DebugColor, false, 0, 0, 3);
 	DrawDebugLine(GetWorld(), Start, Start + RotateVector(LengthVector, -WallRunSideAngle), DebugColor, false, 0, 0, 3);
+
+
+	if (PlayerCharacter->GetCharacterStateMachine()->GetCurrentEnumState() == ECharacterState::WallRunning)
+	{
+		const int SideMultiplier = WallOrientation == Right ? 1 : -1; //return - 1 if it is left, to negate RightVector()
+		//x3 to have a safer check at wall
+		const FVector End = Start + PlayerCharacter->GetActorRightVector() * WallCheckDistance * SideMultiplier * 3;
+		DrawDebugLine(GetWorld(), Start, End, DebugColor, false, 0, 0, 3);
+	}
 }

@@ -125,6 +125,12 @@ FVector UStateComponentBase::RotateVector(const FVector& InVector, const float A
 	}
 	return RotatedVector;
 }
+
+void UStateComponentBase::DebugText(const FString& Text)
+{
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1,0, FColor::Red, Text);
+	}
+}
 #pragma endregion
-
-

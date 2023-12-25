@@ -61,12 +61,13 @@ public:
 	UPROPERTY()
 	UStateComponentBase* AirDashing = nullptr;
 
-
-	void SetState(const ECharacterState& NewStateEnum);
+	//This switches states. Returns true if successful
+	bool SetState(const ECharacterState& NewStateEnum);
 	void UpdateStateMachine();
 	//This is used for manual OnExit.
 	void ManualExitState();
-	
+	bool IsThisCurrentState(const UStateComponentBase& Component) const;
+
 	void OverrideMovementInput(FVector2d& NewMovementVector);
 	void OverrideAcceleration(float& NewSpeed);
 	void OverrideCameraInput(FVector2d& NewRotationVector);
@@ -88,4 +89,3 @@ private:
 	UStateComponentBase* CurrentState = nullptr;
 	bool RunUpdate = false;
 };
-

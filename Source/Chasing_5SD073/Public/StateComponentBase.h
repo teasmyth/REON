@@ -78,13 +78,19 @@ public:
 
 	bool DoesItCountTowardsFalling() const { return CountTowardsFalling; }
 	bool DoesItResetDash() const { return ResetsDash; }
-	TMap<ECharacterState, bool>  GetTransitionList() const { return CanTransitionFromStateList;}
+	TMap<ECharacterState, bool> GetTransitionList() const { return CanTransitionFromStateList; }
 
 protected:
 	//Helper Methods
+
+	//Line Trace Single Channel, used when HitResult is needed. Return true if there is a hit. Automatically ignores Owner and uses ECC_Visibility.
 	bool LineTraceSingle(FHitResult& HitR, const FVector& Start, const FVector& End) const;
+	//Line Trace Single Channel, used when HitResult is not needed. Return true if there is a hit. Automatically ignores Owner and uses ECC_Visibility.
 	bool LineTraceSingle(const FVector& Start, const FVector& End) const;
 	static FVector RotateVector(const FVector& InVector, const float AngleInDegrees, const float Length = 1);
+
+	//Add quick debug text with red color and 0 lifetime
+	static void DebugText(const FString& Text);
 
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnStateEnterDelegate);

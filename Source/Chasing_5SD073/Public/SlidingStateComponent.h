@@ -40,23 +40,24 @@ private:
 		meta = (Tooltip = "This does not represent the max time of the slide. The numbers represent the max speed of the player."))
 	UCurveFloat* SlideSpeedCurve;
 
-	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "Max Slide Duration (seconds)"))
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "Max Slide Duration (seconds)", ClampMin = 0))
 	float MaxSlideDuration = 0;
 
-	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "It is a % value, limiting the intensity of left right input."))
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "It is a % value, limiting the intensity of left right input.", ClampMin = 0))
 	float SlidingLeftRightMovementModifier = 0;
 
 	UPROPERTY(EditAnywhere, Category= "Settings",  meta = (ToolTip = "If true, looking up and down is as fast as usual."))
-	bool OnlyModifyCameraLeftRight;
+	bool OnlyModifyCameraLeftRight = false;
 
 	UPROPERTY(EditAnywhere, Category= "Settings",
-		meta = (ToolTip = "It is a % value, limiting the intensity of camera input. All directions by default"))
+		meta = (ToolTip = "It is a % value, limiting the intensity of camera input. All directions by default", ClampMin = 0))
 	float SlidingCameraModifier = 0;
 
-	UPROPERTY(EditAnywhere, Category= "Settings")
-	float AboutToFallDetectionDistance;
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
+	float AboutToFallDetectionDistance = 0;
 
-	float InternalTimer;
+	///Internal
+	float InternalTimer = 0;
 	float CameraFullHeight = 0;
 	float CameraReducedHeight = 0;
 };

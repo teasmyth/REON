@@ -7,7 +7,6 @@
 #include "Components/ActorComponent.h"
 #include "WallClimbingStateComponent.generated.h"
 
-
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class CHASING_5SD073_API UWallClimbingStateComponent : public UStateComponentBase
 {
@@ -37,32 +36,33 @@ private:
 	void DetectWallClimb();
 	bool CheckLedge() const;
 	bool CheckLeg() const;
+	
+	UPROPERTY(EditAnywhere, Category= "Settings",
+		meta = (Tooltip = "This stops Wall Climb sensors from being an insta trigger, preventing accidentals."))
+	float WallClimbTriggerDelay = 0;
 
+	UPROPERTY(EditAnywhere, Category = "Settings", meta = (ClampMin = 0))
+	float WallCheckDistance = 0;
+
+	UPROPERTY(EditAnywhere, Category = "Settings", meta = (ClampMin = 0))
+	float WallClimbAngle = 0;
+
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
+	float WallClimbSpeed = 0;
+
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
+	float LedgeGrabCheckZOffset = 0;
+
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
+	float LedgeGrabCheckDistance = 0;
+
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
+	float MaxWallClimbDuration = 0;
+
+	//Internal
 	FHitResult HitResult;
 	FHitResult PrevResult;
 	const FHitResult EmptyResult;
-	float InternalTimer;
-
-	UPROPERTY(EditAnywhere, Category= "Settings",
-		meta = (Tooltip = "This stops Wall Climb sensors from being an insta trigger, preventing accidentals."))
-	float WallClimbTriggerDelay;
-	float TriggerTimer;
-
-	UPROPERTY(EditAnywhere, Category = "Settings")
-	float WallCheckDistance;
-
-	UPROPERTY(EditAnywhere, Category = "Settings")
-	float WallClimbAngle;
-
-	UPROPERTY(EditAnywhere, Category= "Settings")
-	float WallClimbSpeed;
-
-	UPROPERTY(EditAnywhere, Category= "Settings")
-	float LedgeGrabCheckZOffset;
-
-	UPROPERTY(EditAnywhere, Category= "Settings")
-	float LedgeGrabCheckDistance;
-
-	UPROPERTY(EditAnywhere, Category= "Settings")
-	float MaxWallClimbDuration;
+	float InternalTimer = 0;
+	float TriggerTimer = 0;
 };

@@ -31,8 +31,10 @@ void USlidingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 bool USlidingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	if (PlayerCharacter->GetCharacterMovementState() == EMovementState::Running && DetectGround())return true;
-
+	if (PlayerCharacter->GetCharacterMovementState() == EMovementState::Running && DetectGround())
+	{
+		return true;
+	}
 	return false;
 }
 
@@ -44,10 +46,8 @@ void USlidingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	PlayerCharacter->bUseControllerRotationYaw = false;
 	PlayerCharacter->LaunchCharacter(PlayerCharacter->GetActorForwardVector() * SlideSpeedCurve->GetFloatValue(0), false, false);
 
-
 	CameraFullHeight = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation().Z;
 	CameraReducedHeight = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation().Z / 4;
-
 	FVector CamLoc = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation();
 	CamLoc.Z = CameraReducedHeight;
 	PlayerCharacter->GetFirstPersonCameraComponent()->SetRelativeLocation(CamLoc);
@@ -57,15 +57,11 @@ void USlidingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
 	Super::OnUpdateState(SM);
 
-
 	if (InternalTimer <= MaxSlideDuration)
 	{
 		InternalTimer += GetWorld()->GetDeltaSeconds();
 	}
-	else
-	{
-		SM.ManualExitState();
-	}
+	else SM.ManualExitState();
 }
 
 void USlidingStateComponent::OnExitState(UCharacterStateMachine& SM)
@@ -78,7 +74,6 @@ void USlidingStateComponent::OnExitState(UCharacterStateMachine& SM)
 	PlayerCharacter->GetFirstPersonCameraComponent()->SetRelativeLocation(CamLoc);
 
 	PlayerCharacter->bUseControllerRotationYaw = true;
-
 
 	if (PlayerMovement->Velocity.Length() >= PlayerCharacter->GetMaxRunningSpeed())
 	{
@@ -105,20 +100,18 @@ void USlidingStateComponent::OverrideCameraInput(UCharacterStateMachine& SM, FVe
 void USlidingStateComponent::OverrideAcceleration(UCharacterStateMachine& SM, float& NewSpeed)
 {
 	Super::OverrideAcceleration(SM, NewSpeed);
-
 	NewSpeed = SlideSpeedCurve->GetFloatValue(InternalTimer);
+}
+
+bool USlidingStateComponent::DetectGround() const
+{
+	const FVector Start = GetOwner()->GetActorLocation();
+	return LineTraceSingle(Start, Start - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance);
 }
 
 void USlidingStateComponent::OverrideDebug()
 {
 	Super::OverrideDebug();
-
-	DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(),
-	              GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance, DebugColor, false, 0, 0, 3);
-}
-
-bool USlidingStateComponent::DetectGround() const
-{
-	return LineTraceSingle(GetOwner()->GetActorLocation(),
-	                       GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance);
+	const FVector Start = GetOwner()->GetActorLocation();
+	DrawDebugLine(GetWorld(), Start, Start - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance, DebugColor, false, 0, 0, 3);
 }
