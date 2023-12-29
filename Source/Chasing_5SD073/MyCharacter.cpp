@@ -51,6 +51,7 @@ void AMyCharacter::BeginPlay()
 	}
 
 	StateMachine = GetComponentByClass<UCharacterStateMachine>();
+	StateMachine->SetupStateMachine();
 	StateMachine->SetState(ECharacterState::DefaultState);
 	GetCharacterMovement()->MaxCustomMovementSpeed = MaxRunningSpeed;
 }
@@ -59,7 +60,6 @@ void AMyCharacter::BeginPlay()
 void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 	MovementStateCheck();
 	Acceleration(DeltaTime);
 	if (GetCharacterMovement()->IsMovingOnGround())
@@ -68,7 +68,7 @@ void AMyCharacter::Tick(float DeltaTime)
 	}
 
 	if (StateMachine != nullptr) StateMachine->UpdateStateMachine();
-	if (bDebugSpeed) DebugSpeed();
+	if (DebugVelocity) DebugSpeed();
 }
 
 // Called to bind functionality to input
@@ -141,24 +141,21 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 
 void AMyCharacter::MovementStateCheck()
 {
-	//Falling
-	if (CurrentMovementState != EMovementState::Fell && GetCharacterMovement()->IsFalling() && StateMachine != nullptr && StateMachine->
-		GetCurrentState()->DoesItCountTowardsFalling())
-	{
-		FallingTimer += GetWorld()->GetDeltaSeconds();
-		Falling = true;
-	}
-
-	//TODO if a player doesnt move for a while, should it still stay in FELL or override it to walking?
+	//TODO if a player doesnt move for a while, should it still stay in FELL or override it to walking? is that even possible? i dont think I cant get max key
 	if (CurrentMovementState != EMovementState::Fell)
 	{
-		if (Falling && GetCharacterMovement()->IsMovingOnGround() && FallingTimer >= MinimumFallTime)
+		if (Falling && GetCharacterMovement()->IsMovingOnGround() && FallDistance >= FallZDistanceUnit)
 		{
-			const float Diff = (FallingTimer - MinimumFallTime) * PenaltyMultiplierPerSecond;
-			CalculatedPostFallMultiplier = Diff >= MaxPenaltyMultiplier ? MaxPenaltyMultiplier : Diff;
+			if (DebugFall && GEngine)
+			{
+				const FString Text = FString::Printf(TEXT("Fall distance: %f. This is %f units."), FallDistance, FallDistance / FallZDistanceUnit);
+				GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Red, Text);
+			}
+			const float PotentialPenalty = FallDistance / FallZDistanceUnit * PenaltyMultiplierPerFallUnit;
+			CalculatedPostFallMultiplier = PotentialPenalty >= MaxPenaltyMultiplier ? MaxPenaltyMultiplier : PotentialPenalty;
 			AccelerationTimer = 0;
 			CurrentMovementState = EMovementState::Fell;
-			ResetFalling();
+			Falling = false;
 			GetCharacterMovement()->Velocity = FVector::ZeroVector;
 		}
 		else if (CurrentMovementState != EMovementState::Idle && GetHorizontalVelocity() <= 1)
@@ -177,6 +174,21 @@ void AMyCharacter::MovementStateCheck()
 	{
 		CurrentMovementState = EMovementState::Running;
 		AccelerationTimer = 0;
+	}
+
+	//Falling calculation has to happen after acceleration mode setting otherwise, it will never detect falling as Z height is set every frame.
+	if (CurrentMovementState != EMovementState::Fell && GetCharacterMovement()->IsFalling())
+	{
+		if (GetCharacterMovement()->Velocity.Z < 0 && StateMachine != nullptr && StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
+		{
+			Falling = true;
+			if (DisableExtraGravity) GetCharacterMovement()->AddForce(-GetActorUpVector() * 980 * GetCharacterMovement()->Mass);
+			FallDistance = FMath::Abs(FallStartZ - GetActorLocation().Z);
+		}
+		else if (GetCharacterMovement()->Velocity.Z >= 0 && StateMachine != nullptr || !StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
+		{
+			FallStartZ = GetActorLocation().Z;
+		}
 	}
 }
 
@@ -198,6 +210,8 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 		AddMovementInput(GetActorForwardVector(), MovementVector.Y);
 		AddMovementInput(GetActorRightVector(), MovementVector.X);
 	}
+
+	StateMachine->DetectStates();
 }
 
 void AMyCharacter::Look(const FInputActionValue& Value)
@@ -255,8 +269,10 @@ void AMyCharacter::DebugSpeed() const
 {
 	if (GEngine)
 	{
-		const FString msg = FString::Printf(TEXT("Player speed: %lf"), GetCharacterMovement()->Velocity.Length());
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, *msg);
+		const FString vertical = FString::Printf(TEXT("Falling speed: %lf"), GetCharacterMovement()->Velocity.Z);
+		GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Yellow, *vertical);
+		const FString horizontal = FString::Printf(TEXT("Movement speed: %lf"), GetHorizontalVelocity());
+		GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Yellow, *horizontal);
 	}
 }
 

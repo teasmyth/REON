@@ -72,6 +72,8 @@ void UAirDashingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM
 
 void UAirDashingStateComponent::OverrideDebug()
 {
+	if (!DebugMechanic) return;
+	
 	Super::OverrideDebug();
 	const FVector Start = GetOwner()->GetActorLocation();
 	DrawDebugLine(GetWorld(), Start, Start + GetOwner()->GetActorForwardVector() * AirDashDistance * (PlayerCharacter->GetHorizontalVelocity() /

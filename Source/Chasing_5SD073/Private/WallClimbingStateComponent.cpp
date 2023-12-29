@@ -29,8 +29,8 @@ void UWallClimbingStateComponent::TickComponent(float DeltaTime, ELevelTick Tick
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	DetectWallClimb();
-	if (PlayerMovement->IsMovingOnGround()) PrevResult = EmptyResult;
+	//DetectWallClimb();
+	//if (PlayerMovement->IsMovingOnGround()) PrevResult = EmptyResult;
 	// ...
 }
 
@@ -146,7 +146,9 @@ void UWallClimbingStateComponent::DetectWallClimb()
 
 void UWallClimbingStateComponent::OverrideDebug()
 {
-	Super::OverrideDebug();
+	if (!DebugMechanic) return;
+	
+	//Super::OverrideDebug();
 
 	const FVector Start = GetOwner()->GetActorLocation();
 	const FVector End = PlayerCharacter->GetActorForwardVector() * LedgeGrabCheckDistance;
@@ -164,4 +166,38 @@ void UWallClimbingStateComponent::OverrideDebug()
 	//Leg Detection
 	const FVector LegStart = Start - FVector(0, 0, PlayerCapsule->GetScaledCapsuleHalfHeight());
 	DrawDebugLine(GetWorld(), LegStart, LegStart + End, DebugColor, false, 0, 0, 3);
+}
+
+void UWallClimbingStateComponent::OverrideDetectState(UCharacterStateMachine& SM)
+{
+	Super::OverrideDetectState(SM);
+	
+	if (PlayerMovement->IsMovingOnGround()) PrevResult = EmptyResult;
+	
+	const FVector Start = GetOwner()->GetActorLocation();
+	const FVector End = Start + GetOwner()->GetActorRotation().Vector() * WallCheckDistance;
+
+	//Prioritizing player's aim.
+	if (LineTraceSingle(HitResult, Start, End))
+	{
+		// Calculate the angle of incidence
+		const float AngleInDegrees =
+			FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(HitResult.Normal, -GetOwner()->GetActorForwardVector())));
+
+		// AngleInDegrees now contains the angle between the wall and the actor's forward vector
+		if (AngleInDegrees <= WallClimbAngle)
+		{
+			TriggerTimer += GetWorld()->GetDeltaSeconds();
+
+			if (TriggerTimer >= WallClimbTriggerDelay)
+			{
+				PlayerCharacter->GetCharacterStateMachine()->SetState(ECharacterState::WallClimbing);
+			}
+		}
+		else
+		{
+			TriggerTimer = 0;
+		}
+	}
+	else TriggerTimer = 0;
 }

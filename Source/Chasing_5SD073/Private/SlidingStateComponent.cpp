@@ -31,7 +31,7 @@ void USlidingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 bool USlidingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	if (PlayerCharacter->GetCharacterMovementState() == EMovementState::Running && DetectGround())
+	if (PlayerCharacter->GetCharacterMovementState() != EMovementState::Idle && DetectGround())
 	{
 		return true;
 	}
@@ -44,7 +44,9 @@ void USlidingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 
 	InternalTimer = 0;
 	PlayerCharacter->bUseControllerRotationYaw = false;
-	PlayerCharacter->LaunchCharacter(PlayerCharacter->GetActorForwardVector() * SlideSpeedCurve->GetFloatValue(0), false, false);
+
+	const float Ratio = PlayerCharacter->GetHorizontalVelocity() / PlayerCharacter->GetMaxRunningSpeed();
+	PlayerCharacter->LaunchCharacter(PlayerCharacter->GetActorForwardVector() * SlideSpeedCurve->GetFloatValue(0) * Ratio, false, false);
 
 	CameraFullHeight = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation().Z;
 	CameraReducedHeight = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation().Z / 4;
@@ -106,11 +108,14 @@ void USlidingStateComponent::OverrideAcceleration(UCharacterStateMachine& SM, fl
 bool USlidingStateComponent::DetectGround() const
 {
 	const FVector Start = GetOwner()->GetActorLocation();
-	return LineTraceSingle(Start, Start - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance);
+	const float FallingMultiplier = PlayerMovement->Velocity.Z >= 0 ? 1 : FMath::Abs(PlayerMovement->Velocity.Z) / PlayerCharacter->GetMaxRunningSpeed();
+	return LineTraceSingle(Start, Start - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance * FallingMultiplier);
 }
 
 void USlidingStateComponent::OverrideDebug()
 {
+	if (!DebugMechanic) return;
+	
 	Super::OverrideDebug();
 	const FVector Start = GetOwner()->GetActorLocation();
 	DrawDebugLine(GetWorld(), Start, Start - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance, DebugColor, false, 0, 0, 3);

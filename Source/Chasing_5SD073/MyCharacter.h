@@ -123,11 +123,14 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling")
 	UCurveFloat* PostFallAccelerationTime;
 
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling")
+	bool DisableExtraGravity = false;
+
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling", meta = (ClampMin = 0))
-	float MinimumFallTime;
+	float FallZDistanceUnit;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling", meta = (ClampMin = 0, ClampMax = 1))
-	float PenaltyMultiplierPerSecond;
+	float PenaltyMultiplierPerFallUnit;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling", meta = (ClampMin = 0, ClampMax = 1))
 	float MaxPenaltyMultiplier;
@@ -151,11 +154,17 @@ private:
 	float CameraJitter;
 	
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Debug")
-	bool bDebugSpeed;
+	bool DebugVelocity;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Debug")
+	bool DebugFall;
 	
 	float AccelerationTimer;
 	float CalculatedPostFallMultiplier;
+	float FallStartZ;
+	float FallDistance;
 	float FallingTimer = 0;
 	bool TouchedGroundOrWall;
 	bool Falling;
+	
 };

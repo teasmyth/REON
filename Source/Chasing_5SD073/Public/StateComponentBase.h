@@ -3,13 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
-#include "CharacterStateMachine.h"
 #include "Chasing_5SD073/MyCharacter.h"
 #include "Components/ActorComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "StateComponentBase.generated.h"
+
+class UCharacterStateMachine;
 
 
 UCLASS(ClassGroup = (Custom), BlueprintType, Blueprintable, meta = (BlueprintSpawnableComponent))
@@ -73,6 +73,10 @@ public:
 
 	virtual void OverrideCameraInput(UCharacterStateMachine& SM, FVector2d& NewRotationVector);
 
+	//This for mechanics that require automated triggers rather than manual one. State machine will make sure a mechanic will not try to detect itself
+	//Or if the mechanic prohibits transitioning from the current state.
+	virtual void OverrideDetectState(UCharacterStateMachine& SM);
+
 	//This runs in Debug
 	virtual void OverrideDebug();
 
@@ -88,10 +92,7 @@ protected:
 	//Line Trace Single Channel, used when HitResult is not needed. Return true if there is a hit. Automatically ignores Owner and uses ECC_Visibility.
 	bool LineTraceSingle(const FVector& Start, const FVector& End) const;
 	static FVector RotateVector(const FVector& InVector, const float AngleInDegrees, const float Length = 1);
-
-	//Add quick debug text with red color and 0 lifetime
-	static void DebugText(const FString& Text);
-
+	
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnStateEnterDelegate);
 

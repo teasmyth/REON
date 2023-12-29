@@ -11,6 +11,9 @@
 //Instead, I am using an actor component base class (to have shared functionality) that all the other states inherit.
 //another reason is I am using bunch of switch statement which requires constants. Afaik, switching based on classes (if i were to use CurrentState
 //as a class, rather than an enum) wouldn't work. So, that is another why I am using enums for switching between states.
+//todo rewrite and shorten
+
+class UStateComponentBase;
 
 UENUM(BlueprintType)
 enum class ECharacterState : uint8
@@ -23,7 +26,26 @@ enum class ECharacterState : uint8
 	// Add other states as needed
 };
 
-class UStateComponentBase;
+USTRUCT(BlueprintType)
+struct FMechanicStateData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(VisibleAnywhere)
+	ECharacterState State;
+	
+	UPROPERTY(VisibleAnywhere)
+	UStateComponentBase* Component;
+
+	// Default constructor
+	FMechanicStateData(): State(ECharacterState::DefaultState), Component(nullptr)
+	{
+	}
+
+	FMechanicStateData(const ECharacterState& InState, UStateComponentBase* InComponent)
+		: State(InState), Component(InComponent)
+	{}
+};
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class CHASING_5SD073_API UCharacterStateMachine : public UActorComponent
@@ -42,50 +64,48 @@ public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-
-	//TODO research a more automated thing for this, instead of manually adding stuff.
-
-
-	UPROPERTY()
-	UStateComponentBase* DefaultState = nullptr;
-
-	UPROPERTY()
-	UStateComponentBase* Sliding = nullptr;
-
-	UPROPERTY()
-	UStateComponentBase* WallRunning = nullptr;
-
-	UPROPERTY()
-	UStateComponentBase* WallClimbing = nullptr;
-
-	UPROPERTY()
-	UStateComponentBase* AirDashing = nullptr;
-
 	//This switches states. Returns true if successful
 	bool SetState(const ECharacterState& NewStateEnum);
 	void UpdateStateMachine();
-	//This is used for manual OnExit.
 	void ManualExitState();
-	bool IsThisCurrentState(const UStateComponentBase& Component) const;
+	void DetectStates();
+	void SetupStateMachine();
 
 	void OverrideMovementInput(FVector2d& NewMovementVector);
 	void OverrideAcceleration(float& NewSpeed);
 	void OverrideCameraInput(FVector2d& NewRotationVector);
+	void OverrideDebug() const;
 
-
+	bool IsThisCurrentState(const UStateComponentBase& Component) const { return CurrentState == &Component; }
 	bool IsCurrentStateNull() const { return CurrentState == nullptr; }
-	UStateComponentBase* GetCurrentState() const { return CurrentState; } // make the private and use this instead this
-	ECharacterState GetCurrentEnumState() const { return CurrentEnumState; } // make the private and use this instead this
+	UStateComponentBase* GetCurrentState() const { return CurrentState; }
+	ECharacterState GetCurrentEnumState() const { return CurrentEnumState; }
 
 private:
-	void SetupStates();
-	//Internal check whether the player can switch from current state to the new one.
+	static FString EnumToString(const ECharacterState& ToConvert);
+	void CheckForDuplicates();
+	void GetComponentReferences(const TArray<ECharacterState>& HierarchyArray);
 	UStateComponentBase* TranslateEnumToState(const ECharacterState& Enum) const;
 
+	//Add quick debug text with red color and 0 lifetime
+	static void DebugText(const FString& Text);
+
+	UPROPERTY(EditAnywhere, Category= "Character State Machine")
+	TArray<ECharacterState> MechanicsHierarchy;
+	
 	UPROPERTY(VisibleAnywhere, Category= "Character State Machine", DisplayName= "Current State")
 	ECharacterState CurrentEnumState = ECharacterState::DefaultState;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category= "Character State Machine|Debug")
+	bool DebugStateMachine = false;
+	
+	UPROPERTY(VisibleAnywhere,Category= "Character State Machine|Debug", DisplayName= "Current State Internal")
 	UStateComponentBase* CurrentState = nullptr;
+	
+	UPROPERTY(VisibleAnywhere, Category= "Character State Machine|Debug")
+	TArray<FMechanicStateData> MechanicsList;
+
+	
 	bool RunUpdate = false;
 };
+

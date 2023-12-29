@@ -31,6 +31,7 @@ public:
 
 	virtual void OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector) override;
 	virtual void OverrideDebug() override;
+	virtual void OverrideDetectState(UCharacterStateMachine& SM) override;
 
 private:
 	void DetectWallClimb();

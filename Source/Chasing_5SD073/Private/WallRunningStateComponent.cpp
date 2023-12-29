@@ -30,11 +30,13 @@ void UWallRunningStateComponent::TickComponent(float DeltaTime, ELevelTick TickT
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	/*
 	DetectAndSetWallRun();
 	if (PlayerMovement->IsMovingOnGround())
 	{
 		PrevResult = EmptyResult;
 	}
+	*/
 }
 
 bool UWallRunningStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
@@ -104,7 +106,7 @@ void UWallRunningStateComponent::RotatePlayerAlongsideWall(const FHitResult& Hit
 		RotatedVector.Y = Hit.Normal.X;
 	}
 	PlayerCharacter->SetActorRotation(RotatedVector.Rotation());
-	
+
 	const FVector NewVel = PlayerCharacter->GetActorForwardVector() * FVector(PlayerMovement->Velocity.X, PlayerMovement->Velocity.Y, 0).Size();
 	PlayerMovement->Velocity = FVector(NewVel.X, NewVel.Y, PlayerMovement->Velocity.Z);
 }
@@ -126,7 +128,10 @@ bool UWallRunningStateComponent::CheckWhetherStillWallRunning()
 
 void UWallRunningStateComponent::DetectAndSetWallRun()
 {
-	if (PlayerCharacter->GetCharacterStateMachine() == nullptr || PlayerCharacter->	GetCharacterStateMachine()->IsThisCurrentState(*this))
+	if (PlayerCharacter->GetCharacterStateMachine() == nullptr || PlayerCharacter->GetCharacterStateMachine()->IsThisCurrentState(*this) &&
+		!PlayerCharacter->GetCharacterStateMachine()->IsCurrentStateNull() && !PlayerCharacter->GetCharacterStateMachine()->GetCurrentState()->
+		                                                                                       GetTransitionList()[PlayerCharacter->
+			GetCharacterStateMachine()->GetCurrentEnumState()])
 	{
 		return;
 	}
@@ -168,11 +173,13 @@ void UWallRunningStateComponent::DetectAndSetWallRun()
 
 void UWallRunningStateComponent::OverrideDebug()
 {
+	if (!DebugMechanic) return;
+	
 	Super::OverrideDebug();
 
 	const FVector Start = GetOwner()->GetActorLocation();
 	const FVector LengthVector = GetOwner()->GetActorRotation().Vector() * WallCheckDistance;
-
+  
 	//Side check debug. Right and Left
 	DrawDebugLine(GetWorld(), Start, Start + RotateVector(LengthVector, WallRunSideAngle), DebugColor, false, 0, 0, 3);
 	DrawDebugLine(GetWorld(), Start, Start + RotateVector(LengthVector, -WallRunSideAngle), DebugColor, false, 0, 0, 3);
@@ -184,5 +191,49 @@ void UWallRunningStateComponent::OverrideDebug()
 		//x3 to have a safer check at wall
 		const FVector End = Start + PlayerCharacter->GetActorRightVector() * WallCheckDistance * SideMultiplier * 3;
 		DrawDebugLine(GetWorld(), Start, End, DebugColor, false, 0, 0, 3);
+	}
+}
+
+void UWallRunningStateComponent::OverrideDetectState(UCharacterStateMachine& SM)
+{
+	Super::OverrideDetectState(SM);
+	
+	if (PlayerMovement->IsMovingOnGround())
+	{
+		PrevResult = EmptyResult;
+	}
+	
+	const FVector Start = GetOwner()->GetActorLocation();
+
+	FHitResult RightSide;
+	const FVector RightVector = RotateVector(GetOwner()->GetActorRotation().Vector(), WallRunSideAngle, WallCheckDistance);
+	const bool bRightSideHit = LineTraceSingle(RightSide, Start, Start + RightVector);
+
+	FHitResult LeftSide;
+	const FVector LeftVector = RotateVector(GetOwner()->GetActorRotation().Vector(), -WallRunSideAngle, WallCheckDistance);
+	const bool bLeftSideHit = LineTraceSingle(LeftSide, Start, Start + LeftVector);
+
+	if (bRightSideHit && !bLeftSideHit || !bRightSideHit && bLeftSideHit)
+	{
+		const FHitResult NewResult = bRightSideHit ? RightSide : LeftSide;
+		if (HitResult.GetActor() == NewResult.GetActor())
+		{
+			TriggerTimer += GetWorld()->GetDeltaSeconds();
+
+			if (TriggerTimer >= WallRunTriggerDelay)
+			{
+				WallOrientation = bRightSideHit ? Right : Left;
+				PlayerCharacter->GetCharacterStateMachine()->SetState(ECharacterState::WallRunning);
+			}
+		}
+		else
+		{
+			HitResult = NewResult;
+			TriggerTimer = 0;
+		}
+	}
+	else
+	{
+		TriggerTimer = 0;
 	}
 }

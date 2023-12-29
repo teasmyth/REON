@@ -11,7 +11,7 @@ UStateComponentBase::UStateComponentBase()
 	PrimaryComponentTick.bCanEverTick = true;
 
 	//Adding all the possible states by default to Possible Transitions
-	UEnum* EnumPtr = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECharacterState"), true);
+	UEnum* EnumPtr = FindObject<UEnum>(GetTransientPackage(), TEXT("ECharacterState"), true);
 	if (EnumPtr)
 	{
 		// Get the maximum valid enum value
@@ -52,7 +52,7 @@ void UStateComponentBase::TickComponent(float DeltaTime, ELevelTick TickType, FA
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (DebugMechanic) OverrideDebug();
+	//if (DebugMechanic) OverrideDebug(); // take this out. no mechanic should run in update.
 	// ...
 }
 
@@ -93,6 +93,11 @@ void UStateComponentBase::OverrideCameraInput(UCharacterStateMachine& SM, FVecto
 {
 }
 
+void UStateComponentBase::OverrideDetectState(UCharacterStateMachine& SM)
+{
+	
+}
+
 void UStateComponentBase::OverrideDebug()
 {
 }
@@ -126,11 +131,4 @@ FVector UStateComponentBase::RotateVector(const FVector& InVector, const float A
 	return RotatedVector;
 }
 
-void UStateComponentBase::DebugText(const FString& Text)
-{
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1,0, FColor::Red, Text);
-	}
-}
 #pragma endregion
