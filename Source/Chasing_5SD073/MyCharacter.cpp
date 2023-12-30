@@ -54,6 +54,7 @@ void AMyCharacter::BeginPlay()
 	StateMachine->SetupStateMachine();
 	StateMachine->SetState(ECharacterState::DefaultState);
 	GetCharacterMovement()->MaxCustomMovementSpeed = MaxRunningSpeed;
+	FallStartZ = GetActorLocation().Z;
 }
 
 // Called every frame
@@ -137,6 +138,8 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 	{
 		StateMachine->OverrideAcceleration(GetCharacterMovement()->MaxWalkSpeed);
 	}
+
+	//GetCharacterMovement()->MaxWalkSpeed = FMath::Clamp(GetCharacterMovement()->MaxWalkSpeed, 0,GetCharacterMovement()->MaxWalkSpeed * (1 - JitterPenalty));
 }
 
 void AMyCharacter::MovementStateCheck()
@@ -144,7 +147,7 @@ void AMyCharacter::MovementStateCheck()
 	//TODO if a player doesnt move for a while, should it still stay in FELL or override it to walking? is that even possible? i dont think I cant get max key
 	if (CurrentMovementState != EMovementState::Fell)
 	{
-		if (Falling && GetCharacterMovement()->IsMovingOnGround() && FallDistance >= FallZDistanceUnit)
+		if (Falling && GetCharacterMovement()->IsMovingOnGround() && FallDistance > 0)
 		{
 			if (DebugFall && GEngine)
 			{
@@ -179,15 +182,29 @@ void AMyCharacter::MovementStateCheck()
 	//Falling calculation has to happen after acceleration mode setting otherwise, it will never detect falling as Z height is set every frame.
 	if (CurrentMovementState != EMovementState::Fell && GetCharacterMovement()->IsFalling())
 	{
+		if (Falling && DebugFall && GEngine && FallDistance >= FallZDistanceUnit)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "Will trigger fall on landing");
+		}
+
+		if (StateMachine != nullptr && !StateMachine->IsCurrentStateNull() && StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
+		{
+		}
+
 		if (GetCharacterMovement()->Velocity.Z < 0 && StateMachine != nullptr && StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
 		{
 			Falling = true;
-			if (DisableExtraGravity) GetCharacterMovement()->AddForce(-GetActorUpVector() * 980 * GetCharacterMovement()->Mass);
-			FallDistance = FMath::Abs(FallStartZ - GetActorLocation().Z);
+			if (!DisableExtraGravity) GetCharacterMovement()->AddForce(-GetActorUpVector() * 980 * GetCharacterMovement()->Mass);
+			FallDistance = FMath::Abs(FallStartZ - GetActorLocation().Z) - FallZDistanceUnit;
 		}
-		else if (GetCharacterMovement()->Velocity.Z >= 0 && StateMachine != nullptr || !StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
+		else if (StateMachine != nullptr && (GetCharacterMovement()->Velocity.Z == 0 && StateMachine->GetCurrentState()->DoesItCountTowardsFalling()
+			|| !StateMachine->GetCurrentState()->DoesItCountTowardsFalling()))
 		{
 			FallStartZ = GetActorLocation().Z;
+		}
+		else
+		{
+			FallStartZ = FallStartZ >= GetActorLocation().Z ? FallStartZ : GetActorLocation().Z;
 		}
 	}
 }
@@ -228,14 +245,16 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 	{
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(LookAxisVector.Y);
+		if (DebugCameraLeftRight)
+		{
+			FString TXT = FString::Printf(TEXT("Camera X: %f"), LookAxisVector.X);
+			GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Blue, TXT);
+		}
 	}
 
-	// since mouse input is using LookAxisVector, im checking how much the player is moving the mouse on x
-	// but its hard to know how much the mouse is input-ing
-	if (LookAxisVector.X >= CameraJitter || LookAxisVector.X <= -CameraJitter)
-	{
-		//GetCharacterMovement()->Velocity *= slowPrecentage; //Need a better solution
-	}
+
+	JitterPenalty = FMath::Clamp((FMath::Abs(LookAxisVector.X) - MinCameraJitter) / MinCameraJitter * MinSlowPercentage, 0, MaxSlowPercentage);
+	//GetCharacterMovement()->MaxWalkSpeed = FMath::Clamp(GetCharacterMovement()->MaxWalkSpeed, 0,GetCharacterMovement()->MaxWalkSpeed * (1 - JitterPenalty));
 }
 
 #pragma endregion
@@ -291,5 +310,9 @@ void AMyCharacter::SetState(const ECharacterState NewState) const
 	{
 		StateMachine->SetState(NewState);
 	}
+}
+
+void AMyCharacter::CameraJitter(const float& WalkSpeed)
+{
 }
 #pragma endregion

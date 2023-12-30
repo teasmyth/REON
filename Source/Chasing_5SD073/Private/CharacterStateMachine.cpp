@@ -95,6 +95,15 @@ void UCharacterStateMachine::SetupStateMachine()
 	GetComponentReferences(MechanicsHierarchy);
 }
 
+void UCharacterStateMachine::OverrideDebug() const
+{
+	if (MechanicsList.IsEmpty()) return;
+	
+	for (const auto& Mechanic : MechanicsList )
+	{
+		if (Mechanic.Component->GetDebugMechanic()) Mechanic.Component->OverrideDebug();
+	}
+}
 
 #pragma region Override Functions For Player Code
 
@@ -122,13 +131,7 @@ void UCharacterStateMachine::OverrideCameraInput(FVector2d& NewRotationVector)
 	}
 }
 
-void UCharacterStateMachine::OverrideDebug() const
-{
-	for (const auto Mechanic : MechanicsList)
-	{
-		Mechanic.Component->OverrideDebug();
-	}
-}
+
 
 void UCharacterStateMachine::DetectStates()
 {

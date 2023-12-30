@@ -88,6 +88,7 @@ protected:
 	//Returns true if successful
 	bool SetStateBool(ECharacterState NewState) const;
 	void SetState(ECharacterState NewState) const;
+	void CameraJitter(const float& WalkSpeed);
 
 public:
 	void ResetDash() { TouchedGroundOrWall = true; }
@@ -143,15 +144,19 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Running", meta = (ClampMin = 0))
 	float MaxRunningSpeed;
+	
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Jump", meta = (ClampMin = 0))
 	float JumpStrength;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Camera", meta = (ClampMin = 0, ClampMax = 1))
-	float SlowPercentage;
+	float MinSlowPercentage;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Camera", meta = (ClampMin = 0, ClampMax = 1))
-	float CameraJitter;
+	float MaxSlowPercentage;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Camera", meta = (ClampMin = 0))
+	float MinCameraJitter;
 	
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Debug")
 	bool DebugVelocity;
@@ -159,12 +164,20 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Debug")
 	bool DebugFall;
 	
+	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	bool DebugCameraLeftRight;
+	
 	float AccelerationTimer;
 	float CalculatedPostFallMultiplier;
+	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	float FallStartZ;
+	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	float FallDistance;
 	float FallingTimer = 0;
 	bool TouchedGroundOrWall;
 	bool Falling;
-	
+	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	float JitterPenalty;
+
+	FVector PrevForwardVec;
 };

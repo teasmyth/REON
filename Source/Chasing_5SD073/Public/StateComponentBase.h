@@ -82,6 +82,7 @@ public:
 
 	bool DoesItCountTowardsFalling() const { return CountTowardsFalling; }
 	bool DoesItResetDash() const { return ResetsDash; }
+	bool GetDebugMechanic() const { return DebugMechanic;}
 	TMap<ECharacterState, bool> GetTransitionList() const { return CanTransitionFromStateList; }
 
 protected:

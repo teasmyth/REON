@@ -108,7 +108,7 @@ void USlidingStateComponent::OverrideAcceleration(UCharacterStateMachine& SM, fl
 bool USlidingStateComponent::DetectGround() const
 {
 	const FVector Start = GetOwner()->GetActorLocation();
-	const float FallingMultiplier = PlayerMovement->Velocity.Z >= 0 ? 1 : FMath::Abs(PlayerMovement->Velocity.Z) / PlayerCharacter->GetMaxRunningSpeed();
+	const float FallingMultiplier = PlayerMovement->Velocity.Z < -PlayerCharacter->GetMaxRunningSpeed() ? FMath::Abs(PlayerMovement->Velocity.Z) / PlayerCharacter->GetMaxRunningSpeed() : 1;
 	return LineTraceSingle(Start, Start - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance * FallingMultiplier);
 }
 
