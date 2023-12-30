@@ -288,7 +288,7 @@ bool AMyCharacter::SetStateBool(const ECharacterState NewState) const
 	{
 		return StateMachine->SetState(NewState);
 	}
-	else return false;
+	return false;
 }
 
 void AMyCharacter::SetState(const ECharacterState NewState) const

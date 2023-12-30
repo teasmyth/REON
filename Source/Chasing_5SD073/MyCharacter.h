@@ -103,12 +103,17 @@ public:
 	UFUNCTION(BlueprintPure)
 	FORCEINLINE UCameraComponent* GetFirstPersonCameraComponent() const { return FrontCam; }
 
+	UFUNCTION(BlueprintPure)
 	FORCEINLINE float GetHorizontalVelocity() const
 	{
 		return FVector2d(GetCharacterMovement()->Velocity.X, GetCharacterMovement()->Velocity.Y).Size();
 	}
 	FORCEINLINE void SetWhetherTouchedGroundOrWall(const bool b) { TouchedGroundOrWall = b; }
+
+	UFUNCTION(BlueprintPure)
 	FORCEINLINE bool GetWhetherTouchedGroundOrWall() const { return TouchedGroundOrWall; }
+
+	UFUNCTION(BlueprintPure)
 	FORCEINLINE float GetMaxRunningSpeed() const { return MaxRunningSpeed; }
 	FORCEINLINE UCharacterStateMachine* GetCharacterStateMachine() const { return StateMachine; }
 	FORCEINLINE USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }

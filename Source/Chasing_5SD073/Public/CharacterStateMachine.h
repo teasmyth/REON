@@ -78,8 +78,12 @@ public:
 
 	bool IsThisCurrentState(const UStateComponentBase& Component) const { return CurrentState == &Component; }
 	bool IsCurrentStateNull() const { return CurrentState == nullptr; }
+
+	
 	UStateComponentBase* GetCurrentState() const { return CurrentState; }
-	ECharacterState GetCurrentEnumState() const { return CurrentEnumState; }
+
+	UFUNCTION(BlueprintPure)
+	FORCEINLINE ECharacterState GetCurrentEnumState() const { return CurrentEnumState; }
 
 private:
 	static FString EnumToString(const ECharacterState& ToConvert);

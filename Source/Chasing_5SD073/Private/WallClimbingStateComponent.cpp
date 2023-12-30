@@ -111,11 +111,6 @@ bool UWallClimbingStateComponent::CheckLeg() const
 
 void UWallClimbingStateComponent::DetectWallClimb()
 {
-	if (PlayerCharacter->GetCharacterStateMachine() == nullptr || PlayerCharacter->GetCharacterStateMachine()->IsThisCurrentState(*this))
-	{
-		return;
-	}
-	
 	const FVector Start = GetOwner()->GetActorLocation();
 	const FVector End = Start + GetOwner()->GetActorRotation().Vector() * WallCheckDistance;
 
