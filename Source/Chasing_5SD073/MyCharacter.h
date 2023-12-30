@@ -88,14 +88,13 @@ protected:
 	//Returns true if successful
 	bool SetStateBool(ECharacterState NewState) const;
 	void SetState(ECharacterState NewState) const;
-	void CameraJitter(const float& WalkSpeed);
+	void CameraJitter(float& WalkSpeed);
 
 public:
 	void ResetDash() { TouchedGroundOrWall = true; }
 	void ResetFalling()
 	{
 		Falling = false;
-		FallingTimer = 0;
 	}
 	void ResetSlide();
 	
@@ -144,19 +143,15 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Running", meta = (ClampMin = 0))
 	float MaxRunningSpeed;
-	
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Jump", meta = (ClampMin = 0))
 	float JumpStrength;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Camera", meta = (ClampMin = 0, ClampMax = 1))
-	float MinSlowPercentage;
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Camera")
+	float JitterSlowMinAngle;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Camera", meta = (ClampMin = 0, ClampMax = 1))
-	float MaxSlowPercentage;
-
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Camera", meta = (ClampMin = 0))
-	float MinCameraJitter;
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Camera", meta = (ClampMin = 0, Tooltip = "At 1 Strength, it is 1% per 1 angle difference"))
+	float JitterSlowPercentageStrength;
 	
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Debug")
 	bool DebugVelocity;
@@ -164,7 +159,7 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Debug")
 	bool DebugFall;
 	
-	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Debug")
 	bool DebugCameraLeftRight;
 	
 	float AccelerationTimer;
@@ -173,11 +168,10 @@ private:
 	float FallStartZ;
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	float FallDistance;
-	float FallingTimer = 0;
+	
 	bool TouchedGroundOrWall;
 	bool Falling;
-	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
-	float JitterPenalty;
+	
 
-	FVector PrevForwardVec;
+	float PrevYaw = 0;
 };

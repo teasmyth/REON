@@ -55,6 +55,7 @@ void AMyCharacter::BeginPlay()
 	StateMachine->SetState(ECharacterState::DefaultState);
 	GetCharacterMovement()->MaxCustomMovementSpeed = MaxRunningSpeed;
 	FallStartZ = GetActorLocation().Z;
+	PrevYaw = GetActorRotation().Yaw;
 }
 
 // Called every frame
@@ -139,7 +140,7 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 		StateMachine->OverrideAcceleration(GetCharacterMovement()->MaxWalkSpeed);
 	}
 
-	//GetCharacterMovement()->MaxWalkSpeed = FMath::Clamp(GetCharacterMovement()->MaxWalkSpeed, 0,GetCharacterMovement()->MaxWalkSpeed * (1 - JitterPenalty));
+	CameraJitter(GetCharacterMovement()->MaxWalkSpeed);
 }
 
 void AMyCharacter::MovementStateCheck()
@@ -180,25 +181,20 @@ void AMyCharacter::MovementStateCheck()
 	}
 
 	//Falling calculation has to happen after acceleration mode setting otherwise, it will never detect falling as Z height is set every frame.
-	if (CurrentMovementState != EMovementState::Fell && GetCharacterMovement()->IsFalling())
+	if (Falling && DebugFall && GEngine && FallDistance >= FallZDistanceUnit)
 	{
-		if (Falling && DebugFall && GEngine && FallDistance >= FallZDistanceUnit)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "Will trigger fall on landing");
-		}
-
-		if (StateMachine != nullptr && !StateMachine->IsCurrentStateNull() && StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
-		{
-		}
-
-		if (GetCharacterMovement()->Velocity.Z < 0 && StateMachine != nullptr && StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
+		GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "Will trigger fall on landing");
+	}
+	if (StateMachine != nullptr)
+	{
+		if (GetCharacterMovement()->Velocity.Z < 0 && StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
 		{
 			Falling = true;
 			if (!DisableExtraGravity) GetCharacterMovement()->AddForce(-GetActorUpVector() * 980 * GetCharacterMovement()->Mass);
 			FallDistance = FMath::Abs(FallStartZ - GetActorLocation().Z) - FallZDistanceUnit;
 		}
-		else if (StateMachine != nullptr && (GetCharacterMovement()->Velocity.Z == 0 && StateMachine->GetCurrentState()->DoesItCountTowardsFalling()
-			|| !StateMachine->GetCurrentState()->DoesItCountTowardsFalling()))
+		else if (GetCharacterMovement()->Velocity.Z == 0 && StateMachine->GetCurrentState()->DoesItCountTowardsFalling()
+			|| !StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
 		{
 			FallStartZ = GetActorLocation().Z;
 		}
@@ -245,16 +241,7 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 	{
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(LookAxisVector.Y);
-		if (DebugCameraLeftRight)
-		{
-			FString TXT = FString::Printf(TEXT("Camera X: %f"), LookAxisVector.X);
-			GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Blue, TXT);
-		}
 	}
-
-
-	JitterPenalty = FMath::Clamp((FMath::Abs(LookAxisVector.X) - MinCameraJitter) / MinCameraJitter * MinSlowPercentage, 0, MaxSlowPercentage);
-	//GetCharacterMovement()->MaxWalkSpeed = FMath::Clamp(GetCharacterMovement()->MaxWalkSpeed, 0,GetCharacterMovement()->MaxWalkSpeed * (1 - JitterPenalty));
 }
 
 #pragma endregion
@@ -312,7 +299,25 @@ void AMyCharacter::SetState(const ECharacterState NewState) const
 	}
 }
 
-void AMyCharacter::CameraJitter(const float& WalkSpeed)
+void AMyCharacter::CameraJitter(float& WalkSpeed)
 {
+	if (bUseControllerRotationYaw && GetCharacterMovement()->IsMovingOnGround() && CurrentMovementState != EMovementState::Fell)
+	{
+		const float AbsDifference = FMath::Abs(GetActorRotation().Yaw - PrevYaw);
+		const float RoundedDifference = FMath::FloorToFloat(AbsDifference * 10.0f) / 10.0f;;
+		const float Step = 100.0f / (180 - JitterSlowMinAngle);
+		if (DebugCameraLeftRight)
+		{
+			const FString AngleDiff = FString::Printf(TEXT("Angle Diff Between Frames: %f"), RoundedDifference);
+			GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Blue, AngleDiff);
+		}
+
+		if (AbsDifference > JitterSlowMinAngle)
+		{
+			WalkSpeed *= (1 - RoundedDifference * Step * JitterSlowPercentageStrength / 100);
+			CurrentMovementState = EMovementState::Walking;
+		}
+	}
+	PrevYaw = GetActorRotation().Yaw;
 }
 #pragma endregion
