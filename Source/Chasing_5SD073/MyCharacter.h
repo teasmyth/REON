@@ -89,12 +89,10 @@ protected:
 	bool SetStateBool(ECharacterState NewState) const;
 	void SetState(ECharacterState NewState) const;
 	void CameraJitter(float& WalkSpeed);
-
-	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnJumpDelegate);
-
-	//This is executed at the beginning of the state change. Note: this runs before mechanical execution, meaning the BP event will run first.
-	UPROPERTY(BlueprintAssignable, DisplayName= "On Jump Event")
-	FOnJumpDelegate OnJumpDelegate;
+	
+	//Jump event extension for blue print.
+	UFUNCTION(BlueprintImplementableEvent, Category = "Movement Settings")
+	void HandleJumpEvent();
 
 public:
 	void ResetDash() { TouchedGroundOrWall = true; }
