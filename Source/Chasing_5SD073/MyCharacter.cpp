@@ -107,6 +107,7 @@ void AMyCharacter::JumpAndDash()
 		(StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->GetCurrentEnumState() == ECharacterState::WallClimbing))
 	{
 		GetCharacterMovement()->AddImpulse(GetActorUpVector() * JumpStrength, true);
+		OnJumpDelegate.Broadcast();
 		SetState(ECharacterState::DefaultState);
 	}
 	else if (TouchedGroundOrWall && SetStateBool(ECharacterState::AirDashing))

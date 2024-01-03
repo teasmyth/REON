@@ -90,6 +90,12 @@ protected:
 	void SetState(ECharacterState NewState) const;
 	void CameraJitter(float& WalkSpeed);
 
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnJumpDelegate);
+
+	//This is executed at the beginning of the state change. Note: this runs before mechanical execution, meaning the BP event will run first.
+	UPROPERTY(BlueprintAssignable, DisplayName= "On Jump Event")
+	FOnJumpDelegate OnJumpDelegate;
+
 public:
 	void ResetDash() { TouchedGroundOrWall = true; }
 	void ResetFalling()

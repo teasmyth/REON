@@ -7,6 +7,7 @@
 #include "Components/ActorComponent.h"
 #include "WallRunningStateComponent.generated.h"
 
+UENUM(BlueprintType)
 enum EWallOrientation { None, Left, Right };
 
 
@@ -35,6 +36,11 @@ public:
 	virtual void OverrideCameraInput(UCharacterStateMachine& SM, FVector2d& NewRotationVector) override;
 	virtual void OverrideDebug() override;
 	virtual void OverrideDetectState(UCharacterStateMachine& SM) override;
+
+	
+	UFUNCTION(BlueprintPure)
+	FORCEINLINE EWallOrientation GetWallOrientation() const { return WallOrientation;}
+
 	
 private:
 	void RotatePlayerAlongsideWall(const FHitResult& Hit) const;

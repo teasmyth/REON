@@ -32,7 +32,7 @@ void UAirDashingStateComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 
 bool UAirDashingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	return !PlayerCharacter->GetCharacterStateMachine()->IsThisCurrentState(*this);
+	return PlayerCharacter->GetHorizontalVelocity() > 0 && !PlayerCharacter->GetCharacterStateMachine()->IsThisCurrentState(*this);
 }
 
 void UAirDashingStateComponent::OnEnterState(UCharacterStateMachine& SM)
