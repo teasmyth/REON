@@ -32,7 +32,7 @@ UCLASS()
 class CHASING_5SD073_API AMyCharacter : public ACharacter
 {
 	GENERATED_BODY()
-	
+
 public:
 	// Sets default values for this character's properties
 	AMyCharacter();
@@ -49,7 +49,7 @@ private:
 
 	UPROPERTY()
 	UCharacterStateMachine* StateMachine = nullptr;
-	
+
 	UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputMappingContext* DefaultMappingContext;
 
@@ -70,7 +70,7 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* LookAction;
-	
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
@@ -85,25 +85,34 @@ protected:
 	void LookFront();
 	void JumpAndDash();
 	void DebugSpeed() const;
-	//Returns true if successful
-	bool SetStateBool(ECharacterState NewState) const;
+	bool SetStateBool(ECharacterState NewState) const; //Returns true if successful
 	void SetState(ECharacterState NewState) const;
 	void CameraJitter(float& WalkSpeed);
+
+	//Jump event extension for blueprint.
+	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")
+	void HandleJumpEvent(); //Ignore the warning by Rider. It is implemented.
+
+	//Look back event extension for blueprint.
+	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")
+	void LookBackTimeSlowEvent(); //Same
+
+	void TurnTimeBackAsync();
 	
-	//Jump event extension for blue print.
-	UFUNCTION(BlueprintImplementableEvent, Category = "Movement Settings")
-	void HandleJumpEvent();
 
 public:
 	void ResetDash() { TouchedGroundOrWall = true; }
+
 	void ResetFalling()
 	{
 		Falling = false;
 	}
+
 	void ResetSlide();
-	
+
 	UFUNCTION(BlueprintPure)
 	FORCEINLINE EMovementState GetCharacterMovementState() const { return CurrentMovementState; }
+
 	UFUNCTION(BlueprintPure)
 	FORCEINLINE UCameraComponent* GetFirstPersonCameraComponent() const { return FrontCam; }
 
@@ -112,6 +121,7 @@ public:
 	{
 		return FVector2d(GetCharacterMovement()->Velocity.X, GetCharacterMovement()->Velocity.Y).Size();
 	}
+
 	FORCEINLINE void SetWhetherTouchedGroundOrWall(const bool b) { TouchedGroundOrWall = b; }
 
 	UFUNCTION(BlueprintPure)
@@ -119,10 +129,11 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	FORCEINLINE float GetMaxRunningSpeed() const { return MaxRunningSpeed; }
+
 	FORCEINLINE UCharacterStateMachine* GetCharacterStateMachine() const { return StateMachine; }
 	FORCEINLINE USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
 
-private:
+private: //For mechanics
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings", DisplayName= "Current Movement State")
 	EMovementState CurrentMovementState = EMovementState::Idle;
 
@@ -161,26 +172,37 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Camera", meta = (ClampMin = 0, Tooltip = "At 1 Strength, it is 1% per 1 angle difference"))
 	float JitterSlowPercentageStrength;
-	
+
+	UPROPERTY(EditAnywhere, Category= "Movement Settings|LookBack", meta = (ClampMin = 0, ClampMax = 1))
+	UCurveFloat* LookBackTimeScale;
+
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Debug")
 	bool DebugVelocity;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Debug")
 	bool DebugFall;
-	
+
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Debug")
 	bool DebugCameraLeftRight;
-	
-	float AccelerationTimer;
+
+
+	//Debug
+
+	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	float AccelerationTimer = 0;
+	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	float LookBackTimer = 0;
+	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	float CalculatedPostFallMultiplier;
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	float FallStartZ;
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	float FallDistance;
-	
-	bool TouchedGroundOrWall;
-	bool Falling;
-	
+	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	float PreviousFrameYaw = 0;
 
-	float PrevYaw = 0;
+	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	bool TouchedGroundOrWall;
+	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	bool Falling;
 };

@@ -6,6 +6,7 @@
 #include "EnhancedInputComponent.h"
 #include "StateComponentBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 #pragma region Character
 // Sets default values
@@ -55,7 +56,7 @@ void AMyCharacter::BeginPlay()
 	StateMachine->SetState(ECharacterState::DefaultState);
 	GetCharacterMovement()->MaxCustomMovementSpeed = MaxRunningSpeed;
 	FallStartZ = GetActorLocation().Z;
-	PrevYaw = GetActorRotation().Yaw;
+	PreviousFrameYaw = GetActorRotation().Yaw;
 }
 
 // Called every frame
@@ -252,12 +253,36 @@ void AMyCharacter::LookBack()
 	FrontCam->SetRelativeLocation(FVector(-10.f, 0.f, 60.f)); // Position the camera
 	BackCam->SetActive(true);
 	FrontCam->SetActive(false);
+	LookBackTimeSlowEvent();
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), LookBackTimeScale->GetFloatValue(LookBackTimer));
+	if (LookBackTimer < LookBackTimeScale->FloatCurve.GetLastKey().Time)
+	{
+		LookBackTimer += GetWorld()->GetDeltaSeconds();
+	}
 }
 
+//This executes once!
 void AMyCharacter::LookFront()
 {
 	FrontCam->Activate(true);
 	BackCam->Activate(false);
+	LookBackTimer = LookBackTimeScale->FloatCurve.GetLastKey().Time;
+	auto TurnTimeToNormalAsync = Async(EAsyncExecution::Thread, [&]() { TurnTimeBackAsync(); });
+}
+
+void AMyCharacter::TurnTimeBackAsync()
+{
+	while (LookBackTimer >= 0 && GetWorld())
+	{
+		UE_LOG(LogTemp, Display, TEXT("Bruh %f"), LookBackTimeScale->FloatCurve.GetLastKey().Time);
+		const float TimeDilation = LookBackTimeScale->GetFloatValue(LookBackTimer);
+		UGameplayStatics::SetGlobalTimeDilation(GetWorld(), TimeDilation);
+		LookBackTimer -= GetWorld()->GetDeltaSeconds();
+		LookBackTimeSlowEvent();
+		FPlatformProcess::Sleep(GetWorld()->GetDeltaSeconds());
+	}
+	LookBackTimer = 0;
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1);
 }
 
 void AMyCharacter::Slide()
@@ -304,7 +329,7 @@ void AMyCharacter::CameraJitter(float& WalkSpeed)
 {
 	if (bUseControllerRotationYaw && GetCharacterMovement()->IsMovingOnGround() && CurrentMovementState != EMovementState::Fell)
 	{
-		const float AbsDifference = FMath::Abs(GetActorRotation().Yaw - PrevYaw);
+		const float AbsDifference = FMath::Abs(GetActorRotation().Yaw - PreviousFrameYaw);
 		const float RoundedDifference = FMath::FloorToFloat(AbsDifference * 10.0f) / 10.0f;;
 		const float Step = 100.0f / (180 - JitterSlowMinAngle);
 		if (DebugCameraLeftRight)
@@ -319,6 +344,8 @@ void AMyCharacter::CameraJitter(float& WalkSpeed)
 			CurrentMovementState = EMovementState::Walking;
 		}
 	}
-	PrevYaw = GetActorRotation().Yaw;
+	PreviousFrameYaw = GetActorRotation().Yaw;
 }
+
+
 #pragma endregion
