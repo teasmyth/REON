@@ -8,7 +8,7 @@ UStateComponentBase::UStateComponentBase()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 
 	//Adding all the possible states by default to Possible Transitions
 	UEnum* EnumPtr = FindObject<UEnum>(GetTransientPackage(), TEXT("ECharacterState"), true);
@@ -27,7 +27,7 @@ UStateComponentBase::UStateComponentBase()
 				continue;
 			}
 
-			CanTransitionFromStateList.Add(EnumValue, true); // Set the default value to false
+			CanTransitionFromStateList.Add(EnumValue, true); // Set the default value to true
 		}
 	}
 	// ...
@@ -43,7 +43,6 @@ void UStateComponentBase::BeginPlay()
 	PlayerMovement = GetOwner()->GetComponentByClass<UCharacterMovementComponent>();
 	PlayerCharacter = Cast<AMyCharacter>(GetOwner());
 	// ...
-	
 }
 
 
@@ -71,7 +70,6 @@ void UStateComponentBase::OnEnterState(UCharacterStateMachine& SM)
 void UStateComponentBase::OnUpdateState(UCharacterStateMachine& SM)
 {
 	OnUpdateStateDelegate.Broadcast();
-	
 }
 
 void UStateComponentBase::OnExitState(UCharacterStateMachine& SM)
@@ -82,7 +80,6 @@ void UStateComponentBase::OnExitState(UCharacterStateMachine& SM)
 
 void UStateComponentBase::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
 {
-	
 }
 
 void UStateComponentBase::OverrideAcceleration(UCharacterStateMachine& SM, float& NewSpeed)
@@ -95,7 +92,6 @@ void UStateComponentBase::OverrideCameraInput(UCharacterStateMachine& SM, FVecto
 
 void UStateComponentBase::OverrideDetectState(UCharacterStateMachine& SM)
 {
-	
 }
 
 void UStateComponentBase::OverrideDebug()

@@ -126,50 +126,6 @@ bool UWallRunningStateComponent::CheckWhetherStillWallRunning()
 	return LineTraceSingle(HitResult, Start, End);
 }
 
-void UWallRunningStateComponent::DetectAndSetWallRun()
-{
-	if (PlayerCharacter->GetCharacterStateMachine() == nullptr || PlayerCharacter->GetCharacterStateMachine()->IsThisCurrentState(*this) &&
-		!PlayerCharacter->GetCharacterStateMachine()->IsCurrentStateNull() && !PlayerCharacter->GetCharacterStateMachine()->GetCurrentState()->
-		                                                                                       GetTransitionList()[PlayerCharacter->
-			GetCharacterStateMachine()->GetCurrentEnumState()])
-	{
-		return;
-	}
-
-	const FVector Start = GetOwner()->GetActorLocation();
-
-	FHitResult RightSide;
-	const FVector RightVector = RotateVector(GetOwner()->GetActorRotation().Vector(), WallRunSideAngle, WallCheckDistance);
-	const bool bRightSideHit = LineTraceSingle(RightSide, Start, Start + RightVector);
-
-	FHitResult LeftSide;
-	const FVector LeftVector = RotateVector(GetOwner()->GetActorRotation().Vector(), -WallRunSideAngle, WallCheckDistance);
-	const bool bLeftSideHit = LineTraceSingle(LeftSide, Start, Start + LeftVector);
-
-	if (bRightSideHit && !bLeftSideHit || !bRightSideHit && bLeftSideHit)
-	{
-		const FHitResult NewResult = bRightSideHit ? RightSide : LeftSide;
-		if (HitResult.GetActor() == NewResult.GetActor())
-		{
-			TriggerTimer += GetWorld()->GetDeltaSeconds();
-
-			if (TriggerTimer >= WallRunTriggerDelay)
-			{
-				WallOrientation = bRightSideHit ? Right : Left;
-				PlayerCharacter->GetCharacterStateMachine()->SetState(ECharacterState::WallRunning);
-			}
-		}
-		else
-		{
-			HitResult = NewResult;
-			TriggerTimer = 0;
-		}
-	}
-	else
-	{
-		TriggerTimer = 0;
-	}
-}
 
 void UWallRunningStateComponent::OverrideDebug()
 {

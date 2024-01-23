@@ -65,6 +65,7 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	//This switches states. Returns true if successful
+	UFUNCTION(BlueprintCallable)
 	bool SetState(const ECharacterState& NewStateEnum);
 	void UpdateStateMachine();
 	void ManualExitState();
