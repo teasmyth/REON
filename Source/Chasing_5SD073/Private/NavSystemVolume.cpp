@@ -236,7 +236,7 @@ void ANavSystemVolume::CreateGrid()
 			start.X = end.X = (x * DivisionSize);
 			end.Y = GetGridSizeY();
 
-			CreateLine(start, end, FVector::UpVector, vertices, triangles);
+			CreateLine(start, end, FVector::UpVector, vertices, triangles, LineThickness);
 		}
 	}
 
@@ -253,7 +253,7 @@ void ANavSystemVolume::CreateGrid()
 			start.Y = end.Y = (y * DivisionSize);
 			end.X = GetGridSizeX();
 
-			CreateLine(start, end, FVector::UpVector, vertices, triangles);
+			CreateLine(start, end, FVector::UpVector, vertices, triangles, LineThickness);
 		}
 	}
 
@@ -270,7 +270,7 @@ void ANavSystemVolume::CreateGrid()
 			start.Y = end.Y = (y * DivisionSize);
 			end.Z = GetGridSizeZ();
 
-			CreateLine(start, end, FVector::ForwardVector, vertices, triangles);
+			CreateLine(start, end, FVector::ForwardVector, vertices, triangles, LineThickness);
 		}
 	}
 
@@ -321,7 +321,7 @@ void ANavSystemVolume::CreateBorders()
 		{
 			start = FVector(0, y, z);
 			end = FVector(GetGridSizeX(), y, z);
-			CreateLine(start, end, FVector::UpVector, vertices, triangles);
+			CreateLine(start, end, FVector::UpVector, vertices, triangles,LineThickness);
 		}
 	}
 
@@ -331,7 +331,7 @@ void ANavSystemVolume::CreateBorders()
 		{
 			start = FVector(x, 0, z);
 			end = FVector(x, GetGridSizeY(), z);
-			CreateLine(start, end, FVector::UpVector, vertices, triangles);
+			CreateLine(start, end, FVector::UpVector, vertices, triangles, LineThickness);
 		}
 	}
 
@@ -341,7 +341,7 @@ void ANavSystemVolume::CreateBorders()
 		{
 			start = FVector(x, y, 0);
 			end = FVector(x, y, GetGridSizeZ());
-			CreateLine(start, end, FVector::ForwardVector, vertices, triangles);
+			CreateLine(start, end, FVector::ForwardVector, vertices, triangles, LineThickness);
 		}
 	}
 
@@ -418,7 +418,7 @@ void ANavSystemVolume::DeleteGrid() const
 
 
 void ANavSystemVolume::CreateLine(const FVector& start, const FVector& end, const FVector& normal, TArray<FVector>& vertices,
-                                  TArray<int32>& triangles) const
+                                  TArray<int32>& triangles, const float& LineThickness)
 {
 	// Calculate the half line thickness and the thickness direction
 	float halfLineThickness = LineThickness / 2.0f;

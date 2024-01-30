@@ -50,9 +50,6 @@ void UStateComponentBase::BeginPlay()
 void UStateComponentBase::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	//if (DebugMechanic) OverrideDebug(); // take this out. no mechanic should run in update.
-	// ...
 }
 
 bool UStateComponentBase::OnSetStateConditionCheck(UCharacterStateMachine& SM)

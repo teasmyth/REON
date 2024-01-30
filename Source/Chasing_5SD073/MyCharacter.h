@@ -88,7 +88,9 @@ protected:
 	bool SetStateBool(ECharacterState NewState) const; //Returns true if successful
 	void SetState(ECharacterState NewState) const;
 	void CameraJitter(float& WalkSpeed);
+	void TurnTimeBackAsync();
 
+	
 	//Jump event extension for blueprint.
 	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")
 	void HandleJumpEvent(); //Ignore the warning by Rider. It is implemented.
@@ -97,8 +99,9 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")
 	void LookBackTimeSlowEvent(); //Same
 
-	void TurnTimeBackAsync();
-	
+	//Fell event extension for blueprint.
+	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")
+	void PlayerFellEvent();
 
 public:
 	void ResetDash() { TouchedGroundOrWall = true; }
@@ -145,6 +148,9 @@ private: //For mechanics
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling")
 	bool DisableExtraGravity = false;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling", meta=(Tooltip = "This will OVERRIDE gravity, not add to it."))
+	float GravityWhileFalling;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling", meta = (ClampMin = 0))
 	float FallZDistanceUnit;

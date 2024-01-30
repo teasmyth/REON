@@ -116,9 +116,4 @@ protected:
 	//This is executed at the ending of the state. Note: this runs before mechanical execution, meaning the BP event will run first.
 	UPROPERTY(BlueprintAssignable, DisplayName= "On Exit Event")
 	FOnExitStateDelegate OnExitStateDelegate;
-
-	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FConditionCheckDelegate, bool, Condition);
-
-	UPROPERTY(BlueprintAssignable, DisplayName= "On Condition Check Event")
-	FConditionCheckDelegate OnConditionCheckDelegate;
 };
