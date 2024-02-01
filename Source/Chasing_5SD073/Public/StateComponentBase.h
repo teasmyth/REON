@@ -55,9 +55,13 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	//This runs before switching state, letting states access player variables before 'mechanically' entering a state.
-	//For example checking whether player is on ground. If returns false, switching state is aborted and the current state does not exit. 
+	//For example checking whether player is on ground. If returns false, switching state is aborted and the current state does not exit.
 	virtual bool OnSetStateConditionCheck(UCharacterStateMachine& SM);
 
+	//Will need to make a custom event which can be used with BP version of the state machine. I cannot override a function in BP
+	//In a way, that I can modify the return parameter (which is needed for onsetsateconditioncheck(). However, I believe
+	//In a fully BP tailored version of SM, it should be possible.
+	
 	//This is executed at the beginning of the state change. Do not completely override, leave the base.
 	virtual void OnEnterState(UCharacterStateMachine& SM);
 
@@ -82,7 +86,7 @@ public:
 
 	bool DoesItCountTowardsFalling() const { return CountTowardsFalling; }
 	bool DoesItResetDash() const { return ResetsDash; }
-	bool GetDebugMechanic() const { return DebugMechanic;}
+	bool GetDebugMechanic() const { return DebugMechanic; }
 	TMap<ECharacterState, bool> GetTransitionList() const { return CanTransitionFromStateList; }
 
 protected:
@@ -93,7 +97,7 @@ protected:
 	//Line Trace Single Channel, used when HitResult is not needed. Return true if there is a hit. Automatically ignores Owner and uses ECC_Visibility.
 	bool LineTraceSingle(const FVector& Start, const FVector& End) const;
 	static FVector RotateVector(const FVector& InVector, const float AngleInDegrees, const float Length = 1);
-	
+
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnStateEnterDelegate);
 

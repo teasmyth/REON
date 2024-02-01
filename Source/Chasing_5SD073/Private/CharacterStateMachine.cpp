@@ -35,7 +35,7 @@ bool UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 	UStateComponentBase* TranslatedState = TranslateEnumToState(NewStateEnum);
 
 	//If OnSetStateCondition returns false, it means the conditions are not meant for the new state, thus aborting switching state.
-	if (TranslatedState == nullptr || TranslatedState != nullptr && !TranslatedState->OnSetStateConditionCheck(*this))
+	if (TranslatedState == nullptr || !TranslatedState->OnSetStateConditionCheck(*this))
 	{
 		if (DebugStateMachine && GEngine)
 		{

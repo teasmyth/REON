@@ -163,6 +163,8 @@ void AMyCharacter::MovementStateCheck()
 			CurrentMovementState = EMovementState::Fell;
 			Falling = false;
 			GetCharacterMovement()->Velocity = FVector::ZeroVector;
+			PlayerFellEvent();
+
 		}
 		else if (CurrentMovementState != EMovementState::Idle && GetHorizontalVelocity() <= 1)
 		{
@@ -189,10 +191,13 @@ void AMyCharacter::MovementStateCheck()
 	}
 	if (StateMachine != nullptr)
 	{
-		if (GetCharacterMovement()->Velocity.Z < 0 && StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
+		if (GetCharacterMovement()->Velocity.Z != 0 && StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
 		{
 			Falling = true;
-			if (!DisableExtraGravity) GetCharacterMovement()->AddForce(-GetActorUpVector() * 980 * GetCharacterMovement()->Mass);
+			if (!DisableExtraGravity)
+			{
+				GetCharacterMovement()->AddForce(-GetActorUpVector() * 980 * GetCharacterMovement()->Mass * (GravityWhileFalling - 1));
+			}
 			FallDistance = FMath::Abs(FallStartZ - GetActorLocation().Z) - FallZDistanceUnit;
 		}
 		else if (GetCharacterMovement()->Velocity.Z == 0 && StateMachine->GetCurrentState()->DoesItCountTowardsFalling()

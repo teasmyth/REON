@@ -45,7 +45,6 @@ public:
 private:
 	void RotatePlayerAlongsideWall(const FHitResult& Hit) const;
 	bool CheckWhetherStillWallRunning();
-	void DetectAndSetWallRun();
 
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "This stops sensors from being an insta trigger, preventing accidentals.", ClampMin = 0))
 	float WallRunTriggerDelay = 0;

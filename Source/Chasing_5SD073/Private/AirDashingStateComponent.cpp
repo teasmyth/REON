@@ -66,7 +66,7 @@ void UAirDashingStateComponent::OnExitState(UCharacterStateMachine& SM)
 void UAirDashingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
 {
 	Super::OverrideMovementInput(SM, NewMovementVector);
-	//This prevents any player inputs doing air dash.v
+	//This prevents any player inputs doing air dash.
 	NewMovementVector = FVector2d::ZeroVector;
 }
 

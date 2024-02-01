@@ -150,7 +150,7 @@ private:
 	void PopulateNodesAsync();
 
 	// Helper function for creating the geometry for a single line of the grid
-	void CreateLine(const FVector& start, const FVector& end, const FVector& normal, TArray<FVector>& vertices, TArray<int32>& triangles) const;
+	static void CreateLine(const FVector& start, const FVector& end, const FVector& normal, TArray<FVector>& vertices, TArray<int32>& triangles, const float& LineThickness);
 
 	/*The front face's corners (usually clockwise or counterclockwise):
 	Top-left-front corner
