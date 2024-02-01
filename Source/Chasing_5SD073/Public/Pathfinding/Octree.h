@@ -11,10 +11,8 @@ class CHASING_5SD073_API AOctree : public AActor
 	GENERATED_BODY()
 public:
 	AOctree();
-
-	virtual void BeginPlay() override;
 	
-	OctreeNode* RootNode;
+	OctreeNode RootNode;
 	TArray<OctreeNode*> EmptyLeaves;
 	//Graph NavigationGraph;
 
