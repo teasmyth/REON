@@ -21,7 +21,8 @@ void AOctree::BeginPlay()
 		//DrawDebugSphere(GetWorld(), OverlapResult.GetActor()->GetActorLocation(), 20, 4, FColor::Red, false, 15, 0, 2);
 		//Bounds += OverlapResult.GetActor()->GetComponentsBoundingBox();
 	}
-	RootNode = new OctreeNode(Bounds, MinNodeSize, nullptr);
+	int ID = 0;
+	RootNode = new OctreeNode(Bounds, MinNodeSize, nullptr, ID);
 	UE_LOG(LogTemp, Warning, TEXT("Found objects: %i"), Result.Num());
 	AddObjects(Result);
 }
@@ -35,7 +36,7 @@ void AOctree::OnConstruction(const FTransform& Transform)
 void AOctree::AddObjects(TArray<FOverlapResult> FoundObjects)
 {
 	UWorld* World = GetWorld();
-	int MaxRecursion = 30;
+	int MaxRecursion = 100;
 	for (auto Hit : FoundObjects)
 	{
 		RootNode->DivideNodeRecursively(Hit.GetActor(), World, MaxRecursion);
