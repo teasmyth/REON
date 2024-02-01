@@ -9,20 +9,10 @@ OctreeNode::OctreeNode(const FBox& Bounds, const float& MinSize, OctreeNode* Par
 	this->ID = ID;
 	this->Parent = Parent;
 
-	const float QuarterSize = NodeBounds.GetSize().Y / 4.0f;
-	const float HalfSize = NodeBounds.GetSize().Y / 2.0f;
-
-	const FVector Directions[8] = {
-		FVector(-1, 1, -1), FVector(1, 1, -1),
-		FVector(-1, 1, 1), FVector(1, 1, 1),
-		FVector(-1, -1, -1), FVector(1, -1, -1),
-		FVector(-1, -1, 1), FVector(1, -1, 1)
-	};
-
 	ChildrenNodeBounds.SetNum(8);
 	ChildrenOctreeNodes.SetNum(8);
 	const FVector Center = NodeBounds.GetCenter();
-	/*
+
 	ChildrenNodeBounds[0] = FBox(NodeBounds.Min, Center);
 	ChildrenNodeBounds[1] = FBox(FVector(Center.X, NodeBounds.Min.Y, NodeBounds.Min.Z), FVector(NodeBounds.Max.X, Center.Y, Center.Z));
 	ChildrenNodeBounds[2] = FBox(FVector(NodeBounds.Min.X, Center.Y, NodeBounds.Min.Z), FVector(Center.X, NodeBounds.Max.Y, Center.Z));
@@ -31,20 +21,7 @@ OctreeNode::OctreeNode(const FBox& Bounds, const float& MinSize, OctreeNode* Par
 	ChildrenNodeBounds[4] = FBox(FVector(NodeBounds.Min.X, NodeBounds.Min.Y, Center.Z), FVector(Center.X, Center.Y, NodeBounds.Max.Z));
 	ChildrenNodeBounds[5] = FBox(FVector(Center.X, NodeBounds.Min.Y, Center.Z), FVector(NodeBounds.Max.X, Center.Y, NodeBounds.Max.Z));
 	ChildrenNodeBounds[6] = FBox(FVector(NodeBounds.Min.X, Center.Y, Center.Z), FVector(Center.X, NodeBounds.Max.Y, NodeBounds.Max.Z));
-	ChildrenNodeBounds[7] = FBox(Center, NodeBounds.Max);*/
-
-
-
-	ChildrenNodeBounds[0] = FBox(NodeBounds.Min, Center);
-	ChildrenNodeBounds[1] = FBox(FVector(Center.X, NodeBounds.Min.Y, NodeBounds.Min.Z), FVector(NodeBounds.Max.X, Center.Y, Center.Z));
-	ChildrenNodeBounds[2] = FBox(FVector(NodeBounds.Min.X, Center.Y, NodeBounds.Min.Z), FVector(Center.X, NodeBounds.Max.Y, Center.Z));
-	ChildrenNodeBounds[3] = FBox(FVector(Center.X, Center.Y, NodeBounds.Min.Z), FVector(NodeBounds.Max.X, NodeBounds.Max.Y, Center.Z));
-
-	ChildrenNodeBounds[4] = FBox(FVector(NodeBounds.Min.X, NodeBounds.Min.Y, Center.Z), FVector(Center.X, Center.Y, NodeBounds.Max.Z));
-	ChildrenNodeBounds[5] = FBox(FVector(Center.X, NodeBounds.Min.Y, Center.Z), FVector(NodeBounds.Max.X, Center.Y, NodeBounds.Max.Z));
-	ChildrenNodeBounds[6] = FBox(FVector(NodeBounds.Min.X, Center.Y, Center.Z),FVector(Center.X, NodeBounds.Max.Y, NodeBounds.Max.Z));
-	ChildrenNodeBounds[7] = FBox(FVector(Center.X, Center.Y, Center.Z),NodeBounds.Max);
-
+	ChildrenNodeBounds[7] = FBox(FVector(Center.X, Center.Y, Center.Z), NodeBounds.Max);
 }
 
 OctreeNode::OctreeNode()
@@ -72,8 +49,6 @@ void OctreeNode::DivideNodeRecursively(AActor* Actor, UWorld* World, int& MaxRec
 {
 	if (NodeBounds.GetSize().Y / 2.0f <= MinSize)
 	{
-		DrawDebugBox(World, Actor->GetComponentsBoundingBox().GetCenter(), Actor->GetComponentsBoundingBox().GetExtent(), FQuat::Identity,
-						 FColor::Red, false, 15, 0, 3);
 		ContainedActors.Add(Actor);
 		return;
 	}
@@ -86,31 +61,26 @@ void OctreeNode::DivideNodeRecursively(AActor* Actor, UWorld* World, int& MaxRec
 		{
 			ChildrenOctreeNodes[i] = new OctreeNode(ChildrenNodeBounds[i], MinSize, this, ID);
 		}
-		//if (ChildrenNodeBounds[i].Intersect(Actor->GetComponentsBoundingBox()))
 
 		const FBox ActorBox = Actor->GetComponentsBoundingBox();
 		const FBox ChildrenBox = ChildrenNodeBounds[i];
-		
-		if (AreAABBsIntersecting(ChildrenBox, ActorBox) || AreAABBsIntersecting(ActorBox, ChildrenBox))
+		//DrawDebugBox(World, ChildrenBox.GetCenter(), ChildrenBox.GetExtent(), FColor::Green, false, 15, 0, 2);
+
+		if (AreAABBsIntersecting(ChildrenBox, ActorBox))
 		{
 			ID++;
 			UE_LOG(LogTemp, Warning, TEXT("Total nodes: %i"), ID);
 			Dividing = true;
 			MaxRecursion--;
-			if (MaxRecursion > 0) ChildrenOctreeNodes[i]->DivideNodeRecursively(Actor, World, MaxRecursion);
-			DrawDebugBox(World, ChildrenOctreeNodes[i]->NodeBounds.GetCenter(), ChildrenOctreeNodes[i]->NodeBounds.GetExtent(), FColor::Green, false,
-			             15, 0, 2);
+			ChildrenOctreeNodes[i]->DivideNodeRecursively(Actor, World, MaxRecursion);
 		}
 	}
 
 	if (!Dividing)
 	{
 		ContainedActors.Add(Actor);
-		DrawDebugBox(World, Actor->GetComponentsBoundingBox().GetCenter(), Actor->GetComponentsBoundingBox().GetExtent(), FQuat::Identity,
-						 FColor::Red, false, 15, 0, 3);
-		DrawDebugBox(World, NodeBounds.GetCenter(), NodeBounds.GetExtent(), FColor::Blue, false, 15, 0, 2);
-		//ChildrenOctreeNodes.Empty();
-		//UE_LOG(LogTemp, Warning, TEXT("Node not divided. Objects: %d"), ContainedObjects.Num());
+		DrawDebugBox(World, NodeBounds.GetCenter(), NodeBounds.GetExtent(), FColor::Green, false, 15, 0, 2);
+		ChildrenOctreeNodes.Empty();
 	}
 }
 

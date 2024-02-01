@@ -10,7 +10,7 @@ AOctree::AOctree()
 void AOctree::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	TArray<FOverlapResult> Result;
 	const FVector Size = FVector(DivisionsX);
 	const FBox Bounds = FBox(GetActorLocation() - Size / 2, GetActorLocation() + Size / 2);
@@ -36,9 +36,12 @@ void AOctree::OnConstruction(const FTransform& Transform)
 void AOctree::AddObjects(TArray<FOverlapResult> FoundObjects)
 {
 	UWorld* World = GetWorld();
-	int MaxRecursion = 100;
+	int MaxRecursion = 10000;
+	DrawDebugBox(World, GetActorLocation(), GetActorLocation() + FVector(DivisionsX/2.0f),FQuat::Identity, FColor::Blue, false, 15, 0, 100);
 	for (auto Hit : FoundObjects)
 	{
 		RootNode->DivideNodeRecursively(Hit.GetActor(), World, MaxRecursion);
+		DrawDebugBox(World, Hit.GetActor()->GetComponentsBoundingBox().GetCenter(), Hit.GetActor()->GetComponentsBoundingBox().GetExtent(),
+		             FQuat::Identity, FColor::Red, false, 15, 0, 3);
 	}
 }
