@@ -27,13 +27,16 @@ public:
 
 	int ID;
 	TArray<FOctreeObject*> ContainedObjects;
+	TArray<AActor*> ContainedActors;
 	OctreeNode* Parent;
 	TArray<OctreeNode*> ChildrenOctreeNodes;
+	
 	float MinSize;
 	FBox NodeBounds;
 	TArray<FBox> ChildrenNodeBounds;
 
-	void DivideNode(AActor* Actor);
+	void DivideNodeRecursively(AActor* Actor, UWorld* World, int& MaxRecursion);
 	void Draw();
+	void GenerateChildren();
 	
 };
