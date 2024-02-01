@@ -21,19 +21,23 @@ struct FOctreeObject
 class CHASING_5SD073_API OctreeNode
 {
 public:
-	OctreeNode(const FBox& Bounds, const float& MinSize, OctreeNode* Parent);
+	OctreeNode(const FBox& Bounds, const float& MinSize, OctreeNode* Parent, int& ID);
 	OctreeNode();
 	~OctreeNode();
 
 	int ID;
 	TArray<FOctreeObject*> ContainedObjects;
+	TArray<AActor*> ContainedActors;
 	OctreeNode* Parent;
 	TArray<OctreeNode*> ChildrenOctreeNodes;
+	
 	float MinSize;
 	FBox NodeBounds;
 	TArray<FBox> ChildrenNodeBounds;
 
-	void DivideNode(AActor* Actor);
+	void DivideNodeRecursively(AActor* Actor, UWorld* World, int& MaxRecursion);
 	void Draw();
+	void GenerateChildren();
+	static bool AreAABBsIntersecting(const FBox& AABB1, const FBox& AABB2);
 	
 };
