@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "OctreeNode.h"
+#include "OctreeGraph.h"
 #include "Octree.generated.h"
 
 UCLASS()
@@ -14,32 +15,33 @@ public:
 
 	virtual void BeginPlay() override;
 	
-	OctreeNode* RootNode;
+	TArray<OctreeNode*> RootNodes;
 	TArray<OctreeNode*> EmptyLeaves;
-	//Graph NavigationGraph;
+	OctreeGraph* NavigationGraph;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Navigation System Volume|Grid Settings",
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Grid Settings",
 		meta = (AllowPrivateAccess = "true", ClampMin = 1))
-	float MinNodeSize = 1.0f;
+	float MinNodeSize = 100;
 
 	// The number of divisions in the grid along the X axis
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Navigation System Volume|Grid Settings",
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Grid Settings",
 		meta = (AllowPrivateAccess = "true", ClampMin = 1))
-	int32 DivisionsX = 10;
+	int32 SingleVolumeSize = 1000;
 
-	// The number of divisions in the grid along the Y axis
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Navigation System Volume|Grid Settings",
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Grid Settings",
 		meta = (AllowPrivateAccess = "true", ClampMin = 1))
-	int32 DivisionsY = 10;
+	int32 ExpandVolumeXAxis = 1;
 
-	// The number of divisions in the grid along the Z axis
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Navigation System Volume|Grid Settings",
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Grid Settings",
 		meta = (AllowPrivateAccess = "true", ClampMin = 1))
-	int32 DivisionsZ = 10;
+	int32 ExpandVolumeYAxis = 1;
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 
 
-	void AddObjects(TArray<FOverlapResult> FoundObjects);
-
+	void MakeOctree(const FVector& Origin);
+	void AddObjects(TArray<FOverlapResult> FoundObjects, OctreeNode* RootN) const;
+	void GetEmptyNodes(OctreeNode* Node);
+	void ConnectNodes();
+	bool DoNodesTouchOnAnyAxis(const OctreeNode* Node1, const OctreeNode* Node2);
 };

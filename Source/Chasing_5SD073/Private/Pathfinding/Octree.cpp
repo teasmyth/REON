@@ -10,21 +10,22 @@ AOctree::AOctree()
 void AOctree::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	RootNodes.Empty();
+	EmptyLeaves.Empty();
 
-	TArray<FOverlapResult> Result;
-	const FVector Size = FVector(DivisionsX);
-	const FBox Bounds = FBox(GetActorLocation() - Size / 2, GetActorLocation() + Size / 2);
-	GetWorld()->OverlapMultiByChannel(Result, GetActorLocation(), FQuat::Identity, ECC_GameTraceChannel1, FCollisionShape::MakeBox(Size / 2));
-
-	for (auto OverlapResult : Result)
+	NavigationGraph = new OctreeGraph();
+	for (int X = 0; X < ExpandVolumeXAxis; X++)
 	{
-		//DrawDebugSphere(GetWorld(), OverlapResult.GetActor()->GetActorLocation(), 20, 4, FColor::Red, false, 15, 0, 2);
-		//Bounds += OverlapResult.GetActor()->GetComponentsBoundingBox();
+		for (int Y = 0; Y < ExpandVolumeYAxis; Y++)
+		{
+			const FVector Offset = FVector(X * SingleVolumeSize, Y * SingleVolumeSize, 0);
+			MakeOctree(GetActorLocation() + Offset);
+		}
 	}
-	int ID = 0;
-	RootNode = new OctreeNode(Bounds, MinNodeSize, nullptr, ID);
-	UE_LOG(LogTemp, Warning, TEXT("Found objects: %i"), Result.Num());
-	AddObjects(Result);
+
+	ConnectNodes();
+	UE_LOG(LogTemp, Warning, TEXT("Total Nodes: %i"), NavigationGraph->Nodes.Num());
 }
 
 void AOctree::OnConstruction(const FTransform& Transform)
@@ -33,15 +34,93 @@ void AOctree::OnConstruction(const FTransform& Transform)
 	//Here where I will visualize the size
 }
 
-void AOctree::AddObjects(TArray<FOverlapResult> FoundObjects)
+void AOctree::MakeOctree(const FVector& Origin)
+{
+	TArray<FOverlapResult> Result;
+	const FVector Size = FVector(SingleVolumeSize);
+	const FBox Bounds = FBox(Origin - Size / 2.0f, Origin + Size / 2.0f);
+	GetWorld()->OverlapMultiByChannel(Result, Origin, FQuat::Identity, ECC_GameTraceChannel1, FCollisionShape::MakeBox(Size / 2.0f));
+	DrawDebugBox(GetWorld(), Bounds.GetCenter(), Bounds.GetExtent() * 1.01f, FQuat::Identity, FColor::Blue, false, 15, 0, 10);
+
+	OctreeNode* NewRootNode = new OctreeNode(Bounds, MinNodeSize, nullptr);
+	RootNodes.Add(NewRootNode);
+	//UE_LOG(LogTemp, Warning, TEXT("Found objects: %i"), Result.Num());
+	AddObjects(Result, NewRootNode);
+	GetEmptyNodes(NewRootNode);
+}
+
+void AOctree::AddObjects(TArray<FOverlapResult> FoundObjects, OctreeNode* RootN) const
 {
 	UWorld* World = GetWorld();
-	int MaxRecursion = 10000;
-	DrawDebugBox(World, GetActorLocation(), GetActorLocation() + FVector(DivisionsX/2.0f),FQuat::Identity, FColor::Blue, false, 15, 0, 100);
-	for (auto Hit : FoundObjects)
+	if (!FoundObjects.IsEmpty())
 	{
-		RootNode->DivideNodeRecursively(Hit.GetActor(), World, MaxRecursion);
-		DrawDebugBox(World, Hit.GetActor()->GetComponentsBoundingBox().GetCenter(), Hit.GetActor()->GetComponentsBoundingBox().GetExtent(),
-		             FQuat::Identity, FColor::Red, false, 15, 0, 3);
+		for (auto Hit : FoundObjects)
+		{
+			RootN->DivideNodeRecursively(Hit.GetActor(), World);
+			//DrawDebugBox(World, Hit.GetActor()->GetComponentsBoundingBox().GetCenter(), Hit.GetActor()->GetComponentsBoundingBox().GetExtent(),
+			//             FQuat::Identity, FColor::Red, false, 15, 0, 3);
+		}
 	}
+	else
+	{
+		DrawDebugBox(GetWorld(), RootN->NodeBounds.GetCenter(), RootN->NodeBounds.GetExtent(), FQuat::Identity, FColor::Green, false, 15, 0, 10);
+	}
+}
+
+void AOctree::GetEmptyNodes(OctreeNode* Node)
+{
+	if (Node == nullptr)
+	{
+		return;
+	}
+
+	if (Node->ChildrenOctreeNodes.IsEmpty())
+	{
+		if (Node->ContainedActors.IsEmpty())
+		{
+			NavigationGraph->AddNode(Node->GraphNode);
+			EmptyLeaves.Add(Node);
+		}
+		else
+		{
+			//If it has no children and contains an object, it is an unusable node and no longer needed.
+			delete Node;
+		}
+	}
+	else
+	{
+		for (int i = 0; i < 8; i++)
+		{
+			GetEmptyNodes(Node->ChildrenOctreeNodes[i]);
+		}
+	}
+}
+
+void AOctree::ConnectNodes()
+{
+	for (int i = 0; i < EmptyLeaves.Num(); i++)
+	{
+		for (int j = 0; j < EmptyLeaves.Num(); j++)
+		{
+			if (i == j) continue;
+
+			if (!NavigationGraph->Nodes[i]->Neighbors.Contains(NavigationGraph->Nodes[j]) && DoNodesTouchOnAnyAxis(EmptyLeaves[i], EmptyLeaves[j]))
+			{
+				NavigationGraph->Nodes[i]->Neighbors.Add(EmptyLeaves[j]->GraphNode);
+				NavigationGraph->Nodes[j]->Neighbors.Add(EmptyLeaves[i]->GraphNode);
+			}
+		}
+	}
+}
+
+bool AOctree::DoNodesTouchOnAnyAxis(const OctreeNode* Node1, const OctreeNode* Node2)
+{
+	if (Node1 == nullptr || Node2 == nullptr) return false;
+
+	const FBox& Box1 = Node1->NodeBounds;
+	const FBox& Box2 = Node2->NodeBounds;
+
+	return (Box1.Max.X == Box2.Min.X || Box1.Min.X == Box2.Max.X) ||
+		(Box1.Max.Y == Box2.Min.Y || Box1.Min.Y == Box2.Max.Y) ||
+		(Box1.Max.Z == Box2.Min.Z || Box1.Min.Z == Box2.Max.Z);
 }
