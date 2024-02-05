@@ -20,6 +20,10 @@ public:
 	OctreeGraph* NavigationGraph;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Grid Settings",
+		meta = (AllowPrivateAccess = "true"))
+	AActor* ActorToIgnore = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Grid Settings",
 		meta = (AllowPrivateAccess = "true", ClampMin = 1))
 	float MinNodeSize = 100;
 
@@ -44,4 +48,8 @@ public:
 	void GetEmptyNodes(OctreeNode* Node);
 	void ConnectNodes();
 	bool DoNodesTouchOnAnyAxis(const OctreeNode* Node1, const OctreeNode* Node2);
+	bool DoNodesShareFace(const OctreeNode* Node1, const OctreeNode* Node2);
+
+	UFUNCTION(BlueprintCallable, Category="Octree")
+	bool GetAStarPath(const FVector& Start, const FVector& End, FVector& NextLocation);
 };

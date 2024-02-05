@@ -26,4 +26,5 @@ public:
 	static bool AreAABBsIntersecting(const FBox& AABB1, const FBox& AABB2);
 	static bool IsBoxInside(const FBox& SmallBox, const FBox& BigBox);
 	void SetupChildrenBounds();
+	static bool IsVectorInsideBox(const FVector& Point, const FBox& Box);
 };

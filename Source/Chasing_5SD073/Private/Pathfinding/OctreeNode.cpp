@@ -7,7 +7,7 @@ OctreeNode::OctreeNode(const FBox& Bounds, const float& MinSize, OctreeNode* Par
 	NodeBounds = Bounds;
 	this->MinSize = MinSize;
 	this->Parent = Parent;
-	GraphNode = new OctreeGraphNode();
+	GraphNode = new OctreeGraphNode(Bounds);
 
 	ContainedActors.Empty();
 	ChildrenOctreeNodes.Empty();
@@ -121,4 +121,9 @@ void OctreeNode::SetupChildrenBounds()
 	ChildrenNodeBounds[5] = FBox(FVector(Center.X, NodeBounds.Min.Y, Center.Z), FVector(NodeBounds.Max.X, Center.Y, NodeBounds.Max.Z));
 	ChildrenNodeBounds[6] = FBox(FVector(NodeBounds.Min.X, Center.Y, Center.Z), FVector(Center.X, NodeBounds.Max.Y, NodeBounds.Max.Z));
 	ChildrenNodeBounds[7] = FBox(FVector(Center.X, Center.Y, Center.Z), NodeBounds.Max);
+}
+
+bool OctreeNode::IsVectorInsideBox(const FVector& Point, const FBox& Box)
+{
+	return Box.IsInside(Point);
 }

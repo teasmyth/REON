@@ -10,9 +10,11 @@
 class CHASING_5SD073_API OctreeGraphNode
 {
 public:
+	OctreeGraphNode(const FBox& Bounds);
 	OctreeGraphNode();
 	~OctreeGraphNode();
 
+	FBox Bounds;
 	TArray<OctreeGraphNode*> Neighbors;
 	OctreeGraphNode* CameFrom;
 	float F,G,H;
