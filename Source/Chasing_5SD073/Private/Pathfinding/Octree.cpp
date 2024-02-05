@@ -165,7 +165,6 @@ bool AOctree::DoNodesShareFace(const OctreeNode* Node1, const OctreeNode* Node2)
 
 bool AOctree::GetAStarPath(const FVector& Start, const FVector& End, FVector& NextLocation)
 {
-	//blah blah
 	TArray<FVector> OutPath;
 	NextLocation = FVector::ZeroVector;
 	
