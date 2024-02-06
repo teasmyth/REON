@@ -22,9 +22,10 @@ public:
 	void AddNode(OctreeGraphNode* Node);
 	void AddRootNode(OctreeNode* Node);
 
-	
+
 	bool OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, TArray<FVector>& OutPathList);
 	void ReconstructPath(const OctreeGraphNode* Start, const OctreeGraphNode* End, TArray<FVector>& OutPathList);
+	float ManhattanDistance(const OctreeGraphNode* From, const OctreeGraphNode* To);
 	OctreeGraphNode* FindGraphNode(const FVector& Location);
 };
 

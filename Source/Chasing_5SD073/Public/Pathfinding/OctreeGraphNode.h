@@ -2,11 +2,15 @@
 
 #pragma once
 
+
 #include "CoreMinimal.h"
 
 /**
  * 
  */
+
+LLM_DECLARE_TAG(OctreeGraphNode);
+
 class CHASING_5SD073_API OctreeGraphNode
 {
 public:

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "OctreeGraphNode.h"
 
+LLM_DECLARE_TAG(OctreeNode);
 
 class CHASING_5SD073_API OctreeNode
 {
@@ -18,6 +19,7 @@ public:
 	TArray<OctreeNode*> ChildrenOctreeNodes;
 	OctreeGraphNode* GraphNode;
 	
+
 	float MinSize;
 	FBox NodeBounds;
 	TArray<FBox> ChildrenNodeBounds;

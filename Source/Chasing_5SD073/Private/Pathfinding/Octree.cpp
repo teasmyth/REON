@@ -3,6 +3,7 @@
 
 #include "Pathfinding/Octree.h"
 
+
 AOctree::AOctree()
 {
 }
@@ -28,6 +29,28 @@ void AOctree::BeginPlay()
 	UE_LOG(LogTemp, Warning, TEXT("Total Nodes: %i"), NavigationGraph->Nodes.Num());
 }
 
+void AOctree::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+
+	
+	for (const auto Element : EmptyLeaves)
+	{
+
+		//delete Element;
+		if (Element != nullptr)
+		{
+			//UE_LOG(LogTemp, Display, TEXT("Meow: %f"), Element->MinSize);
+		}
+	}
+
+
+	delete RootNodes[0];
+	EmptyLeaves.Empty();
+	//delete NavigationGraph;
+	UE_LOG(LogTemp, Warning, TEXT("Nav graph elements: %i"), NavigationGraph->Nodes.Num());
+}
+
 void AOctree::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
@@ -51,7 +74,7 @@ void AOctree::MakeOctree(const FVector& Origin)
 
 	OctreeNode* NewRootNode = new OctreeNode(Bounds, MinNodeSize, nullptr);
 	RootNodes.Add(NewRootNode);
-	//UE_LOG(LogTemp, Warning, TEXT("Found objects: %i"), Result.Num());
+	NavigationGraph->AddRootNode(NewRootNode);
 	AddObjects(Result, NewRootNode);
 	GetEmptyNodes(NewRootNode);
 }
@@ -64,13 +87,7 @@ void AOctree::AddObjects(TArray<FOverlapResult> FoundObjects, OctreeNode* RootN)
 		for (auto Hit : FoundObjects)
 		{
 			RootN->DivideNodeRecursively(Hit.GetActor(), World);
-			//DrawDebugBox(World, Hit.GetActor()->GetComponentsBoundingBox().GetCenter(), Hit.GetActor()->GetComponentsBoundingBox().GetExtent(),
-			//             FQuat::Identity, FColor::Red, false, 15, 0, 3);
 		}
-	}
-	else
-	{
-		DrawDebugBox(GetWorld(), RootN->NodeBounds.GetCenter(), RootN->NodeBounds.GetExtent(), FQuat::Identity, FColor::Green, false, 15, 0, 10);
 	}
 }
 
@@ -81,27 +98,25 @@ void AOctree::GetEmptyNodes(OctreeNode* Node)
 		return;
 	}
 
-	NavigationGraph->AddRootNode(Node);
-
 	if (Node->ChildrenOctreeNodes.IsEmpty())
 	{
 		if (Node->ContainedActors.IsEmpty())
 		{
 			NavigationGraph->AddNode(Node->GraphNode);
 			EmptyLeaves.Add(Node);
-			DrawDebugBox(GetWorld(), Node->NodeBounds.GetCenter(), Node->NodeBounds.GetExtent(),FColor::Green, false, 15, 0, 3);
+			//DrawDebugBox(GetWorld(), Node->NodeBounds.GetCenter(), Node->NodeBounds.GetExtent(), FColor::Green, false, 15, 0, 3);
 		}
 		else
 		{
-			//If it has no children and contains an object, it is an unusable node and no longer needed.
-			delete Node;
+			//If it has no children and contains an object, it is an unusable node and no longer needed. ~Occupied Node.
+			//delete Node;
 		}
 	}
 	else
 	{
-		for (int i = 0; i < 8; i++)
+		for (const auto Element : Node->ChildrenOctreeNodes)
 		{
-			GetEmptyNodes(Node->ChildrenOctreeNodes[i]);
+			GetEmptyNodes(Element);
 		}
 	}
 }
@@ -114,60 +129,72 @@ void AOctree::ConnectNodes()
 		{
 			if (i == j) continue;
 
-			if (!NavigationGraph->Nodes[i]->Neighbors.Contains(NavigationGraph->Nodes[j]) && DoNodesShareFace(EmptyLeaves[i], EmptyLeaves[j]))
+			if (!NavigationGraph->Nodes[i]->Neighbors.Contains(NavigationGraph->Nodes[j]) && DoNodesShareFace(EmptyLeaves[i], EmptyLeaves[j], 0.01f))
 			{
+				//DrawDebugLine(GetWorld(), EmptyLeaves[i]->NodeBounds.GetCenter(), EmptyLeaves[j]->NodeBounds.GetCenter(), FColor::Red, false, 15, 0,
+				//              5);
 				NavigationGraph->Nodes[i]->Neighbors.Add(EmptyLeaves[j]->GraphNode);
 				NavigationGraph->Nodes[j]->Neighbors.Add(EmptyLeaves[i]->GraphNode);
 			}
 		}
 	}
+
+	//If by any chance there's a Node without a neighbor, we dont need it. (How would you go if no neighbor?)
+	for (const auto Node : NavigationGraph->Nodes)
+	{
+		if (Node->Neighbors.IsEmpty())
+		{
+			delete Node;
+		}
+	}
 }
 
-bool AOctree::DoNodesTouchOnAnyAxis(const OctreeNode* Node1, const OctreeNode* Node2)
+
+bool AOctree::DoNodesShareFace(const OctreeNode* Node1, const OctreeNode* Node2, const float Tolerance)
 {
+	//In general, I am trying to nodes that share a face, no corners or edges. Even though the flying object could fly that way, it does not ensure that
+	//it can 'slip' through that, wheres, due to the MinSize, a face-to-face movements will always ensure movement.
+	//Additionally, regardless of checking corners/edges or not, the path smoothing at the end will provide the diagonal movement.
+	//Therefore I save bunch of unnecessary checking in AStar or ConnectNode() that would have been cleaned up anyway.
+
 	if (Node1 == nullptr || Node2 == nullptr) return false;
 
 	const FBox& Box1 = Node1->NodeBounds;
 	const FBox& Box2 = Node2->NodeBounds;
 
-	return (Box1.Max.X == Box2.Min.X || Box1.Min.X == Box2.Max.X) ||
-	   (Box1.Max.Y == Box2.Min.Y || Box1.Min.Y == Box2.Max.Y) ||
-	   (Box1.Max.Z == Box2.Min.Z || Box1.Min.Z == Box2.Max.Z);
+	// Check if the X faces are overlapping or adjacent
+	const bool ShareXFace = FMath::Abs(Box1.Max.X - Box2.Min.X) < Tolerance || FMath::Abs(Box1.Min.X - Box2.Max.X) < Tolerance;
+
+	// Check if the Y faces are overlapping or adjacent
+	const bool ShareYFace = FMath::Abs(Box1.Max.Y - Box2.Min.Y) < Tolerance || FMath::Abs(Box1.Min.Y - Box2.Max.Y) < Tolerance;
+
+	// Check if the Z faces are overlapping or adjacent
+	const bool ShareZFace = FMath::Abs(Box1.Max.Z - Box2.Min.Z) < Tolerance || FMath::Abs(Box1.Min.Z - Box2.Max.Z) < Tolerance;
+
+
+	if ((ShareXFace && !ShareYFace && !ShareZFace) || (!ShareXFace && ShareYFace && !ShareZFace) || (!ShareXFace && !ShareYFace && ShareZFace))
+	{
+		//The above conditions still returns true if the nodes share a face but are wide apart on one of the two other axis. Hence this
+		if (FVector::Dist(Node1->NodeBounds.GetCenter(), Node2->NodeBounds.GetCenter()) <= Node1->NodeBounds.GetSize().X)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
-bool AOctree::DoNodesShareFace(const OctreeNode* Node1, const OctreeNode* Node2)
-{
-	if (Node1 == nullptr || Node2 == nullptr) return false;
-
-	const FBox& Box1 = Node1->NodeBounds;
-	const FBox& Box2 = Node2->NodeBounds;
-
-	int equalAxesCount = 0;
-
-	if (FMath::IsNearlyEqual(Box1.Max.X, Box2.Min.X) || FMath::IsNearlyEqual(Box1.Min.X, Box2.Max.X))
-	{
-		equalAxesCount++;
-	}
-
-	if (FMath::IsNearlyEqual(Box1.Max.Y, Box2.Min.Y) || FMath::IsNearlyEqual(Box1.Min.Y, Box2.Max.Y))
-	{
-		equalAxesCount++;
-	}
-
-	if (FMath::IsNearlyEqual(Box1.Max.Z, Box2.Min.Z) || FMath::IsNearlyEqual(Box1.Min.Z, Box2.Max.Z))
-	{
-		equalAxesCount++;
-	}
-
-	// Nodes share a face if at least two coordinates along each axis are equal
-	return equalAxesCount >= 2;
-}
 
 bool AOctree::GetAStarPath(const FVector& Start, const FVector& End, FVector& NextLocation)
 {
-	TArray<FVector> OutPath;
 	NextLocation = FVector::ZeroVector;
-	
+
+	if (FVector::Distance(Start, End) <= 5.0f)
+	{
+		return false;
+	}
+
+	TArray<FVector> OutPath;
+
 	if (NavigationGraph->Nodes.IsEmpty()) return false;
 
 	if (NavigationGraph->OctreeAStar(Start, End, OutPath))
@@ -175,7 +202,7 @@ bool AOctree::GetAStarPath(const FVector& Start, const FVector& End, FVector& Ne
 		NextLocation = OutPath[0];
 		for (int i = 0; i < OutPath.Num(); i++)
 		{
-			DrawDebugSphere(GetWorld(), OutPath[i], 30, 4, FColor::Red, false, 15, 0, 5);
+			//DrawDebugSphere(GetWorld(), OutPath[i], 30, 4, FColor::Red, false, 15, 0, 5);
 		}
 		return true;
 	}

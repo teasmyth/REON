@@ -14,6 +14,12 @@ OctreeGraph::OctreeGraph()
 
 OctreeGraph::~OctreeGraph()
 {
+	for (const auto Element : Nodes)
+	{
+		delete Element;
+	}
+
+	Nodes.Empty();
 }
 
 void OctreeGraph::AddNode(OctreeGraphNode* Node)
@@ -29,7 +35,8 @@ void OctreeGraph::AddRootNode(OctreeNode* Node)
 bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, TArray<FVector>& OutPathList)
 {
 	OctreeGraphNode* Start = FindGraphNode(StartLocation);
-	OctreeGraphNode* End = FindGraphNode(EndLocation);
+	const OctreeGraphNode* End = FindGraphNode(EndLocation);
+	OutPathList.Empty();
 
 
 	if (Start == nullptr || End == nullptr)
@@ -37,31 +44,26 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 		return false;
 	}
 
-	OutPathList.Empty();
-	TArray<OctreeGraphNode*> OpenList;
 	std::priority_queue<OctreeGraphNode*, std::vector<OctreeGraphNode*>, FOctreeGraphNodeCompare> OpenSet;
+	TArray<OctreeGraphNode*> OpenList; //I use it to keep track of all the nodes used to reset them and also check which ones I checked before.
 	TArray<OctreeGraphNode*> ClosedList;
 
 	Start->G = 0;
-	Start->H = FVector::DistSquared(Start->Bounds.GetCenter(), End->Bounds.GetCenter());
+	Start->H = ManhattanDistance(Start, End);
 	Start->F = Start->H;
 
-	OpenList.Add(Start);
 	OpenSet.push(Start);
+	OpenList.Add(Start);
 
 	while (!OpenSet.empty())
 	{
 		OctreeGraphNode* CurrentNode = OpenSet.top();
-		OpenSet.pop();
-		OpenList.Remove(CurrentNode);
-
-		ClosedList.Add(CurrentNode);
-
+		
 		if (CurrentNode == End)
 		{
 			ReconstructPath(Start, End, OutPathList);
-			UE_LOG(LogTemp, Warning, TEXT("Path length: %i"), OutPathList.Num());
-
+			OutPathList.Add(EndLocation);
+			//UE_LOG(LogTemp, Warning, TEXT("Path length: %i"), OutPathList.Num());
 
 			for (const auto Node : OpenList)
 			{
@@ -73,18 +75,21 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 			return true;
 		}
 
+		OpenSet.pop();
+		ClosedList.Add(CurrentNode);
+
 		if (CurrentNode->Neighbors.IsEmpty()) continue;
 		
 		for (const auto Neighbor : CurrentNode->Neighbors)
 		{
-			if (ClosedList.Contains(Neighbor)) continue; //We already have the best route to that node.
+			if (ClosedList.Contains(Neighbor) || Neighbor == nullptr) continue; //We already have the best route to that node.
 			
-			const float TentativeG = CurrentNode->G + FVector::DistSquared(CurrentNode->Bounds.GetCenter(), Neighbor->Bounds.GetCenter());
-
+			const float TentativeG = CurrentNode->G + ManhattanDistance(CurrentNode, Neighbor);
+			
 			if (Neighbor->G <= TentativeG) continue;
 
 			Neighbor->G = TentativeG;
-			Neighbor->H = FVector::DistSquared(Neighbor->Bounds.GetCenter(), End->Bounds.GetCenter());
+			Neighbor->H = ManhattanDistance(Neighbor, End);
 			Neighbor->F = Neighbor->G + Neighbor->H;
 
 			Neighbor->CameFrom = CurrentNode;
@@ -105,19 +110,36 @@ void OctreeGraph::ReconstructPath(const OctreeGraphNode* Start, const OctreeGrap
 	OutPathList.Empty();
 	OutPathList.Add(End->Bounds.GetCenter());
 
+	//Because I am using NodeBounds Center, adding those to the list might not ensure a smooth path.
+	//For example, if a tiny node is a neighbor of a big one, the between them will be diagonal, which actually might not be free.
+	//Thus, I am adding 'buffer' FVectors to ensure smooth path.
+
 	if (Start == End)
 	{
 		return;
 	}
 	
-	OctreeGraphNode* CameFrom = End->CameFrom;
+	const OctreeGraphNode* CameFrom = End->CameFrom;
 	while (CameFrom != nullptr && CameFrom != Start)
 	{
-		OutPathList.Add(CameFrom->Bounds.GetCenter());
+		OutPathList.Insert(CameFrom->Bounds.GetCenter(), 0);
 		CameFrom = CameFrom->CameFrom;
 	}
 
-	OutPathList.Add(Start->Bounds.GetCenter());
+	//OutPathList.Insert(Start->Bounds.GetCenter(), 0);
+}
+
+float OctreeGraph::ManhattanDistance(const OctreeGraphNode* From, const OctreeGraphNode* To)
+{
+	const FVector Point1 = From->Bounds.GetCenter();
+	const FVector Point2 = To->Bounds.GetCenter();
+
+	const float Dx = FMath::Abs(Point2.X - Point1.X);
+	const float Dy = FMath::Abs(Point2.Y - Point1.Y);
+	const float Dz = FMath::Abs(Point2.Z - Point1.Z);
+
+	return Dx + Dy + Dz;
+	
 }
 
 OctreeGraphNode* OctreeGraph::FindGraphNode(const FVector& Location)

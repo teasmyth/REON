@@ -2,13 +2,17 @@
 
 #include "Pathfinding/OctreeNode.h"
 
+LLM_DEFINE_TAG(OctreeNode);
+
 OctreeNode::OctreeNode(const FBox& Bounds, const float& MinSize, OctreeNode* Parent)
 {
+	LLM_SCOPE_BYTAG(OctreeNode);
 	NodeBounds = Bounds;
 	this->MinSize = MinSize;
 	this->Parent = Parent;
 	GraphNode = new OctreeGraphNode(Bounds);
 
+	
 	ContainedActors.Empty();
 	ChildrenOctreeNodes.Empty();
 	ChildrenNodeBounds.Empty();
@@ -16,6 +20,7 @@ OctreeNode::OctreeNode(const FBox& Bounds, const float& MinSize, OctreeNode* Par
 
 OctreeNode::OctreeNode()
 {
+	LLM_SCOPE_BYTAG(OctreeNode);
 	Parent = nullptr;
 	GraphNode = nullptr;
 	MinSize = 0;
@@ -26,14 +31,24 @@ OctreeNode::OctreeNode()
 
 OctreeNode::~OctreeNode()
 {
-	for (const auto Child : ChildrenOctreeNodes)
+	// Delete child nodes recursively
+	Parent = nullptr;
+	
+	for (const OctreeNode* Child : ChildrenOctreeNodes)
 	{
 		delete Child;
 	}
+	ChildrenOctreeNodes.Empty(); // Clear the array after deleting child nodes
 
-	delete GraphNode;
+	// Delete associated OctreeGraphNode
+	if (GraphNode != nullptr)
+	{
+		delete GraphNode;
+		GraphNode = nullptr; // Set to nullptr after deletion to avoid double-deletion
+	}
+
+	// Empty other arrays
 	ChildrenNodeBounds.Empty();
-	ChildrenOctreeNodes.Empty();
 	ContainedActors.Empty();
 }
 
@@ -46,14 +61,15 @@ void OctreeNode::DivideNodeRecursively(AActor* Actor, UWorld* World)
 		if (AreAABBsIntersecting(NodeBounds, ActorBox))
 		{
 			ContainedActors.Add(Actor);
-			//DrawDebugBox(World, NodeBounds.GetCenter(), NodeBounds.GetExtent() * 0.99f, FColor::Red, false, 15, 0, 2);
-		}
-		else
-		{
-			//DrawDebugBox(World, NodeBounds.GetCenter(), NodeBounds.GetExtent(), FColor::Green, false, 15, 0, 2);
 		}
 		return;
 	}
+
+	// if (IsBoxInside(NodeBounds, ActorBox))
+	// {
+	// 	ContainedActors.Add(Actor);
+	// 	return;
+	// }
 
 	SetupChildrenBounds();
 	ChildrenOctreeNodes.SetNum(8);
@@ -71,15 +87,15 @@ void OctreeNode::DivideNodeRecursively(AActor* Actor, UWorld* World)
 			Dividing = true;
 			ChildrenOctreeNodes[i]->DivideNodeRecursively(Actor, World);
 		}
-		else
-		{
-			//DrawDebugBox(World, ChildrenNodeBounds[i].GetCenter(), ChildrenNodeBounds[i].GetExtent(), FColor::Green, false, 15, 0, 2);
-		}
 	}
 
 	if (!Dividing)
 	{
-		//DrawDebugBox(World, NodeBounds.GetCenter(), NodeBounds.GetExtent(), FColor::Green, false, 15, 0, 2);
+		for (auto Element : ChildrenOctreeNodes)
+		{
+			delete Element;
+			Element = nullptr;
+		}
 		ChildrenOctreeNodes.Empty();
 		ChildrenNodeBounds.Empty();
 	}
