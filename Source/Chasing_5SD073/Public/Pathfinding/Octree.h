@@ -1,5 +1,7 @@
 #pragma once
 
+#include <future>
+
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "OctreeNode.h"
@@ -12,16 +14,15 @@ UCLASS()
 class CHASING_5SD073_API AOctree : public AActor
 {
 	GENERATED_BODY()
-	
+
 public:
 	AOctree();
-	
+
 	virtual void BeginPlay() override;
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-	
+
 	TArray<OctreeNode*> RootNodes;
-	TArray<OctreeNode*> EmptyLeaves;
 	OctreeGraph* NavigationGraph;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Grid Settings",
@@ -51,9 +52,13 @@ public:
 	void MakeOctree(const FVector& Origin);
 	void AddObjects(TArray<FOverlapResult> FoundObjects, OctreeNode* RootN) const;
 	void GetEmptyNodes(OctreeNode* Node);
-	void ConnectNodes();
-	bool DoNodesShareFace(const OctreeNode* Node1, const OctreeNode* Node2, float Tolerance);
+	static void AdjustChildNodes(OctreeNode* Node);
+	void ConnectNodes() const;
+	static bool DoNodesShareFace(const OctreeGraphNode* Node1, const OctreeGraphNode* Node2, float Tolerance);
 
 	UFUNCTION(BlueprintCallable, Category="Octree")
-	bool GetAStarPath(const FVector& Start, const FVector& End, FVector& NextLocation);
+	bool GetAStarPath(const FVector& Start, const FVector& End, FVector& NextLocation) const;
+
+private:
+	bool IsSetup = false;
 };

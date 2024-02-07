@@ -22,10 +22,11 @@ public:
 	void AddNode(OctreeGraphNode* Node);
 	void AddRootNode(OctreeNode* Node);
 
-
+	void ConnectNodes();
+	static bool DoNodesShareFace(const OctreeGraphNode* Node1, const OctreeGraphNode* Node2, const float Tolerance);
 	bool OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, TArray<FVector>& OutPathList);
-	void ReconstructPath(const OctreeGraphNode* Start, const OctreeGraphNode* End, TArray<FVector>& OutPathList);
-	float ManhattanDistance(const OctreeGraphNode* From, const OctreeGraphNode* To);
+	static void ReconstructPath(const OctreeGraphNode* Start, const OctreeGraphNode* End, TArray<FVector>& OutPathList);
+	static float ManhattanDistance(const OctreeGraphNode* From, const OctreeGraphNode* To);
 	OctreeGraphNode* FindGraphNode(const FVector& Location);
 };
 

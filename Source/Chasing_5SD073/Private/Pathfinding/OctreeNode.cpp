@@ -4,15 +4,13 @@
 
 LLM_DEFINE_TAG(OctreeNode);
 
-OctreeNode::OctreeNode(const FBox& Bounds, const float& MinSize, OctreeNode* Parent)
+OctreeNode::OctreeNode(const FBox& Bounds, OctreeNode* Parent)
 {
 	LLM_SCOPE_BYTAG(OctreeNode);
 	NodeBounds = Bounds;
-	this->MinSize = MinSize;
 	this->Parent = Parent;
-	GraphNode = new OctreeGraphNode(Bounds);
+	GraphNode = nullptr;
 
-	
 	ContainedActors.Empty();
 	ChildrenOctreeNodes.Empty();
 	ChildrenNodeBounds.Empty();
@@ -23,7 +21,6 @@ OctreeNode::OctreeNode()
 	LLM_SCOPE_BYTAG(OctreeNode);
 	Parent = nullptr;
 	GraphNode = nullptr;
-	MinSize = 0;
 	ContainedActors.Empty();
 	ChildrenOctreeNodes.Empty();
 	ChildrenNodeBounds.Empty();
@@ -33,26 +30,21 @@ OctreeNode::~OctreeNode()
 {
 	// Delete child nodes recursively
 	Parent = nullptr;
-	
+	//GraphNode deletion is handled in OctreeGraph
+
 	for (const OctreeNode* Child : ChildrenOctreeNodes)
 	{
-		delete Child;
+		if (Child != nullptr)
+		{
+			delete Child;
+		}
 	}
-	ChildrenOctreeNodes.Empty(); // Clear the array after deleting child nodes
-
-	// Delete associated OctreeGraphNode
-	if (GraphNode != nullptr)
-	{
-		delete GraphNode;
-		GraphNode = nullptr; // Set to nullptr after deletion to avoid double-deletion
-	}
-
-	// Empty other arrays
+	ChildrenOctreeNodes.Empty();
 	ChildrenNodeBounds.Empty();
 	ContainedActors.Empty();
 }
 
-void OctreeNode::DivideNodeRecursively(AActor* Actor, UWorld* World)
+void OctreeNode::DivideNodeRecursively(AActor* Actor, const float& MinSize)
 {
 	const FBox ActorBox = Actor->GetComponentsBoundingBox();
 
@@ -65,11 +57,13 @@ void OctreeNode::DivideNodeRecursively(AActor* Actor, UWorld* World)
 		return;
 	}
 
-	// if (IsBoxInside(NodeBounds, ActorBox))
-	// {
-	// 	ContainedActors.Add(Actor);
-	// 	return;
-	// }
+	/*
+	if (IsBoxInside(NodeBounds, ActorBox))
+	{
+		ContainedActors.Add(Actor);
+		return;
+	}
+	*/
 
 	SetupChildrenBounds();
 	ChildrenOctreeNodes.SetNum(8);
@@ -79,26 +73,105 @@ void OctreeNode::DivideNodeRecursively(AActor* Actor, UWorld* World)
 	{
 		if (ChildrenOctreeNodes[i] == nullptr)
 		{
-			ChildrenOctreeNodes[i] = new OctreeNode(ChildrenNodeBounds[i], MinSize, this);
+			ChildrenOctreeNodes[i] = new OctreeNode(ChildrenNodeBounds[i], this);
 		}
 
 		if (AreAABBsIntersecting(ChildrenNodeBounds[i], ActorBox))
 		{
 			Dividing = true;
-			ChildrenOctreeNodes[i]->DivideNodeRecursively(Actor, World);
+
+			ChildrenOctreeNodes[i]->DivideNodeRecursively(Actor, MinSize);
 		}
 	}
 
 	if (!Dividing)
 	{
-		for (auto Element : ChildrenOctreeNodes)
+		bool DividedPreviously = false;
+		for (const auto Element : ChildrenOctreeNodes)
 		{
-			delete Element;
-			Element = nullptr;
+			if (!Element->ChildrenOctreeNodes.IsEmpty())
+			{
+				DividedPreviously = true;
+			}
 		}
-		ChildrenOctreeNodes.Empty();
-		ChildrenNodeBounds.Empty();
+
+		if (!DividedPreviously)
+		{
+			for (const auto Element : ChildrenOctreeNodes)
+			{
+				delete Element;
+			}
+			ChildrenOctreeNodes.Empty();
+			ChildrenNodeBounds.Empty();
+		}
 	}
+}
+
+void OctreeNode::DivideNode(AActor* Actor, const float& MinSize)
+{
+	const FBox ActorBox = Actor->GetComponentsBoundingBox();
+
+	TArray<OctreeNode*> NodeList;
+	NodeList.Add(this);
+
+	for (int i = 0; i < NodeList.Num(); i++)
+	{
+		if (NodeList[i]->NodeBounds.GetSize().Y <= MinSize)
+		{
+			if (AreAABBsIntersecting(NodeBounds, ActorBox))
+			{
+				NodeList[i]->ContainedActors.Add(Actor);
+			}
+			continue;
+		}
+
+		NodeList[i]->SetupChildrenBounds();
+		NodeList[i]->ChildrenOctreeNodes.SetNum(8);
+		bool Dividing = false;
+
+		for (int j = 0; j < 8; j++)
+		{
+			if (NodeList[i]->ChildrenOctreeNodes[j] == nullptr)
+			{
+				NodeList[i]->ChildrenOctreeNodes[j] = new OctreeNode(NodeList[i]->ChildrenNodeBounds[j], NodeList[i]);
+			}
+
+			if (AreAABBsIntersecting(NodeList[i]->ChildrenNodeBounds[j], ActorBox))
+			{
+				NodeList.Add(NodeList[i]->ChildrenOctreeNodes[j]);
+				Dividing = true;
+			}
+		}
+
+		if (!Dividing)
+		{
+			//Because I pass this function multiple times with every actor, it might have divided in previous cases but not now.
+			//In that case, I shouldn't be deleting the children.
+			bool DividedPreviously = false;
+			for (const auto Element : NodeList[i]->ChildrenOctreeNodes)
+			{
+				if (!Element->ChildrenOctreeNodes.IsEmpty())
+				{
+					DividedPreviously = true;
+				}
+			}
+
+			if (!DividedPreviously)
+			{
+				for (const auto Element : NodeList[i]->ChildrenOctreeNodes)
+				{
+					delete Element;
+				}
+				NodeList[i]->ChildrenOctreeNodes.Empty();
+				NodeList[i]->ChildrenNodeBounds.Empty();
+			}
+		}
+	}
+}
+
+void OctreeNode::DivideNodeRecursivelyAsyncWrapper(AActor* Actor, const float& MinSize)
+{
+	std::future<void> future = std::async(std::launch::async, &OctreeNode::DivideNodeRecursively, this, Actor, MinSize);
 }
 
 bool OctreeNode::AreAABBsIntersecting(const FBox& AABB1, const FBox& AABB2)
@@ -137,9 +210,4 @@ void OctreeNode::SetupChildrenBounds()
 	ChildrenNodeBounds[5] = FBox(FVector(Center.X, NodeBounds.Min.Y, Center.Z), FVector(NodeBounds.Max.X, Center.Y, NodeBounds.Max.Z));
 	ChildrenNodeBounds[6] = FBox(FVector(NodeBounds.Min.X, Center.Y, Center.Z), FVector(Center.X, NodeBounds.Max.Y, NodeBounds.Max.Z));
 	ChildrenNodeBounds[7] = FBox(FVector(Center.X, Center.Y, Center.Z), NodeBounds.Max);
-}
-
-bool OctreeNode::IsVectorInsideBox(const FVector& Point, const FBox& Box)
-{
-	return Box.IsInside(Point);
 }

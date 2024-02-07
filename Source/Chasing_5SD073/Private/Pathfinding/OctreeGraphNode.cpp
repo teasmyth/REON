@@ -9,7 +9,9 @@ OctreeGraphNode::OctreeGraphNode()
 {
 	LLM_SCOPE_BYTAG(OctreeGraphNode);
 	Bounds = FBox();
-	F = G = H = FLT_MAX;
+	F = FLT_MAX;
+	G = FLT_MAX;
+	H = FLT_MAX;
 	CameFrom = nullptr;
 	Neighbors.Empty();
 }
@@ -28,5 +30,6 @@ OctreeGraphNode::OctreeGraphNode(const FBox& Bounds)
 
 OctreeGraphNode::~OctreeGraphNode()
 {
-	Neighbors.Empty();
+	CameFrom = nullptr;
+	//Neighbors.Empty();
 }
