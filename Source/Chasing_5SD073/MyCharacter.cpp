@@ -86,6 +86,7 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 		//Move & Look
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &AMyCharacter::NoMovementInput);
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
 
 		//Sliding
@@ -137,7 +138,7 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 			GetFloatValue(AccelerationTimer);
 	}
 
-	if (StateMachine != nullptr && !StateMachine->IsCurrentStateNull())
+	if (StateMachine != nullptr)
 	{
 		StateMachine->OverrideAcceleration(GetCharacterMovement()->MaxWalkSpeed);
 	}
@@ -189,7 +190,7 @@ void AMyCharacter::MovementStateCheck()
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "Will trigger fall on landing");
 	}
-	if (StateMachine != nullptr)
+	if (StateMachine != nullptr )
 	{
 		if (GetCharacterMovement()->Velocity.Z != 0 && StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
 		{
@@ -217,7 +218,7 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 {
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
-	if (StateMachine != nullptr && !StateMachine->IsCurrentStateNull())
+	if (StateMachine != nullptr)
 	{
 		//If the current state has implemented override, it will override the movement vector. Otherwise it will return back the original vector.
 		StateMachine->OverrideMovementInput(MovementVector);
@@ -234,11 +235,20 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 	StateMachine->DetectStates();
 }
 
+void AMyCharacter::NoMovementInput()
+{
+	if (StateMachine != nullptr)
+	{
+		StateMachine->OverrideNoMovementInputEvent();
+	}
+}
+
+
 void AMyCharacter::Look(const FInputActionValue& Value)
 {
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
 
-	if (StateMachine != nullptr && !StateMachine->IsCurrentStateNull())
+	if (StateMachine != nullptr)
 	{
 		//If the current state has implemented override, it will override the movement vector. Otherwise it will return back the original vector.
 		StateMachine->OverrideCameraInput(LookAxisVector);
@@ -266,7 +276,7 @@ void AMyCharacter::LookBack()
 	}
 }
 
-//This executes once!
+//This (LookFront) executes once! That's why I have put an async function.
 void AMyCharacter::LookFront()
 {
 	FrontCam->Activate(true);
@@ -289,6 +299,7 @@ void AMyCharacter::TurnTimeBackAsync()
 	LookBackTimer = 0;
 	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1);
 }
+
 
 void AMyCharacter::Slide()
 {

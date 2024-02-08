@@ -115,6 +115,14 @@ void UCharacterStateMachine::OverrideMovementInput(FVector2d& NewMovementVector)
 	}
 }
 
+void UCharacterStateMachine::OverrideNoMovementInputEvent()
+{
+	if (CurrentState != nullptr)
+	{
+		CurrentState->OverrideNoMovementInputEvent(*this);
+	}
+}
+
 void UCharacterStateMachine::OverrideAcceleration(float& NewSpeed)
 {
 	if (CurrentState != nullptr)

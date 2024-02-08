@@ -78,7 +78,7 @@ void AOctree::MakeOctree(const FVector& Origin)
 	//UE_LOG(LogTemp, Warning, TEXT("Generating navigation graph took this many seconds: %lf"), FPlatformTime::Seconds() - StartTime);
 	StartTime = FPlatformTime::Seconds();
 	AdjustChildNodes(NewRootNode);
-	//UE_LOG(LogTemp, Warning, TEXT("Cleaning up uncessary nodes took this many seconds: %lf"), FPlatformTime::Seconds() - StartTime);
+	//UE_LOG(LogTemp, Warning, TEXT("Cleaning up unnecessary nodes took this many seconds: %lf"), FPlatformTime::Seconds() - StartTime);
 }
 
 void AOctree::AddObjects(TArray<FOverlapResult> FoundObjects, OctreeNode* RootN) const

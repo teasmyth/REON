@@ -89,7 +89,7 @@ protected:
 	void SetState(ECharacterState NewState) const;
 	void CameraJitter(float& WalkSpeed);
 	void TurnTimeBackAsync();
-
+	void NoMovementInput(); 
 	
 	//Jump event extension for blueprint.
 	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")

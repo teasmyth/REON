@@ -79,6 +79,10 @@ void UStateComponentBase::OverrideMovementInput(UCharacterStateMachine& SM, FVec
 {
 }
 
+void UStateComponentBase::OverrideNoMovementInputEvent(UCharacterStateMachine& SM)
+{
+}
+
 void UStateComponentBase::OverrideAcceleration(UCharacterStateMachine& SM, float& NewSpeed)
 {
 }

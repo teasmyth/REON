@@ -73,6 +73,7 @@ public:
 	void SetupStateMachine();
 
 	void OverrideMovementInput(FVector2d& NewMovementVector);
+	void OverrideNoMovementInputEvent();
 	void OverrideAcceleration(float& NewSpeed);
 	void OverrideCameraInput(FVector2d& NewRotationVector);
 	void OverrideDebug() const;

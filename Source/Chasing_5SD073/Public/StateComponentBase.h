@@ -72,6 +72,8 @@ public:
 	virtual void OnExitState(UCharacterStateMachine& SM);
 
 	virtual void OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector);
+	
+	virtual void OverrideNoMovementInputEvent(UCharacterStateMachine& SM);
 
 	virtual void OverrideAcceleration(UCharacterStateMachine& SM, float& NewSpeed);
 

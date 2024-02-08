@@ -30,6 +30,7 @@ public:
 	virtual void OnExitState(UCharacterStateMachine& SM) override;
 
 	virtual void OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector) override;
+	virtual void OverrideNoMovementInputEvent(UCharacterStateMachine& SM) override;
 	virtual void OverrideDebug() override;
 	virtual void OverrideDetectState(UCharacterStateMachine& SM) override;
 

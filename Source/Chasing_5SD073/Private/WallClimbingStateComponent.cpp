@@ -10,7 +10,7 @@ UWallClimbingStateComponent::UWallClimbingStateComponent()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 
 	// ...
 }
@@ -28,10 +28,6 @@ void UWallClimbingStateComponent::BeginPlay()
 void UWallClimbingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	//DetectWallClimb();
-	//if (PlayerMovement->IsMovingOnGround()) PrevResult = EmptyResult;
-	// ...
 }
 
 bool UWallClimbingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
@@ -44,7 +40,7 @@ void UWallClimbingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	Super::OnEnterState(SM);
 	PlayerCharacter->bUseControllerRotationYaw = false;
 	InternalTimer = 0;
-	PlayerMovement->Velocity = FVector(0, 0, PlayerMovement->Velocity.Z / 4);
+	PlayerMovement->Velocity = FVector(0, 0, PlayerMovement->Velocity.Z / 4.0f);
 	PlayerMovement->UpdateComponentVelocity();
 	PlayerCharacter->SetActorRotation((-HitResult.Normal).Rotation());
 }
@@ -72,16 +68,18 @@ void UWallClimbingStateComponent::OnExitState(UCharacterStateMachine& SM)
 void UWallClimbingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
 {
 	Super::OverrideMovementInput(SM, NewMovementVector);
-	
-	if (NewMovementVector.Y <= 0)
-	{
-		SM.ManualExitState();
-	}
 
 	const float CurrentSpeed = WallClimbSpeed * GetWorld()->GetDeltaSeconds();
 	const float VerticalMovement = CurrentSpeed * (InternalTimer / MaxWallClimbDuration);
 	PlayerCharacter->SetActorLocation(PlayerCharacter->GetActorLocation() + FVector(0.0f, 0.0f, VerticalMovement), true);
 	NewMovementVector = FVector2d::ZeroVector;
+}
+
+void UWallClimbingStateComponent::OverrideNoMovementInputEvent(UCharacterStateMachine& SM)
+{
+	Super::OverrideNoMovementInputEvent(SM);
+
+	SM.ManualExitState();
 }
 
 
