@@ -53,9 +53,7 @@ public:
 	void AddObjects(TArray<FOverlapResult> FoundObjects, OctreeNode* RootN) const;
 	void GetEmptyNodes(OctreeNode* Node);
 	static void AdjustChildNodes(OctreeNode* Node);
-	void ConnectNodes() const;
-	static bool DoNodesShareFace(const OctreeGraphNode* Node1, const OctreeGraphNode* Node2, float Tolerance);
-
+	
 	UFUNCTION(BlueprintCallable, Category="Octree")
 	bool GetAStarPath(const FVector& Start, const FVector& End, FVector& NextLocation) const;
 

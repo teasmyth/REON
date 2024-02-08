@@ -35,8 +35,6 @@ void OctreeGraph::AddRootNode(OctreeNode* Node)
 
 void OctreeGraph::ConnectNodes()
 {
-	const float Tolerance = 0.01f;
-
 	const TArray<FVector> Directions
 	{
 		FVector(1, 0, 0),
@@ -51,51 +49,16 @@ void OctreeGraph::ConnectNodes()
 	{
 		for (auto Direction : Directions)
 		{
-			const FVector NeighborDir = (Direction * Node->Bounds.GetSize().X / 2.0f) * 1.01f; //x1.01 so it is just inside the other cube
-			const FVector NeighborLocation = Node->Bounds.GetCenter() + NeighborDir;
+			const FVector NeighborLocation = Node->Bounds.GetCenter() + Direction * Node->Bounds.GetSize().X;
 			OctreeGraphNode* PotentialNeighbor = FindGraphNode(NeighborLocation);
 
-			if (PotentialNeighbor != nullptr && !Node->Neighbors.Contains(PotentialNeighbor) && Node->Bounds.Intersect(PotentialNeighbor->Bounds)) //&& DoNodesShareFace(Node, PotentialNeighbor, Tolerance))
+			if (PotentialNeighbor != nullptr && !Node->Neighbors.Contains(PotentialNeighbor) && Node->Bounds.Intersect(PotentialNeighbor->Bounds))
 			{
 				Node->Neighbors.Add(PotentialNeighbor);
 				PotentialNeighbor->Neighbors.Add(Node);
-				//continue;
 			}
 		}
 	}
-}
-
-bool OctreeGraph::DoNodesShareFace(const OctreeGraphNode* Node1, const OctreeGraphNode* Node2, const float Tolerance)
-{
-	//In general, I am trying to nodes that share a face, no corners or edges. Even though the flying object could fly that way, it does not ensure that
-	//it can 'slip' through that, wheres, due to the MinSize, a face-to-face movements will always ensure movement.
-	//Additionally, regardless of checking corners/edges or not, the path smoothing at the end will provide the diagonal movement.
-	//Therefore I save bunch of unnecessary checking in AStar or ConnectNode() that would have been cleaned up anyway.
-
-	const FBox& Box1 = Node1->Bounds;
-	const FBox& Box2 = Node2->Bounds;
-
-	// Check if the X faces are overlapping or adjacent
-	const bool ShareXFace = FMath::Abs(Box1.Max.X - Box2.Min.X) <= Tolerance || FMath::Abs(Box1.Min.X - Box2.Max.X) <= Tolerance;
-
-	// Check if the Y faces are overlapping or adjacent
-	const bool ShareYFace = FMath::Abs(Box1.Max.Y - Box2.Min.Y) <= Tolerance || FMath::Abs(Box1.Min.Y - Box2.Max.Y) <= Tolerance;
-
-	// Check if the Z faces are overlapping or adjacent
-	const bool ShareZFace = FMath::Abs(Box1.Max.Z - Box2.Min.Z) <= Tolerance || FMath::Abs(Box1.Min.Z - Box2.Max.Z) <= Tolerance;
-
-
-	if ((ShareXFace && !ShareYFace && !ShareZFace) || (!ShareXFace && ShareYFace && !ShareZFace) || (!ShareXFace && !ShareYFace && ShareZFace))
-	{
-	/*
-		if (FVector::Dist(Box1.GetCenter(), Box2.GetCenter()) <= Box1.GetSize().X)
-		{
-			return true;
-		}
-		*/
-		return true;
-	}
-	return false;
 }
 
 bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, TArray<FVector>& OutPathList)
@@ -155,7 +118,7 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 			if (Neighbor->G <= TentativeG) continue;
 
 			Neighbor->G = TentativeG;
-			Neighbor->H = ManhattanDistance(Neighbor, End);
+			Neighbor->H = ManhattanDistance(Neighbor, End); // Can do weighted to increase performance * 2 ;
 			Neighbor->F = Neighbor->G + Neighbor->H;
 
 			Neighbor->CameFrom = CurrentNode;
@@ -173,9 +136,6 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 
 void OctreeGraph::ReconstructPath(const OctreeGraphNode* Start, const OctreeGraphNode* End, TArray<FVector>& OutPathList)
 {
-	OutPathList.Empty();
-	OutPathList.Add(End->Bounds.GetCenter());
-
 	//Because I am using NodeBounds Center, adding those to the list might not ensure a smooth path.
 	//For example, if a tiny node is a neighbor of a big one, the between them will be diagonal, which actually might not be free.
 	//Thus, I am adding 'buffer' FVectors to ensure smooth path.
@@ -185,14 +145,74 @@ void OctreeGraph::ReconstructPath(const OctreeGraphNode* Start, const OctreeGrap
 		return;
 	}
 
+	OutPathList.Empty();
+	OutPathList.Add(End->Bounds.GetCenter());
+
+	const TArray<FVector> Directions
+	{
+		FVector(1, 0, 0),
+		FVector(-1, 0, 0),
+		FVector(0, 1, 0),
+		FVector(0, -1, 0),
+		FVector(0, 0, 1),
+		FVector(0, 0, -1)
+	};
+
+
 	const OctreeGraphNode* CameFrom = End->CameFrom;
+	const OctreeGraphNode* Previous = End;
+
 	while (CameFrom != nullptr && CameFrom != Start)
 	{
+		if (Previous->Bounds.GetSize().X < CameFrom->Bounds.GetSize().X)
+		{
+			const FVector BufferVector = Previous->Bounds.GetCenter() + DirectionTowardsSharedFace(Previous, CameFrom) * Previous->Bounds.GetSize().X;
+			OutPathList.Insert(BufferVector, 0);
+		}
+		else if (Previous->Bounds.GetSize().X > CameFrom->Bounds.GetSize().X)
+		{
+			const FVector BufferVector = CameFrom->Bounds.GetCenter() + DirectionTowardsSharedFace(CameFrom, Previous) * CameFrom->Bounds.GetSize().X;
+			OutPathList.Insert(BufferVector, 0);
+		}
 		OutPathList.Insert(CameFrom->Bounds.GetCenter(), 0);
+		Previous = CameFrom;
 		CameFrom = CameFrom->CameFrom;
 	}
 
 	//OutPathList.Insert(Start->Bounds.GetCenter(), 0);
+}
+
+FVector OctreeGraph::DirectionTowardsSharedFace(const OctreeGraphNode* SmallerNode, const OctreeGraphNode* BiggerNode)
+{
+	// Calculate the center of the smaller box
+	const FVector SmallerCenter = SmallerNode->Bounds.GetCenter();
+
+	// Calculate the center of the larger box
+	const FVector LargerCenter = BiggerNode->Bounds.GetCenter();
+
+	// Calculate the difference vector between the centers of the two boxes
+	const FVector Delta = LargerCenter - SmallerCenter;
+
+	// Find the axis with the maximum absolute component in the difference vector
+	int MaxAxis = 0;
+	
+	float MaxComponent = FMath::Abs(Delta.X);
+	
+	if (FMath::Abs(Delta.Y) > MaxComponent)
+	{
+		MaxAxis = 1;
+		MaxComponent = FMath::Abs(Delta.Y);
+	}
+	if (FMath::Abs(Delta.Z) > MaxComponent)
+	{
+		MaxAxis = 2;
+	}
+
+	// Construct the direction vector towards the shared face
+	FVector Direction(0.0f);
+	Direction[MaxAxis] = (Delta[MaxAxis] > 0) ? 1.0f : -1.0f;
+
+	return Direction;
 }
 
 float OctreeGraph::ManhattanDistance(const OctreeGraphNode* From, const OctreeGraphNode* To)

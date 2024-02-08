@@ -169,11 +169,6 @@ void OctreeNode::DivideNode(AActor* Actor, const float& MinSize)
 	}
 }
 
-void OctreeNode::DivideNodeRecursivelyAsyncWrapper(AActor* Actor, const float& MinSize)
-{
-	std::future<void> future = std::async(std::launch::async, &OctreeNode::DivideNodeRecursively, this, Actor, MinSize);
-}
-
 bool OctreeNode::AreAABBsIntersecting(const FBox& AABB1, const FBox& AABB2)
 {
 	// Check for overlap along the X-axis
