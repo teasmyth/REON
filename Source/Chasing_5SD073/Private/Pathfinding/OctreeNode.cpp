@@ -44,69 +44,6 @@ OctreeNode::~OctreeNode()
 	ContainedActors.Empty();
 }
 
-void OctreeNode::DivideNodeRecursively(AActor* Actor, const float& MinSize)
-{
-	const FBox ActorBox = Actor->GetComponentsBoundingBox();
-
-	if (NodeBounds.GetSize().Y <= MinSize)
-	{
-		if (AreAABBsIntersecting(NodeBounds, ActorBox))
-		{
-			ContainedActors.Add(Actor);
-		}
-		return;
-	}
-
-	/*
-	if (IsBoxInside(NodeBounds, ActorBox))
-	{
-		ContainedActors.Add(Actor);
-		return;
-	}
-	*/
-
-	SetupChildrenBounds();
-	ChildrenOctreeNodes.SetNum(8);
-	bool Dividing = false;
-
-	for (int i = 0; i < 8; i++)
-	{
-		if (ChildrenOctreeNodes[i] == nullptr)
-		{
-			ChildrenOctreeNodes[i] = new OctreeNode(ChildrenNodeBounds[i], this);
-		}
-
-		if (AreAABBsIntersecting(ChildrenNodeBounds[i], ActorBox))
-		{
-			Dividing = true;
-
-			ChildrenOctreeNodes[i]->DivideNodeRecursively(Actor, MinSize);
-		}
-	}
-
-	if (!Dividing)
-	{
-		bool DividedPreviously = false;
-		for (const auto Element : ChildrenOctreeNodes)
-		{
-			if (!Element->ChildrenOctreeNodes.IsEmpty())
-			{
-				DividedPreviously = true;
-			}
-		}
-
-		if (!DividedPreviously)
-		{
-			for (const auto Element : ChildrenOctreeNodes)
-			{
-				delete Element;
-			}
-			ChildrenOctreeNodes.Empty();
-			ChildrenNodeBounds.Empty();
-		}
-	}
-}
-
 void OctreeNode::DivideNode(AActor* Actor, const float& MinSize)
 {
 	const FBox ActorBox = Actor->GetComponentsBoundingBox();
@@ -118,7 +55,7 @@ void OctreeNode::DivideNode(AActor* Actor, const float& MinSize)
 	{
 		if (NodeList[i]->NodeBounds.GetSize().Y <= MinSize)
 		{
-			if (AreAABBsIntersecting(NodeBounds, ActorBox))
+			if (NodeList[i]->NodeBounds.Intersect(ActorBox))
 			{
 				NodeList[i]->ContainedActors.Add(Actor);
 			}
@@ -136,7 +73,8 @@ void OctreeNode::DivideNode(AActor* Actor, const float& MinSize)
 				NodeList[i]->ChildrenOctreeNodes[j] = new OctreeNode(NodeList[i]->ChildrenNodeBounds[j], NodeList[i]);
 			}
 
-			if (AreAABBsIntersecting(NodeList[i]->ChildrenNodeBounds[j], ActorBox))
+
+			if (NodeList[i]->ChildrenNodeBounds[j].Intersect(ActorBox))
 			{
 				NodeList.Add(NodeList[i]->ChildrenOctreeNodes[j]);
 				Dividing = true;
@@ -167,27 +105,6 @@ void OctreeNode::DivideNode(AActor* Actor, const float& MinSize)
 			}
 		}
 	}
-}
-
-bool OctreeNode::AreAABBsIntersecting(const FBox& AABB1, const FBox& AABB2)
-{
-	// Check for overlap along the X-axis
-	const bool OverlapX = AABB1.Min.X <= AABB2.Max.X && AABB1.Max.X >= AABB2.Min.X;
-
-	// Check for overlap along the Y-axis
-	const bool OverlapY = AABB1.Min.Y <= AABB2.Max.Y && AABB1.Max.Y >= AABB2.Min.Y;
-
-	// Check for overlap along the Z-axis
-	const bool OverlapZ = AABB1.Min.Z <= AABB2.Max.Z && AABB1.Max.Z >= AABB2.Min.Z;
-
-	// If there's overlap along all three axes, the AABBs intersect
-	return OverlapX && OverlapY && OverlapZ;
-}
-
-bool OctreeNode::IsBoxInside(const FBox& SmallBox, const FBox& BigBox)
-{
-	return SmallBox.Min.X >= BigBox.Min.X && SmallBox.Min.Y >= BigBox.Min.Y && SmallBox.Min.Z >= BigBox.Min.Z &&
-		SmallBox.Max.X <= BigBox.Max.X && SmallBox.Max.Y <= BigBox.Max.Y && SmallBox.Max.Z <= BigBox.Max.Z;
 }
 
 void OctreeNode::SetupChildrenBounds()

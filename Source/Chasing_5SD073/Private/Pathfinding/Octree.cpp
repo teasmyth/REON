@@ -31,7 +31,7 @@ void AOctree::BeginPlay()
 	const double StartTime = FPlatformTime::Seconds();
 	NavigationGraph->ConnectNodes();
 	//UE_LOG(LogTemp, Warning, TEXT("Connecting neighboring graph nodes took this many seconds: %lf"), FPlatformTime::Seconds() - StartTime);
-	//UE_LOG(LogTemp, Warning, TEXT("Total Nodes: %i"), NavigationGraph->Nodes.Num());
+	UE_LOG(LogTemp, Warning, TEXT("Total Nodes: %i"), NavigationGraph->Nodes.Num());
 	IsSetup = true;
 }
 

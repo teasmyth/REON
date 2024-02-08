@@ -16,7 +16,7 @@ public:
 	OctreeNode();
 	~OctreeNode();
 
-	TArray<AActor*> ContainedActors;
+	TArray<AActor*> ContainedActors; //could be just bool tbh
 	OctreeNode* Parent;
 	TArray<OctreeNode*> ChildrenOctreeNodes;
 	OctreeGraphNode* GraphNode;
@@ -24,10 +24,7 @@ public:
 	FBox NodeBounds;
 	TArray<FBox> ChildrenNodeBounds;
 
-	void DivideNodeRecursively(AActor* Actor, const float& MinSize);
 	void DivideNode(AActor* Actor, const float& MinSize);
-	static bool AreAABBsIntersecting(const FBox& AABB1, const FBox& AABB2);
-	static bool IsBoxInside(const FBox& SmallBox, const FBox& BigBox);
 	void SetupChildrenBounds();
 
 };
