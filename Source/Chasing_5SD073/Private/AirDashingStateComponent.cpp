@@ -42,6 +42,8 @@ void UAirDashingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	InitialForwardVector = PlayerCharacter->GetFirstPersonCameraComponent()->GetComponentRotation().Vector();
 	const float Speed = PlayerCharacter->GetHorizontalVelocity();
 	PlayerMovement->Velocity = FVector(InitialForwardVector.X * Speed, InitialForwardVector.Y * Speed, PlayerMovement->Velocity.Z);
+	
+	HorizontalVelocity = PlayerCharacter->GetHorizontalVelocity();
 }
 
 void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
@@ -60,13 +62,24 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 void UAirDashingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
 	Super::OnExitState(SM);
-}
 
+	if (IsHoldingW)
+	{
+		const auto Forward = PlayerCharacter->GetFirstPersonCameraComponent()->GetForwardVector();
+		PlayerMovement->AddImpulse(Forward * HorizontalVelocity, true);
+		IsHoldingW = false;
+	}
+	
+}
 
 void UAirDashingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
 {
 	Super::OverrideMovementInput(SM, NewMovementVector);
 	//This prevents any player inputs doing air dash.
+
+	if (NewMovementVector.Y > 0) IsHoldingW = true;
+	else IsHoldingW = false;
+	
 	NewMovementVector = FVector2d::ZeroVector;
 }
 

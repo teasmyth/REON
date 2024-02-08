@@ -43,4 +43,7 @@ private:
 	//Internal
 	FVector InitialForwardVector;
 	double InternalTimer;
+
+	bool IsHoldingW = false;
+	float HorizontalVelocity = 0.0f;
 };

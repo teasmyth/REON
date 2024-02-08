@@ -38,6 +38,8 @@ bool USlidingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM
 	return false;
 }
 
+
+
 void USlidingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
 	Super::OnEnterState(SM);
@@ -53,6 +55,8 @@ void USlidingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	FVector CamLoc = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation();
 	CamLoc.Z = CameraReducedHeight;
 	PlayerCharacter->GetFirstPersonCameraComponent()->SetRelativeLocation(CamLoc);
+
+	PlayerCapsule->SetCapsuleSize(55.0f, 55.0f); //todo remove hard code.
 }
 
 void USlidingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
