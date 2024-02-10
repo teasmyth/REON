@@ -20,6 +20,8 @@ public:
 
 	FBox Bounds;
 	TArray<OctreeGraphNode*> Neighbors;
+	TArray<OctreeGraphNode*> Children;
 	OctreeGraphNode* CameFrom;
+	
 	float F,G,H;
 };

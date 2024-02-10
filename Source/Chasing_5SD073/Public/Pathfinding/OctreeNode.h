@@ -16,15 +16,19 @@ public:
 	OctreeNode();
 	~OctreeNode();
 
-	TArray<AActor*> ContainedActors; //could be just bool tbh
+	bool Occupied = false;
+	//TArray<AActor*> ContainedActors; //This should be the approach if we have moving obstacles.
 	OctreeNode* Parent;
 	TArray<OctreeNode*> ChildrenOctreeNodes;
 	OctreeGraphNode* GraphNode;
+	OctreeNode* CameFrom;
 
 	FBox NodeBounds;
 	TArray<FBox> ChildrenNodeBounds;
 
-	void DivideNode(AActor* Actor, const float& MinSize);
+	float F,G,H;
+
+	void DivideNode(const AActor* Actor, const float& MinSize);
 	void SetupChildrenBounds();
 
 };

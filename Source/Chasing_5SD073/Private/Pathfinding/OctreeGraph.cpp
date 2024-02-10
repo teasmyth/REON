@@ -61,6 +61,8 @@ void OctreeGraph::ConnectNodes()
 	}
 }
 
+static float ExtraHWeight = 2.0f;
+
 bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, TArray<FVector>& OutPathList)
 {
 	OctreeGraphNode* Start = FindGraphNode(StartLocation);
@@ -78,7 +80,7 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 	TArray<OctreeGraphNode*> ClosedList;
 
 	Start->G = 0;
-	Start->H = ManhattanDistance(Start, End);
+	Start->H = ManhattanDistance(Start, End) * ExtraHWeight;
 	Start->F = Start->H;
 
 	OpenSet.push(Start);
@@ -118,7 +120,7 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 			if (Neighbor->G <= TentativeG) continue;
 
 			Neighbor->G = TentativeG;
-			Neighbor->H = ManhattanDistance(Neighbor, End); // Can do weighted to increase performance * 2 ;
+			Neighbor->H = ManhattanDistance(Neighbor, End) * ExtraHWeight; // Can do weighted to increase performance * 2 ;
 			Neighbor->F = Neighbor->G + Neighbor->H;
 
 			Neighbor->CameFrom = CurrentNode;
@@ -139,6 +141,7 @@ void OctreeGraph::ReconstructPath(const OctreeGraphNode* Start, const OctreeGrap
 	//Because I am using NodeBounds Center, adding those to the list might not ensure a smooth path.
 	//For example, if a tiny node is a neighbor of a big one, the between them will be diagonal, which actually might not be free.
 	//Thus, I am adding 'buffer' FVectors to ensure smooth path.
+	//However, the physics based smoothing is done in Octree
 
 	if (Start == End)
 	{
@@ -164,40 +167,45 @@ void OctreeGraph::ReconstructPath(const OctreeGraphNode* Start, const OctreeGrap
 
 	while (CameFrom != nullptr && CameFrom != Start)
 	{
-		if (Previous->Bounds.GetSize().X < CameFrom->Bounds.GetSize().X)
+		if (Previous->Bounds.GetSize().X != CameFrom->Bounds.GetSize().X)
 		{
-			const FVector BufferVector = Previous->Bounds.GetCenter() + DirectionTowardsSharedFace(Previous, CameFrom) * Previous->Bounds.GetSize().X;
+			const FVector BufferVector = DirectionTowardsSharedFaceFromSmallerNode(Previous, CameFrom);
 			OutPathList.Insert(BufferVector, 0);
 		}
-		else if (Previous->Bounds.GetSize().X > CameFrom->Bounds.GetSize().X)
-		{
-			const FVector BufferVector = CameFrom->Bounds.GetCenter() + DirectionTowardsSharedFace(CameFrom, Previous) * CameFrom->Bounds.GetSize().X;
-			OutPathList.Insert(BufferVector, 0);
-		}
+		
 		OutPathList.Insert(CameFrom->Bounds.GetCenter(), 0);
 		Previous = CameFrom;
 		CameFrom = CameFrom->CameFrom;
 	}
-
-	//OutPathList.Insert(Start->Bounds.GetCenter(), 0);
 }
 
-FVector OctreeGraph::DirectionTowardsSharedFace(const OctreeGraphNode* SmallerNode, const OctreeGraphNode* BiggerNode)
+FVector OctreeGraph::DirectionTowardsSharedFaceFromSmallerNode(const OctreeGraphNode* Node1, const OctreeGraphNode* Node2)
 {
-	// Calculate the center of the smaller box
-	const FVector SmallerCenter = SmallerNode->Bounds.GetCenter();
+	FBox SmallBounds;
+	FVector SmallerCenter;
+	FVector LargerCenter;
 
-	// Calculate the center of the larger box
-	const FVector LargerCenter = BiggerNode->Bounds.GetCenter();
-
+	if (Node1->Bounds.GetSize().X < Node2->Bounds.GetSize().X)
+	{
+		SmallBounds = Node1->Bounds;
+		SmallerCenter = Node1->Bounds.GetCenter();
+		LargerCenter = Node2->Bounds.GetCenter();
+	}
+	else if (Node2->Bounds.GetSize().X < Node1->Bounds.GetSize().X)
+	{
+		SmallBounds = Node2->Bounds;
+		SmallerCenter = Node2->Bounds.GetCenter();
+		LargerCenter = Node1->Bounds.GetCenter();
+	}
+	
 	// Calculate the difference vector between the centers of the two boxes
 	const FVector Delta = LargerCenter - SmallerCenter;
 
 	// Find the axis with the maximum absolute component in the difference vector
 	int MaxAxis = 0;
-	
+
 	float MaxComponent = FMath::Abs(Delta.X);
-	
+
 	if (FMath::Abs(Delta.Y) > MaxComponent)
 	{
 		MaxAxis = 1;
@@ -212,7 +220,7 @@ FVector OctreeGraph::DirectionTowardsSharedFace(const OctreeGraphNode* SmallerNo
 	FVector Direction(0.0f);
 	Direction[MaxAxis] = (Delta[MaxAxis] > 0) ? 1.0f : -1.0f;
 
-	return Direction;
+	return SmallerCenter + Direction * SmallBounds.GetSize().X;
 }
 
 float OctreeGraph::ManhattanDistance(const OctreeGraphNode* From, const OctreeGraphNode* To)
@@ -260,7 +268,7 @@ OctreeGraphNode* OctreeGraph::FindGraphNode(const FVector& Location)
 		CurrentNode = Closest;
 	}
 
-	if (CurrentNode != nullptr)
+	if (CurrentNode != nullptr )//&& CurrentNode->NodeBounds.IsInside(Location))
 	{
 		return CurrentNode->GraphNode;
 	}

@@ -165,7 +165,6 @@ void AMyCharacter::MovementStateCheck()
 			Falling = false;
 			GetCharacterMovement()->Velocity = FVector::ZeroVector;
 			PlayerFellEvent();
-
 		}
 		else if (CurrentMovementState != EMovementState::Idle && GetHorizontalVelocity() <= 1)
 		{
@@ -190,7 +189,7 @@ void AMyCharacter::MovementStateCheck()
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "Will trigger fall on landing");
 	}
-	if (StateMachine != nullptr )
+	if (StateMachine != nullptr)
 	{
 		if (GetCharacterMovement()->Velocity.Z != 0 && StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
 		{
@@ -232,6 +231,8 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 		AddMovementInput(GetActorRightVector(), MovementVector.X);
 	}
 
+	PreviousMovementVector = MovementVector;
+
 	StateMachine->DetectStates();
 }
 
@@ -240,6 +241,33 @@ void AMyCharacter::NoMovementInput()
 	if (StateMachine != nullptr)
 	{
 		StateMachine->OverrideNoMovementInputEvent();
+	}
+
+
+	if (GetCharacterMovement()->IsMovingOnGround() && PreviousMovementVector.Y > 0)
+	{
+		if (Controller != nullptr)
+		{
+			//TODO
+			AddMovementInput(GetActorForwardVector(), 1);
+			PreviousMovementVector = FVector2d::ZeroVector;
+			//auto TurnTimeToNormalAsync = Async(EAsyncExecution::Thread, [&]() { PostMovementExtraInputAsync(); });
+		}
+	}
+}
+
+void AMyCharacter::PostMovementExtraInputAsync()
+{
+	const float AdditionalTime = 2.0f;
+	float ExtraTimer = 0.01f;
+	UWorld* World = GetWorld();
+	
+	while (ExtraTimer <= AdditionalTime && PreviousMovementVector == FVector2d::ZeroVector)
+	{
+		AddMovementInput(GetActorForwardVector(), 1 - ExtraTimer / AdditionalTime);
+		const float PassedTime = World->GetDeltaSeconds();
+		ExtraTimer += PassedTime;
+		FPlatformProcess::Sleep(PassedTime);
 	}
 }
 
@@ -287,9 +315,8 @@ void AMyCharacter::LookFront()
 
 void AMyCharacter::TurnTimeBackAsync()
 {
-	while (LookBackTimer >= 0 && GetWorld())
+	while (LookBackTimer >= 0)
 	{
-		UE_LOG(LogTemp, Display, TEXT("Bruh %f"), LookBackTimeScale->FloatCurve.GetLastKey().Time);
 		const float TimeDilation = LookBackTimeScale->GetFloatValue(LookBackTimer);
 		UGameplayStatics::SetGlobalTimeDilation(GetWorld(), TimeDilation);
 		LookBackTimer -= GetWorld()->GetDeltaSeconds();
@@ -299,6 +326,8 @@ void AMyCharacter::TurnTimeBackAsync()
 	LookBackTimer = 0;
 	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1);
 }
+
+
 
 
 void AMyCharacter::Slide()

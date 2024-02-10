@@ -89,6 +89,7 @@ protected:
 	void SetState(ECharacterState NewState) const;
 	void CameraJitter(float& WalkSpeed);
 	void TurnTimeBackAsync();
+	void PostMovementExtraInputAsync();
 	void NoMovementInput(); 
 	
 	//Jump event extension for blueprint.
@@ -211,4 +212,6 @@ private: //For mechanics
 	bool TouchedGroundOrWall;
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	bool Falling;
+
+	FVector2d PreviousMovementVector;
 };
