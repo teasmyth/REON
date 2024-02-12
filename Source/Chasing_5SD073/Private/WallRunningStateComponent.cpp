@@ -11,9 +11,9 @@ UWallRunningStateComponent::UWallRunningStateComponent()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.bStartWithTickEnabled = true;
-	UActorComponent::SetComponentTickEnabled(true);
+	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bStartWithTickEnabled = false;
+	UActorComponent::SetComponentTickEnabled(false);
 
 
 	// ...
@@ -55,6 +55,7 @@ void UWallRunningStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	Super::OnEnterState(SM);
 	PlayerCharacter->bUseControllerRotationYaw = false;
 	GravityTimer = 0;
+	WallRunTimer = 0.0f;
 	InternalGravityScale = 0;
 	PlayerMovement->Velocity.Z = 0;
 	RotatePlayerAlongsideWall(HitResult);
@@ -68,6 +69,12 @@ void UWallRunningStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 	const FVector GravityForce = FVector(0, 0, -PlayerMovement->Mass * 980) * WallRunGravityCurve->GetFloatValue(GravityTimer);
 
 	PlayerMovement->AddForce(CounterGravityForce + GravityForce);
+	WallRunTimer += GetWorld()->GetDeltaSeconds();
+
+	if (WallRunTimer >= MaxWallRunDuration)
+	{
+		SM.ManualExitState();
+	}
 }
 
 void UWallRunningStateComponent::OnExitState(UCharacterStateMachine& SM)

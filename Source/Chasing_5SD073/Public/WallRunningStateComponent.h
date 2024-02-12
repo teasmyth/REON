@@ -60,6 +60,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Settings", meta = (ClampMin = 0))
 	float MinimumDistanceFromGround = 0;
+
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
+	float MaxWallRunDuration = 0;
 	
 	//Internal
 	EWallOrientation WallOrientation = None;
@@ -68,5 +71,6 @@ private:
 	FHitResult EmptyResult; 
 	float GravityTimer;
 	float TriggerTimer;
+	float WallRunTimer;
 	float InternalGravityScale;
 };
