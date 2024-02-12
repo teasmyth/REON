@@ -36,6 +36,9 @@ public:
 	bool DetectGround() const;
 
 private:
+	bool SweepSingle(FVector& Start, FVector& End) const;
+
+private:
 	UPROPERTY(EditAnywhere, Category= "Settings",
 		meta = (Tooltip = "This does not represent the max time of the slide. The numbers represent the max speed of the player."))
 	UCurveFloat* SlideSpeedCurve;
@@ -60,4 +63,6 @@ private:
 	float InternalTimer = 0;
 	float CameraFullHeight = 0;
 	float CameraReducedHeight = 0;
+
+	bool IsCapsuleShrunk = false;
 };

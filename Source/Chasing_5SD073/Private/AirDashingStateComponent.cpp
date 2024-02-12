@@ -62,14 +62,13 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 void UAirDashingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
 	Super::OnExitState(SM);
-
-	if (IsHoldingW)
+	
+	if (IsHoldingW && PlayerMovement->IsMovingOnGround())
 	{
-		const auto Forward = PlayerCharacter->GetFirstPersonCameraComponent()->GetForwardVector();
+		const auto Forward = PlayerCapsule->GetForwardVector();
 		PlayerMovement->AddImpulse(Forward * HorizontalVelocity, true);
 		IsHoldingW = false;
 	}
-	
 }
 
 void UAirDashingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)

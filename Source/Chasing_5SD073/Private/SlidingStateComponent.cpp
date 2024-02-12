@@ -10,7 +10,7 @@ USlidingStateComponent::USlidingStateComponent()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
 
 	// ...
 }
@@ -22,11 +22,27 @@ void USlidingStateComponent::BeginPlay()
 	Super::BeginPlay();
 }
 
-
 // Called every frame
 void USlidingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	
+	if (IsCapsuleShrunk == true)
+	{
+		FVector SweepStart = PlayerCapsule->GetComponentLocation() + FVector::UpVector * 50.0f;
+		FVector SweepEnd = SweepStart + FVector::UpVector * 10.0f;
+		
+		if (SweepSingle(SweepStart, SweepEnd))
+		{
+			UE_LOG(LogTemp, Display, TEXT("Stuck"));
+			return;
+		}
+
+		UE_LOG(LogTemp, Display, TEXT("Un Stuck"));
+		
+		PlayerCapsule->SetCapsuleSize(55.0f, 96.0f); //todo remove hard code.
+		IsCapsuleShrunk = false;
+	}
 }
 
 bool USlidingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
@@ -73,7 +89,14 @@ void USlidingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 void USlidingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
 	Super::OnExitState(SM);
-	PlayerCapsule->SetCapsuleSize(55.0f, 96.0f); //todo remove hard code.
+	if (!LineTraceSingle(PlayerCapsule->GetComponentLocation(), PlayerCapsule->GetComponentLocation() * GetOwner()->GetActorUpVector() * 100))
+	{
+		PlayerCapsule->SetCapsuleSize(55.0f, 96.0f); //todo remove hard code.
+	}
+	else
+	{
+		IsCapsuleShrunk = true;
+	}
 
 	FVector CamLoc = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation();
 	CamLoc.Z = CameraFullHeight;
@@ -114,6 +137,25 @@ bool USlidingStateComponent::DetectGround() const
 	const FVector Start = GetOwner()->GetActorLocation();
 	const float FallingMultiplier = PlayerMovement->Velocity.Z < -PlayerCharacter->GetMaxRunningSpeed() ? FMath::Abs(PlayerMovement->Velocity.Z) / PlayerCharacter->GetMaxRunningSpeed() : 1;
 	return LineTraceSingle(Start, Start - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance * FallingMultiplier);
+}
+
+bool USlidingStateComponent::SweepSingle(FVector& Start, FVector& End) const
+{
+	FHitResult HitR;
+	FHitResult HitR2;
+	const FVector Offset = FVector(0,0, -PlayerCapsule->GetScaledCapsuleHalfHeight());
+	const auto LineStart = PlayerCharacter->GetActorLocation() + Offset;
+	const auto LineEnd = PlayerCharacter->GetActorLocation() - GetOwner()->GetActorUpVector() * 50.f + Offset;
+	LineTraceSingle(HitR2, LineStart, LineEnd);
+	DrawDebugLine(GetWorld(), LineStart, LineEnd, FColor::Green, false, 0, 0, 3);
+	FCollisionQueryParams CollisionParams;
+	
+	CollisionParams.AddIgnoredActor(GetOwner());
+	//CollisionParams.AddIgnoredActor(HitR2.GetActor());
+	
+	const FCollisionShape CollisionShape = FCollisionShape::MakeCapsule(55.0f, 96.0f);
+	DrawDebugCapsule(GetWorld(), Start, 55.0f, 96.0f, FQuat::Identity, FColor::Green, false, 0, 0, 3);
+	return GetWorld()->SweepSingleByChannel(HitR, Start, End, FQuat::Identity, ECC_Visibility, CollisionShape, CollisionParams);
 }
 
 void USlidingStateComponent::OverrideDebug()
