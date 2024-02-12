@@ -89,9 +89,9 @@ protected:
 	void SetState(ECharacterState NewState) const;
 	void CameraJitter(float& WalkSpeed);
 	void TurnTimeBackAsync();
-	void PostMovementExtraInputAsync();
-	void NoMovementInput(); 
-	
+	void PostMovementExtraInput();
+	void NoMovementInput();
+
 	//Jump event extension for blueprint.
 	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")
 	void HandleJumpEvent(); //Ignore the warning by Rider. It is implemented.
@@ -100,6 +100,12 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")
 	void LookBackTimeSlowEvent(); //Same
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")
+	void EnteredWalkingEvent();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")
+	void EnteredRunningEvent();
+	
 	//Fell event extension for blueprint.
 	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")
 	void PlayerFellEvent();
@@ -141,34 +147,37 @@ private: //For mechanics
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings", DisplayName= "Current Movement State")
 	EMovementState CurrentMovementState = EMovementState::Idle;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Walking")
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement")
+	float AdditionalInputPostInputTime = 0.1;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
 	UCurveFloat* WalkingAccelerationTime;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling")
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling")
 	UCurveFloat* PostFallAccelerationTime;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling")
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling")
 	bool DisableExtraGravity = false;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling", meta=(Tooltip = "This will OVERRIDE gravity, not add to it."))
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling", meta=(Tooltip = "This will OVERRIDE gravity, not add to it."))
 	float GravityWhileFalling;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling", meta = (ClampMin = 0))
 	float FallZDistanceUnit;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling", meta = (ClampMin = 0, ClampMax = 1))
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling", meta = (ClampMin = 0, ClampMax = 1))
 	float PenaltyMultiplierPerFallUnit;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Falling", meta = (ClampMin = 0, ClampMax = 1))
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling", meta = (ClampMin = 0, ClampMax = 1))
 	float MaxPenaltyMultiplier;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Running")
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Running")
 	UCurveFloat* RunningAccelerationTime;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Running", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Running", meta = (ClampMin = 0))
 	float RunningStateSpeedMinimum = 800;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Running", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Running", meta = (ClampMin = 0))
 	float MaxRunningSpeed;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Jump", meta = (ClampMin = 0))
@@ -214,4 +223,6 @@ private: //For mechanics
 	bool Falling;
 
 	FVector2d PreviousMovementVector;
+	bool WasMoving = false;
+	float WasMovingTimer = 0.0f;
 };

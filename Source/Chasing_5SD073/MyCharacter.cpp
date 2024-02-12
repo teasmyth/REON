@@ -72,6 +72,7 @@ void AMyCharacter::Tick(float DeltaTime)
 
 	if (StateMachine != nullptr) StateMachine->UpdateStateMachine();
 	if (DebugVelocity) DebugSpeed();
+	PostMovementExtraInput();
 }
 
 // Called to bind functionality to input
@@ -175,6 +176,7 @@ void AMyCharacter::MovementStateCheck()
 		{
 			CurrentMovementState = EMovementState::Walking;
 			AccelerationTimer = 0;
+			EnteredWalkingEvent();
 		}
 	}
 
@@ -182,6 +184,7 @@ void AMyCharacter::MovementStateCheck()
 	{
 		CurrentMovementState = EMovementState::Running;
 		AccelerationTimer = 0;
+		EnteredRunningEvent();
 	}
 
 	//Falling calculation has to happen after acceleration mode setting otherwise, it will never detect falling as Z height is set every frame.
@@ -215,6 +218,7 @@ void AMyCharacter::MovementStateCheck()
 
 void AMyCharacter::Move(const FInputActionValue& Value)
 {
+	WasMoving = false;
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
 	if (StateMachine != nullptr)
@@ -242,32 +246,27 @@ void AMyCharacter::NoMovementInput()
 	{
 		StateMachine->OverrideNoMovementInputEvent();
 	}
-
-
+	
 	if (GetCharacterMovement()->IsMovingOnGround() && PreviousMovementVector.Y > 0)
 	{
-		if (Controller != nullptr)
-		{
-			//TODO
-			AddMovementInput(GetActorForwardVector(), 1);
-			PreviousMovementVector = FVector2d::ZeroVector;
-			//auto TurnTimeToNormalAsync = Async(EAsyncExecution::Thread, [&]() { PostMovementExtraInputAsync(); });
-		}
+		WasMoving = true;
+		WasMovingTimer = 0.0f;
+		AddMovementInput(GetActorForwardVector(), 1);
+
 	}
 }
 
-void AMyCharacter::PostMovementExtraInputAsync()
+void AMyCharacter::PostMovementExtraInput()
 {
-	const float AdditionalTime = 2.0f;
-	float ExtraTimer = 0.01f;
-	UWorld* World = GetWorld();
-	
-	while (ExtraTimer <= AdditionalTime && PreviousMovementVector == FVector2d::ZeroVector)
+	if (Controller != nullptr && WasMoving && WasMovingTimer <= AdditionalInputPostInputTime)
 	{
-		AddMovementInput(GetActorForwardVector(), 1 - ExtraTimer / AdditionalTime);
-		const float PassedTime = World->GetDeltaSeconds();
-		ExtraTimer += PassedTime;
-		FPlatformProcess::Sleep(PassedTime);
+		AddMovementInput(GetActorForwardVector(), 1 - WasMovingTimer / AdditionalInputPostInputTime);
+		WasMovingTimer += GetWorld()->GetDeltaSeconds();
+	}
+	else
+	{
+		WasMovingTimer = 0.0f;
+		WasMoving = false;
 	}
 }
 
@@ -326,8 +325,6 @@ void AMyCharacter::TurnTimeBackAsync()
 	LookBackTimer = 0;
 	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1);
 }
-
-
 
 
 void AMyCharacter::Slide()
