@@ -11,7 +11,6 @@
 #include "Octree.generated.h"
 
 
-//LLM_DECLARE_TAG(OctreeNode);
 class UProceduralMeshComponent;
 
 UCLASS()
@@ -54,6 +53,9 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree|Drawing", meta = (AllowPrivateAccess = "true"))
 	FColor Color;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree|Drawing", meta = (AllowPrivateAccess = "true"))
+	bool ShowGridAfterCalculation;
+
 	// Gets the size of the grid along the X axis
 	float GetOctreeSizeX() const { return SingleVolumeSize + ((ExpandVolumeXAxis - 1) * SingleVolumeSize); }
 
@@ -68,19 +70,9 @@ private:
 
 	static void CreateLine(const FVector& Start, const FVector& End, const FVector& Normal, TArray<FVector>& Vertices, TArray<int32>& Triangles,
 	                       const float& LineThickness);
+	
 
-	/*The front face's corners (usually clockwise or counterclockwise):
-	Top-left-front corner
-	Top-right-front corner
-	Bottom-right-front corner
-	Bottom-left-front corner
-
-	The back face's corners (matching order with the front face):
-	Top-left-back corner
-	Top-right-back corner
-	Bottom-right-back corner
-	Bottom-left-back corner
-	*/
+	void ShowGrid();
 
 #pragma endregion
 
@@ -94,13 +86,16 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true"))
 	TEnumAsByte<ECollisionChannel> CollisionChannel;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true"))
+	bool AutoEncapsulateObjects;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree",
 		meta = (AllowPrivateAccess = "true", ClampMin = 1))
 	float MinNodeSize = 100;
 
 	// The number of divisions in the grid along the X axis
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true", ClampMin = 1))
-	int32 SingleVolumeSize = 1000;
+	int32 SingleVolumeSize = 1600;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true", ClampMin = 1))
 	int32 ExpandVolumeXAxis = 1;
@@ -123,16 +118,15 @@ private:
 	bool GetAStarPath(const FVector& Start, const FVector& End, FVector& NextLocation, const AActor* Agent) const;
 
 	UFUNCTION(BlueprintCallable, Category="Octree")
-	bool GetAStarPathAsnyc(const FVector& Start, const FVector& End, FVector& NextLocation, const AActor* Agent) const;
+	bool GetAStarPathAsync(const FVector& Start, const FVector& End, FVector& NextLocation, const AActor* Agent) const;
 
 	std::atomic<bool> IsSetup = false;
-	
+
 	mutable std::unique_ptr<std::thread> PathfindingThread;
 	mutable std::mutex PathfindingMutex;
 	mutable bool IsPathfindingInProgress = false;
-	
+
 	double TotalFrameTime;
 	double NumFrames;
 	double PreviousFrameTime;
-
 };

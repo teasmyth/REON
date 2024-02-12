@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OctreeGraphNode.h"
 #include "OctreeNode.h"
 
 /**
@@ -16,24 +15,35 @@ public:
 	OctreeGraph();
 	~OctreeGraph();
 
-	TArray<OctreeGraphNode*> Nodes;
+	TArray<OctreeNode*> Nodes;
 	TArray<OctreeNode*> RootNodes;
 
-	void AddNode(OctreeGraphNode* Node);
+	void AddNode(OctreeNode* Node);
 	void AddRootNode(OctreeNode* Node);
 
 	void ConnectNodes();
 	bool OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, TArray<FVector>& OutPathList);
-	static void ReconstructPath(const OctreeGraphNode* Start, const OctreeGraphNode* End, TArray<FVector>& OutPathList);
-	static FVector DirectionTowardsSharedFaceFromSmallerNode(const OctreeGraphNode* Node1, const OctreeGraphNode* Node2);
-	static float ManhattanDistance(const OctreeGraphNode* From, const OctreeGraphNode* To);
-	OctreeGraphNode* FindGraphNode(const FVector& Location);
+	static void ReconstructPath(const OctreeNode* Start, const OctreeNode* End, TArray<FVector>& OutPathList);
+	static FVector DirectionTowardsSharedFaceFromSmallerNode(const OctreeNode* Node1, const OctreeNode* Node2);
+	static float ManhattanDistance(const OctreeNode* From, const OctreeNode* To);
+	OctreeNode* FindGraphNode(const FVector& Location);
+
+private:
+	TArray<FVector> Directions
+	{
+		FVector(1, 0, 0),
+		FVector(-1, 0, 0),
+		FVector(0, 1, 0),
+		FVector(0, -1, 0),
+		FVector(0, 0, 1),
+		FVector(0, 0, -1)
+	};
 };
 
-struct FOctreeGraphNodeCompare
+struct FOctreeNodeCompare
 {
 	//Will put the lowest FScore above all
-	bool operator()(const OctreeGraphNode* Node1, const OctreeGraphNode* Node2) const
+	bool operator()(const OctreeNode* Node1, const OctreeNode* Node2) const
 	{
 		return (Node1->F > Node2->F);
 	}

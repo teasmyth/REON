@@ -10,7 +10,7 @@ OctreeNode::OctreeNode(const FBox& Bounds, OctreeNode* Parent)
 	NodeBounds = Bounds;
 	this->Parent = Parent;
 	CameFrom = nullptr;
-	GraphNode = nullptr;
+	Occupied = false;
 	F = FLT_MAX;
 	G = FLT_MAX;
 	H = FLT_MAX;
@@ -18,27 +18,28 @@ OctreeNode::OctreeNode(const FBox& Bounds, OctreeNode* Parent)
 	//ContainedActors.Empty();
 	ChildrenOctreeNodes.Empty();
 	ChildrenNodeBounds.Empty();
+	Neighbors.Empty();
 }
 
 OctreeNode::OctreeNode()
 {
 	LLM_SCOPE_BYTAG(OctreeNode);
 	Parent = nullptr;
-	GraphNode = nullptr;
 	CameFrom = nullptr;
+	Occupied = false;
 	F = FLT_MAX;
 	G = FLT_MAX;
 	H = FLT_MAX;
 	//ContainedActors.Empty();
 	ChildrenOctreeNodes.Empty();
 	ChildrenNodeBounds.Empty();
+	Neighbors.Empty();
 }
 
 OctreeNode::~OctreeNode()
 {
 	// Delete child nodes recursively
 	Parent = nullptr;
-	//GraphNode deletion is handled in OctreeGraph
 
 	for (const OctreeNode* Child : ChildrenOctreeNodes)
 	{
@@ -62,8 +63,9 @@ void OctreeNode::DivideNode(const AActor* Actor, const float& MinSize)
 	for (int i = 0; i < NodeList.Num(); i++)
 
 	{
-		if (NodeList[i]->Occupied) continue; //We only deem a node occupied if it needs no further division.
-		
+		if (NodeList[i]->Occupied && NodeList[i]->ChildrenOctreeNodes.IsEmpty()) continue;
+		//We only deem a node occupied if it needs no further division.
+
 		const bool Intersects = NodeList[i]->NodeBounds.Intersect(ActorBox);
 		const bool IsInside = ActorBox.IsInside(NodeList[i]->NodeBounds);
 
@@ -72,55 +74,21 @@ void OctreeNode::DivideNode(const AActor* Actor, const float& MinSize)
 		{
 			if (Intersects || IsInside)
 			{
-				//NodeList[i]->ContainedActors.Add(Actor);
-				NodeList[i]->ChildrenOctreeNodes.Empty();
-				NodeList[i]->ChildrenNodeBounds.Empty();
 				NodeList[i]->Occupied = true;
 			}
 			continue;
 		}
 		
-		NodeList[i]->SetupChildrenBounds();
-		NodeList[i]->ChildrenOctreeNodes.SetNum(8);
-		bool Dividing = false;
+		if (NodeList[i]->ChildrenNodeBounds.IsEmpty())
+		{
+			NodeList[i]->SetupChildrenBounds();
+		}
 
 		for (int j = 0; j < 8; j++)
 		{
-			if (NodeList[i]->ChildrenOctreeNodes[j] == nullptr)
-			{
-				NodeList[i]->ChildrenOctreeNodes[j] = new OctreeNode(NodeList[i]->ChildrenNodeBounds[j], NodeList[i]);
-			}
-
-
 			if (NodeList[i]->ChildrenNodeBounds[j].Intersect(ActorBox))
 			{
 				NodeList.Add(NodeList[i]->ChildrenOctreeNodes[j]);
-				Dividing = true;
-			}
-		}
-
-		//Though this would make more sense at the last added object instead of deleting and remaking the same thing at every passed Actor
-		if (!Dividing)
-		{
-			//Because I pass this function multiple times with every actor, it might have divided in previous cases but not now.
-			//In that case, I shouldn't be deleting the children.
-			bool DividedPreviously = false;
-			for (const auto Element : NodeList[i]->ChildrenOctreeNodes)
-			{
-				if (!Element->ChildrenOctreeNodes.IsEmpty())
-				{
-					DividedPreviously = true;
-				}
-			}
-
-			if (!DividedPreviously)
-			{
-				for (const auto Element : NodeList[i]->ChildrenOctreeNodes)
-				{
-					delete Element;
-				}
-				NodeList[i]->ChildrenOctreeNodes.Empty();
-				NodeList[i]->ChildrenNodeBounds.Empty();
 			}
 		}
 	}
@@ -141,4 +109,11 @@ void OctreeNode::SetupChildrenBounds()
 	ChildrenNodeBounds[5] = FBox(FVector(Center.X, NodeBounds.Min.Y, Center.Z), FVector(NodeBounds.Max.X, Center.Y, NodeBounds.Max.Z));
 	ChildrenNodeBounds[6] = FBox(FVector(NodeBounds.Min.X, Center.Y, Center.Z), FVector(Center.X, NodeBounds.Max.Y, NodeBounds.Max.Z));
 	ChildrenNodeBounds[7] = FBox(FVector(Center.X, Center.Y, Center.Z), NodeBounds.Max);
+
+	ChildrenOctreeNodes.SetNum(8);
+
+	for (int i = 0;i < 8; i++)
+	{
+		ChildrenOctreeNodes[i] = new OctreeNode(ChildrenNodeBounds[i], this);
+	}
 }

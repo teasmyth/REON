@@ -2,12 +2,9 @@
 
 #pragma once
 
-#include <future>
 
 #include "CoreMinimal.h"
-#include "OctreeGraphNode.h"
 
-LLM_DECLARE_TAG(OctreeNode);
 
 class CHASING_5SD073_API OctreeNode
 {
@@ -17,16 +14,16 @@ public:
 	~OctreeNode();
 
 	bool Occupied = false;
-	//TArray<AActor*> ContainedActors; //This should be the approach if we have moving obstacles.
-	OctreeNode* Parent;
-	TArray<OctreeNode*> ChildrenOctreeNodes;
-	OctreeGraphNode* GraphNode;
-	OctreeNode* CameFrom;
-
-	FBox NodeBounds;
-	TArray<FBox> ChildrenNodeBounds;
-
 	float F,G,H;
+	OctreeNode* CameFrom;
+	TArray<OctreeNode*> Neighbors;
+	//TArray<AActor*> ContainedActors; //This should be the approach if we have moving obstacles.
+
+	
+	OctreeNode* Parent; //For my current needs, it is redundant. Decided to keep it anyway.
+	FBox NodeBounds;
+	TArray<OctreeNode*> ChildrenOctreeNodes;
+	TArray<FBox> ChildrenNodeBounds;
 
 	void DivideNode(const AActor* Actor, const float& MinSize);
 	void SetupChildrenBounds();
