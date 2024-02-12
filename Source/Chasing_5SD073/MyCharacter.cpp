@@ -150,7 +150,7 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 void AMyCharacter::MovementStateCheck()
 {
 	if (WasMoving) return;
-	
+
 	//TODO if a player doesnt move for a while, should it still stay in FELL or override it to walking? is that even possible? 
 	if (CurrentMovementState != EMovementState::Fell)
 	{
@@ -169,13 +169,14 @@ void AMyCharacter::MovementStateCheck()
 			GetCharacterMovement()->Velocity = FVector::ZeroVector;
 			PlayerFellEvent();
 		}
-		
+
 		else if (CurrentMovementState != EMovementState::Idle && GetHorizontalVelocity() <= 0.1f)
 		{
 			CurrentMovementState = EMovementState::Idle;
 			AccelerationTimer = 0;
 		}
-		else if (CurrentMovementState != EMovementState::Walking && GetHorizontalVelocity() > 1.0f && GetHorizontalVelocity() <= RunningStateSpeedMinimum)
+		else if (CurrentMovementState != EMovementState::Walking && GetHorizontalVelocity() > 1.0f && GetHorizontalVelocity() <=
+			RunningStateSpeedMinimum)
 		{
 			CurrentMovementState = EMovementState::Walking;
 			AccelerationTimer = 0;
@@ -249,11 +250,12 @@ void AMyCharacter::NoMovementInput()
 	{
 		StateMachine->OverrideNoMovementInputEvent();
 	}
-	
+
 	if (GetCharacterMovement()->IsMovingOnGround() && PreviousMovementVector.Y > 0)
 	{
 		WasMoving = true;
 	}
+	PreviousMovementVector = FVector::ZeroVector;
 }
 
 void AMyCharacter::ForwardMovementErrorCorrection()
@@ -267,8 +269,6 @@ void AMyCharacter::ForwardMovementErrorCorrection()
 		WasMovingTimer = 0.0f;
 		WasMoving = false;
 	}
-
-	
 }
 
 
