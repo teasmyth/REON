@@ -90,7 +90,8 @@ void USlidingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 void USlidingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
 	Super::OnExitState(SM);
-	if (!LineTraceSingle(PlayerCapsule->GetComponentLocation(), PlayerCapsule->GetComponentLocation() * GetOwner()->GetActorUpVector() * 100))
+	
+	if (!IsUnderObject())
 	{
 		GetWorld()->GetTimerManager()
 			.SetTimer(CapsuleSizeResetTimer, this, &USlidingStateComponent::ResetCapsuleSize, 0.01f, true);
@@ -99,10 +100,6 @@ void USlidingStateComponent::OnExitState(UCharacterStateMachine& SM)
 	{
 		IsCapsuleShrunk = true;
 	}
-
-	FVector CamLoc = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation();
-	CamLoc.Z = CameraFullHeight;
-	PlayerCharacter->GetFirstPersonCameraComponent()->SetRelativeLocation(CamLoc);
 
 	PlayerCharacter->bUseControllerRotationYaw = true;
 
@@ -148,6 +145,11 @@ void USlidingStateComponent::ResetCapsuleSize()
 	if (Time <= CapsuleResizeDuration)
 	{
 		PlayerCapsule->SetCapsuleSize(55.0f, FMath::Lerp(55.0f, 96.0f, Time / CapsuleResizeDuration));
+		
+		FVector CamLoc = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation();
+		CamLoc.Z = FMath::Lerp(CameraReducedHeight, 60.0f, Time / CapsuleResizeDuration);
+		PlayerCharacter->GetFirstPersonCameraComponent()->SetRelativeLocation(CamLoc);
+		
 		Time += GetWorld()->GetDeltaSeconds();
 	}
 	else
@@ -155,6 +157,14 @@ void USlidingStateComponent::ResetCapsuleSize()
 		Time = 0.0f;
 		GetWorld()->GetTimerManager().ClearTimer(CapsuleSizeResetTimer);
 	}
+}
+
+bool USlidingStateComponent::IsUnderObject() const
+{
+	FVector SweepStart = PlayerCapsule->GetComponentLocation() + FVector::UpVector * 50.0f;
+	FVector SweepEnd = SweepStart + FVector::UpVector * 10.0f;
+		
+	return SweepCapsuleSingle(SweepStart, SweepEnd);
 }
 
 bool USlidingStateComponent::SweepCapsuleSingle(FVector& Start, FVector& End) const

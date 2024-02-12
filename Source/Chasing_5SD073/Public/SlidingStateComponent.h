@@ -37,6 +37,7 @@ public:
 
 private:
 	void ResetCapsuleSize();
+	bool IsUnderObject() const;
 	bool SweepCapsuleSingle(FVector& Start, FVector& End) const;
 	bool IsOnSlope() const;
 
