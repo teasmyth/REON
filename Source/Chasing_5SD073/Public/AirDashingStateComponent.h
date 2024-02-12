@@ -31,7 +31,9 @@ public:
 	
 	virtual void OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector) override;
 	virtual void OverrideDebug() override;
-	
+
+private:
+	void AddSlide();
 	
 private:
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
@@ -40,6 +42,9 @@ private:
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "The duration of the 'blink'", ClampMin = 0))
 	float AirDashTime = 0;
 
+
+	FTimerHandle MemberTimerHandle;
+	
 	//Internal
 	FVector InitialForwardVector;
 	double InternalTimer;

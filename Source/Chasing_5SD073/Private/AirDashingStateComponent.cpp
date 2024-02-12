@@ -62,13 +62,9 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 void UAirDashingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
 	Super::OnExitState(SM);
-	
-	if (IsHoldingW && PlayerMovement->IsMovingOnGround())
-	{
-		const auto Forward = PlayerCapsule->GetForwardVector();
-		PlayerMovement->AddImpulse(Forward * HorizontalVelocity, true);
-		IsHoldingW = false;
-	}
+
+	GetWorld()->GetTimerManager().ClearTimer(MemberTimerHandle);
+	GetWorld()->GetTimerManager().SetTimer(MemberTimerHandle, this, &UAirDashingStateComponent::AddSlide, GetWorld()->GetDeltaSeconds(), true);
 }
 
 void UAirDashingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
@@ -90,4 +86,16 @@ void UAirDashingStateComponent::OverrideDebug()
 	const FVector Start = GetOwner()->GetActorLocation();
 	DrawDebugLine(GetWorld(), Start, Start + GetOwner()->GetActorForwardVector() * AirDashDistance * (PlayerCharacter->GetHorizontalVelocity() /
 		              PlayerCharacter->GetMaxRunningSpeed()), DebugColor, false, 0, 0, 3);
+}
+
+void UAirDashingStateComponent::AddSlide()
+{
+	if (PlayerMovement->IsMovingOnGround())
+	{
+		const auto Forward = PlayerCapsule->GetForwardVector();
+		PlayerMovement->AddForce(Forward * HorizontalVelocity * 100.0f);
+
+		if (const bool HoldingW = IsKeyDown(EKeys::W); !HoldingW)
+			GetWorld()->GetTimerManager().ClearTimer(MemberTimerHandle);
+	}
 }

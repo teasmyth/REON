@@ -100,6 +100,8 @@ protected:
 	bool LineTraceSingle(const FVector& Start, const FVector& End) const;
 	static FVector RotateVector(const FVector& InVector, const float AngleInDegrees, const float Length = 1);
 
+	bool IsKeyDown(const FKey& Key) const;
+
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnStateEnterDelegate);
 

@@ -128,4 +128,14 @@ FVector UStateComponentBase::RotateVector(const FVector& InVector, const float A
 	return RotatedVector;
 }
 
+bool UStateComponentBase::IsKeyDown(const FKey& Key) const
+{
+	if (const APlayerController* PC = Cast<APlayerController>(PlayerCharacter->Controller))
+	{
+		return PC->IsInputKeyDown(Key);
+	}
+
+	return false;
+}
+
 #pragma endregion
