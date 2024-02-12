@@ -89,7 +89,7 @@ protected:
 	void SetState(ECharacterState NewState) const;
 	void CameraJitter(float& WalkSpeed);
 	void TurnTimeBackAsync();
-	void PostMovementExtraInput();
+	void ForwardMovementErrorCorrection();
 	void NoMovementInput();
 
 	//Jump event extension for blueprint.
@@ -148,7 +148,7 @@ private: //For mechanics
 	EMovementState CurrentMovementState = EMovementState::Idle;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement")
-	float AdditionalInputPostInputTime = 0.1;
+	float ForwardMovementErrorTime = 0.1;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
 	UCurveFloat* WalkingAccelerationTime;
@@ -220,9 +220,10 @@ private: //For mechanics
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	bool TouchedGroundOrWall;
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
-	bool Falling;
+	bool Falling = false;
 
 	FVector2d PreviousMovementVector;
+	
 	bool WasMoving = false;
 	float WasMovingTimer = 0.0f;
 };

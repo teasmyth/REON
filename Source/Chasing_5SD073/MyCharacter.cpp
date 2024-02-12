@@ -72,7 +72,7 @@ void AMyCharacter::Tick(float DeltaTime)
 
 	if (StateMachine != nullptr) StateMachine->UpdateStateMachine();
 	if (DebugVelocity) DebugSpeed();
-	PostMovementExtraInput();
+	ForwardMovementErrorCorrection();
 }
 
 // Called to bind functionality to input
@@ -149,7 +149,9 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 
 void AMyCharacter::MovementStateCheck()
 {
-	//TODO if a player doesnt move for a while, should it still stay in FELL or override it to walking? is that even possible? i dont think I cant get max key
+	if (WasMoving) return;
+	
+	//TODO if a player doesnt move for a while, should it still stay in FELL or override it to walking? is that even possible? 
 	if (CurrentMovementState != EMovementState::Fell)
 	{
 		if (Falling && GetCharacterMovement()->IsMovingOnGround() && FallDistance > 0)
@@ -167,12 +169,13 @@ void AMyCharacter::MovementStateCheck()
 			GetCharacterMovement()->Velocity = FVector::ZeroVector;
 			PlayerFellEvent();
 		}
-		else if (CurrentMovementState != EMovementState::Idle && GetHorizontalVelocity() <= 1)
+		
+		else if (CurrentMovementState != EMovementState::Idle && GetHorizontalVelocity() <= 0.1f)
 		{
 			CurrentMovementState = EMovementState::Idle;
 			AccelerationTimer = 0;
 		}
-		else if (CurrentMovementState != EMovementState::Walking && GetHorizontalVelocity() > 1 && GetHorizontalVelocity() < RunningStateSpeedMinimum)
+		else if (CurrentMovementState != EMovementState::Walking && GetHorizontalVelocity() > 1.0f && GetHorizontalVelocity() <= RunningStateSpeedMinimum)
 		{
 			CurrentMovementState = EMovementState::Walking;
 			AccelerationTimer = 0;
@@ -180,7 +183,7 @@ void AMyCharacter::MovementStateCheck()
 		}
 	}
 
-	if (CurrentMovementState != EMovementState::Running && GetHorizontalVelocity() >= RunningStateSpeedMinimum)
+	if (CurrentMovementState != EMovementState::Running && GetHorizontalVelocity() > RunningStateSpeedMinimum)
 	{
 		CurrentMovementState = EMovementState::Running;
 		AccelerationTimer = 0;
@@ -250,17 +253,13 @@ void AMyCharacter::NoMovementInput()
 	if (GetCharacterMovement()->IsMovingOnGround() && PreviousMovementVector.Y > 0)
 	{
 		WasMoving = true;
-		WasMovingTimer = 0.0f;
-		AddMovementInput(GetActorForwardVector(), 1);
-
 	}
 }
 
-void AMyCharacter::PostMovementExtraInput()
+void AMyCharacter::ForwardMovementErrorCorrection()
 {
-	if (Controller != nullptr && WasMoving && WasMovingTimer <= AdditionalInputPostInputTime)
+	if (Controller != nullptr && WasMoving && WasMovingTimer <= ForwardMovementErrorTime)
 	{
-		AddMovementInput(GetActorForwardVector(), 1 - WasMovingTimer / AdditionalInputPostInputTime);
 		WasMovingTimer += GetWorld()->GetDeltaSeconds();
 	}
 	else
@@ -268,6 +267,8 @@ void AMyCharacter::PostMovementExtraInput()
 		WasMovingTimer = 0.0f;
 		WasMoving = false;
 	}
+
+	
 }
 
 
