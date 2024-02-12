@@ -33,8 +33,9 @@ void USlidingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		FVector SweepEnd = SweepStart + FVector::UpVector * 10.0f;
 		
 		if (SweepCapsuleSingle(SweepStart, SweepEnd)) return;
-		
-		PlayerCapsule->SetCapsuleSize(55.0f, 96.0f); //todo remove hard code.
+
+		GetWorld()->GetTimerManager().SetTimer(CapsuleSizeResetTimer, this, &USlidingStateComponent::ResetCapsuleSize, 0.01f, true);
+		//PlayerCapsule->SetCapsuleSize(55.0f, 96.0f); //todo remove hard code.
 		IsCapsuleShrunk = false;
 	}
 }
@@ -91,7 +92,8 @@ void USlidingStateComponent::OnExitState(UCharacterStateMachine& SM)
 	Super::OnExitState(SM);
 	if (!LineTraceSingle(PlayerCapsule->GetComponentLocation(), PlayerCapsule->GetComponentLocation() * GetOwner()->GetActorUpVector() * 100))
 	{
-		PlayerCapsule->SetCapsuleSize(55.0f, 96.0f); //todo remove hard code.
+		GetWorld()->GetTimerManager()
+			.SetTimer(CapsuleSizeResetTimer, this, &USlidingStateComponent::ResetCapsuleSize, 0.01f, true);
 	}
 	else
 	{
@@ -137,6 +139,22 @@ bool USlidingStateComponent::DetectGround() const
 	const FVector Start = GetOwner()->GetActorLocation();
 	const float FallingMultiplier = PlayerMovement->Velocity.Z < -PlayerCharacter->GetMaxRunningSpeed() ? FMath::Abs(PlayerMovement->Velocity.Z) / PlayerCharacter->GetMaxRunningSpeed() : 1;
 	return LineTraceSingle(Start, Start - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance * FallingMultiplier);
+}
+
+static float Time = 0.0f;
+
+void USlidingStateComponent::ResetCapsuleSize()
+{
+	if (Time <= CapsuleResizeDuration)
+	{
+		PlayerCapsule->SetCapsuleSize(55.0f, FMath::Lerp(55.0f, 96.0f, Time / CapsuleResizeDuration));
+		Time += GetWorld()->GetDeltaSeconds();
+	}
+	else
+	{
+		Time = 0.0f;
+		GetWorld()->GetTimerManager().ClearTimer(CapsuleSizeResetTimer);
+	}
 }
 
 bool USlidingStateComponent::SweepCapsuleSingle(FVector& Start, FVector& End) const

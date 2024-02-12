@@ -36,6 +36,7 @@ public:
 	bool DetectGround() const;
 
 private:
+	void ResetCapsuleSize();
 	bool SweepCapsuleSingle(FVector& Start, FVector& End) const;
 	bool IsOnSlope() const;
 
@@ -60,10 +61,14 @@ private:
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
 	float AboutToFallDetectionDistance = 0;
 
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "The duration of the capsule resize", ClampMin = 0))
+	float CapsuleResizeDuration = 1.0f;
+
 	///Internal
 	float InternalTimer = 0;
 	float CameraFullHeight = 0;
 	float CameraReducedHeight = 0;
 
 	bool IsCapsuleShrunk = false;
+	FTimerHandle CapsuleSizeResetTimer;
 };

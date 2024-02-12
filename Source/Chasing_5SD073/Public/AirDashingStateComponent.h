@@ -41,9 +41,7 @@ private:
 
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "The duration of the 'blink'", ClampMin = 0))
 	float AirDashTime = 0;
-
-
-	FTimerHandle MemberTimerHandle;
+	
 	
 	//Internal
 	FVector InitialForwardVector;
@@ -51,4 +49,7 @@ private:
 
 	bool IsHoldingW = false;
 	float HorizontalVelocity = 0.0f;
+
+	FTimerHandle SlideTimerHandle;
+	FTimerHandle ImpulseTimerHandle;
 };
