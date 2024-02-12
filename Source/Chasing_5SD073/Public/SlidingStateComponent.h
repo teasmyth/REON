@@ -36,7 +36,8 @@ public:
 	bool DetectGround() const;
 
 private:
-	bool SweepSingle(FVector& Start, FVector& End) const;
+	bool SweepCapsuleSingle(FVector& Start, FVector& End) const;
+	bool IsOnSlope() const;
 
 private:
 	UPROPERTY(EditAnywhere, Category= "Settings",

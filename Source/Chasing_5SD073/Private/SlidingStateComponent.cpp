@@ -32,13 +32,7 @@ void USlidingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		FVector SweepStart = PlayerCapsule->GetComponentLocation() + FVector::UpVector * 50.0f;
 		FVector SweepEnd = SweepStart + FVector::UpVector * 10.0f;
 		
-		if (SweepSingle(SweepStart, SweepEnd))
-		{
-			UE_LOG(LogTemp, Display, TEXT("Stuck"));
-			return;
-		}
-
-		UE_LOG(LogTemp, Display, TEXT("Un Stuck"));
+		if (SweepCapsuleSingle(SweepStart, SweepEnd)) return;
 		
 		PlayerCapsule->SetCapsuleSize(55.0f, 96.0f); //todo remove hard code.
 		IsCapsuleShrunk = false;
@@ -78,12 +72,15 @@ void USlidingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 void USlidingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
 	Super::OnUpdateState(SM);
-
-	if (InternalTimer <= MaxSlideDuration)
+	
+	if (!IsOnSlope())
 	{
-		InternalTimer += GetWorld()->GetDeltaSeconds();
+		if (InternalTimer <= MaxSlideDuration)
+		{
+			InternalTimer += GetWorld()->GetDeltaSeconds();
+		}
+		else SM.ManualExitState();
 	}
-	else SM.ManualExitState();
 }
 
 void USlidingStateComponent::OnExitState(UCharacterStateMachine& SM)
@@ -139,7 +136,7 @@ bool USlidingStateComponent::DetectGround() const
 	return LineTraceSingle(Start, Start - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance * FallingMultiplier);
 }
 
-bool USlidingStateComponent::SweepSingle(FVector& Start, FVector& End) const
+bool USlidingStateComponent::SweepCapsuleSingle(FVector& Start, FVector& End) const
 {
 	FHitResult HitR;
 	FHitResult HitR2;
@@ -156,6 +153,25 @@ bool USlidingStateComponent::SweepSingle(FVector& Start, FVector& End) const
 	const FCollisionShape CollisionShape = FCollisionShape::MakeCapsule(55.0f, 96.0f);
 	DrawDebugCapsule(GetWorld(), Start, 55.0f, 96.0f, FQuat::Identity, FColor::Green, false, 0, 0, 3);
 	return GetWorld()->SweepSingleByChannel(HitR, Start, End, FQuat::Identity, ECC_Visibility, CollisionShape, CollisionParams);
+}
+
+bool USlidingStateComponent::IsOnSlope() const
+{
+	const FVector Offset = FVector(0,0, -PlayerCapsule->GetScaledCapsuleHalfHeight());
+	const auto Start = PlayerCharacter->GetActorLocation() + Offset;
+	const auto End = PlayerCharacter->GetActorLocation() - GetOwner()->GetActorUpVector() * 10.0f + Offset;
+	bool OnSlope = false;
+	float DotProduct = 0.0f;
+	
+	if (FHitResult HitResult; LineTraceSingle(HitResult, Start, End))
+	{
+		float Angle = 0.0f;
+		Angle = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(HitResult.ImpactNormal, FVector::UpVector)));
+		OnSlope = FMath::Abs(Angle) > 1e-6;
+		DotProduct = FVector::DotProduct(PlayerCharacter->GetVelocity(), HitResult.ImpactNormal);
+	}
+
+	return OnSlope && DotProduct > 0.0f;
 }
 
 void USlidingStateComponent::OverrideDebug()
