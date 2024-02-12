@@ -238,7 +238,7 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 		AddMovementInput(GetActorRightVector(), MovementVector.X);
 	}
 
-	PreviousMovementVector = MovementVector;
+	PreviousMovementVector = FVector(MovementVector.X, MovementVector.Y, 0);
 
 	StateMachine->DetectStates();
 }

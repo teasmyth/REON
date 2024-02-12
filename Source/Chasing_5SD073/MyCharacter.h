@@ -124,6 +124,9 @@ public:
 	FORCEINLINE EMovementState GetCharacterMovementState() const { return CurrentMovementState; }
 
 	UFUNCTION(BlueprintPure)
+	FORCEINLINE FVector GetCharacterMovementInput() const { return PreviousMovementVector;}
+
+	UFUNCTION(BlueprintPure)
 	FORCEINLINE UCameraComponent* GetFirstPersonCameraComponent() const { return FrontCam; }
 
 	UFUNCTION(BlueprintPure)
@@ -221,8 +224,8 @@ private: //For mechanics
 	bool TouchedGroundOrWall;
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	bool Falling = false;
-
-	FVector2d PreviousMovementVector;
+	
+	FVector PreviousMovementVector;
 	
 	bool WasMoving = false;
 	float WasMovingTimer = 0.0f;
