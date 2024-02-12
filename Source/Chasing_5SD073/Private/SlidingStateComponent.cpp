@@ -141,20 +141,22 @@ bool USlidingStateComponent::DetectGround() const
 
 bool USlidingStateComponent::SweepCapsuleSingle(FVector& Start, FVector& End) const
 {
-	FHitResult HitR;
-	FHitResult HitR2;
+	FHitResult HitR, HitR2;
+
 	const FVector Offset = FVector(0,0, -PlayerCapsule->GetScaledCapsuleHalfHeight());
 	const auto LineStart = PlayerCharacter->GetActorLocation() + Offset;
 	const auto LineEnd = PlayerCharacter->GetActorLocation() - GetOwner()->GetActorUpVector() * 50.f + Offset;
-	LineTraceSingle(HitR2, LineStart, LineEnd);
-	DrawDebugLine(GetWorld(), LineStart, LineEnd, FColor::Green, false, 0, 0, 3);
-	FCollisionQueryParams CollisionParams;
 	
+	LineTraceSingle(HitR2, LineStart, LineEnd);
+	//DrawDebugLine(GetWorld(), LineStart, LineEnd, FColor::Green, false, 0, 0, 3);
+	//DrawDebugCapsule(GetWorld(), Start, 55.0f, 96.0f, FQuat::Identity, FColor::Green, false, 0, 0, 3);
+
+	FCollisionQueryParams CollisionParams;
 	CollisionParams.AddIgnoredActor(GetOwner());
 	//CollisionParams.AddIgnoredActor(HitR2.GetActor());
 	
 	const FCollisionShape CollisionShape = FCollisionShape::MakeCapsule(55.0f, 96.0f);
-	DrawDebugCapsule(GetWorld(), Start, 55.0f, 96.0f, FQuat::Identity, FColor::Green, false, 0, 0, 3);
+	
 	return GetWorld()->SweepSingleByChannel(HitR, Start, End, FQuat::Identity, ECC_Visibility, CollisionShape, CollisionParams);
 }
 
