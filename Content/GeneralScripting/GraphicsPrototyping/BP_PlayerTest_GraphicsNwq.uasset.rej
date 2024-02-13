@@ -1,0 +1,7 @@
+diff a/Content/GeneralScripting/GraphicsPrototyping/BP_PlayerTest_GraphicsNwq.uasset b/Content/GeneralScripting/GraphicsPrototyping/BP_PlayerTest_GraphicsNwq.uasset	(rejected hunks)
+@@ -1,3 +1,3 @@
+ version https://git-lfs.github.com/spec/v1
+-oid sha256:b7fb8f03ec23d4b787ad66599175826a05b683e505f69145c6ffc10ba8640272
+-size 728468
++oid sha256:b55f428fdddd75511d084de6bc844aa12359b68621a210bcefcd806a8f72fb49
++size 662395
