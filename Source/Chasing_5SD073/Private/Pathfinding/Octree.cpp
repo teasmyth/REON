@@ -491,8 +491,7 @@ bool AOctree::GetAStarPath(const AActor* Agent, const FVector& End, FVector& Out
 
 		//Path smoothing. If the agent can skip a path point because it wouldn't collide, it should (skip). This ensures a more natural looking movement.
 		FHitResult Hit;
-		FCollisionShape ColShape = FCollisionShape::MakeSphere(
-			Agent->FindComponentByClass<UStaticMeshComponent>()->Bounds.GetBox().GetSize().X / 2.0f);
+		FCollisionShape ColShape = FCollisionShape::MakeSphere(AgentMeshHalfSize);
 		FCollisionQueryParams TraceParams;
 		TraceParams.AddIgnoredActor(Agent);
 
@@ -528,7 +527,7 @@ void AOctree::GetAStarPathAsyncToLocation(const AActor* Agent, const FVector& Ta
 	const FVector Start = Agent->GetActorLocation();
 	const FVector End = Target;
 
-	if (FVector::Distance(Start, End) <= 20.0f || !IsSetup) //Not meaningful enough to be a public variable, what do I do.
+	if (FVector::Distance(Start, End) <= 20.0f || !IsSetup || AgentMeshHalfSize == 0) //Not meaningful enough to be a public variable, what do I do.
 	{
 		OutNextDirection = FVector::ZeroVector;
 		return;

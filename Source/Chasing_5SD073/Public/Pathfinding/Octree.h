@@ -84,13 +84,13 @@ private:
 	TArray<AActor*> ActorToIgnore;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true"))
-	TEnumAsByte<ECollisionChannel> CollisionChannel;
+	TEnumAsByte<ECollisionChannel> CollisionChannel = ECC_WorldStatic;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true"))
-	bool AutoEncapsulateObjects;
+	bool AutoEncapsulateObjects = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true"))
-	bool UsePhysicsOverlap;
+	bool UsePhysicsOverlap = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree",
 		meta = (AllowPrivateAccess = "true", ClampMin = 1))
@@ -130,7 +130,11 @@ private:
 	UFUNCTION(BlueprintCallable, Category="Octree")
 	void GetAStarPathAsyncToTarget(const AActor* Agent, const AActor* Target, FVector& OutNextLocation);
 
+	UFUNCTION(BlueprintCallable, Category="Octree")
+	void SetAgentHalfMeshSize(const float& HalfSize) { AgentMeshHalfSize = HalfSize; }
+
 	std::atomic<bool> IsSetup = false;
+
 	float AgentMeshHalfSize = 0;
 
 	FVector PreviousNextLocation = FVector::ZeroVector;
