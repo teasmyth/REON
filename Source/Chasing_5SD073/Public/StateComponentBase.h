@@ -91,6 +91,7 @@ public:
 	bool GetDebugMechanic() const { return DebugMechanic; }
 	TMap<ECharacterState, bool> GetTransitionList() const { return CanTransitionFromStateList; }
 
+	bool GetCanExitState() const { return CanExitState; }
 protected:
 	//Helper Methods
 
@@ -120,4 +121,7 @@ protected:
 	//This is executed at the ending of the state. Note: this runs before mechanical execution, meaning the BP event will run first.
 	UPROPERTY(BlueprintAssignable, DisplayName= "On Exit Event")
 	FOnExitStateDelegate OnExitStateDelegate;
+
+	UPROPERTY(EditAnywhere, Category = "Settings|General Settings")
+	bool CanExitState = true;
 };

@@ -5,12 +5,13 @@
 
 #include "GameFramework/CharacterMovementComponent.h"
 
+
 // Sets default values for this component's properties
 USlidingStateComponent::USlidingStateComponent()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 
 	// ...
 }
@@ -26,23 +27,11 @@ void USlidingStateComponent::BeginPlay()
 void USlidingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	
-	if (IsCapsuleShrunk == true)
-	{
-		FVector SweepStart = PlayerCapsule->GetComponentLocation() + FVector::UpVector * 50.0f;
-		FVector SweepEnd = SweepStart + FVector::UpVector * 10.0f;
-		
-		if (SweepCapsuleSingle(SweepStart, SweepEnd)) return;
-
-		GetWorld()->GetTimerManager().SetTimer(CapsuleSizeResetTimer, this, &USlidingStateComponent::ResetCapsuleSize, 0.01f, true);
-		//PlayerCapsule->SetCapsuleSize(55.0f, 96.0f); //todo remove hard code.
-		IsCapsuleShrunk = false;
-	}
 }
 
 bool USlidingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	if (PlayerCharacter->GetCharacterMovementState() != EMovementState::Idle && DetectGround())
+	if (PlayerCharacter->GetCharacterMovementState() != EMovementState::Idle && DetectGround() && IsTimerOn(CapsuleSizeResetTimer))
 	{
 		return true;
 	}
@@ -66,41 +55,68 @@ void USlidingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	
 	CameraFullHeight = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation().Z;
 	CameraReducedHeight = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation().Z / 4;
-	FVector CamLoc = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation();
-	CamLoc.Z = CameraReducedHeight;
-	PlayerCharacter->GetFirstPersonCameraComponent()->SetRelativeLocation(CamLoc);
 
-	PlayerCapsule->SetCapsuleSize(55.0f, 55.0f); //todo remove hard code.
+	CapsuleCurrentHeight = PlayerCapsule->GetScaledCapsuleHalfHeight();
+	CameraCurrentHeight = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation().Z;
+	
+	if (IsTimerOn(CapsuleSizeResetTimer))
+		StopTimer(CapsuleSizeResetTimer);
+	GetWorld()->GetTimerManager().SetTimer(CapsuleSizeShrinkTimer, this, &USlidingStateComponent::ShrinkCapsuleSize, 0.01f, true);
 }
+
+static bool WasUnderObject = false;
 
 void USlidingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
 	Super::OnUpdateState(SM);
 	
+	if (IsUnderObject())
+	{
+		CanExitState = false;
+	}
+	else
+	{
+		CanExitState = true;
+	}
+
 	if (!IsOnSlope())
 	{
-		if (InternalTimer <= MaxSlideDuration)
+		if (InternalTimer > MaxSlideDuration || !IsUnderObject() && WasUnderObject)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, "Slide Time Over");
+			SM.ManualExitState();
+		}
+		else
 		{
 			InternalTimer += GetWorld()->GetDeltaSeconds();
 		}
-		else SM.ManualExitState();
+	}
+
+	if (IsUnderObject())
+	{
+		WasUnderObject = true;
+	}
+	else
+	{
+		WasUnderObject = false;
 	}
 }
 
 void USlidingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
 	Super::OnExitState(SM);
-	
-	if (!IsUnderObject())
-	{
-		GetWorld()->GetTimerManager()
-			.SetTimer(CapsuleSizeResetTimer, this, &USlidingStateComponent::ResetCapsuleSize, 0.01f, true);
-	}
-	else
-	{
-		IsCapsuleShrunk = true;
-	}
 
+	WasUnderObject = false;
+	
+	CapsuleCurrentHeight = PlayerCapsule->GetScaledCapsuleHalfHeight();
+	CameraCurrentHeight = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation().Z;
+
+	if (IsTimerOn(CapsuleSizeShrinkTimer))
+		StopTimer(CapsuleSizeShrinkTimer);
+	
+	GetWorld()->GetTimerManager()
+				  .SetTimer(CapsuleSizeResetTimer, this, &USlidingStateComponent::ResetCapsuleSize, 0.01f, true);
+	
 	PlayerCharacter->bUseControllerRotationYaw = true;
 
 	if (PlayerMovement->Velocity.Length() >= PlayerCharacter->GetMaxRunningSpeed())
@@ -138,30 +154,49 @@ bool USlidingStateComponent::DetectGround() const
 	return LineTraceSingle(Start, Start - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance * FallingMultiplier);
 }
 
-static float Time = 0.0f;
-
 void USlidingStateComponent::ResetCapsuleSize()
 {
-	if (Time <= CapsuleResizeDuration)
+	if (ExpandTime <= CapsuleResizeDuration)
 	{
-		PlayerCapsule->SetCapsuleSize(55.0f, FMath::Lerp(55.0f, 96.0f, Time / CapsuleResizeDuration));
+		const float t = CapsuleSizeCurve->GetFloatValue(ExpandTime / CapsuleResizeDuration);
+		PlayerCapsule->SetCapsuleSize(55.0f, FMath::Lerp(CapsuleCurrentHeight, CapsuleMaxHeight, t));
 		
 		FVector CamLoc = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation();
-		CamLoc.Z = FMath::Lerp(CameraReducedHeight, 60.0f, Time / CapsuleResizeDuration);
+		CamLoc.Z = FMath::Lerp(CameraCurrentHeight, CameraMaxHeight, t);
 		PlayerCharacter->GetFirstPersonCameraComponent()->SetRelativeLocation(CamLoc);
 		
-		Time += GetWorld()->GetDeltaSeconds();
+		ExpandTime += GetWorld()->GetDeltaSeconds();
 	}
 	else
 	{
-		Time = 0.0f;
+		ExpandTime = 0.0f;
 		GetWorld()->GetTimerManager().ClearTimer(CapsuleSizeResetTimer);
+	}
+}
+
+void USlidingStateComponent::ShrinkCapsuleSize()
+{
+	if (ShrinkTime <= CapsuleShrinkDuration)
+	{
+		const float t = CapsuleSizeCurve->GetFloatValue(ShrinkTime / CapsuleShrinkDuration);
+		PlayerCapsule->SetCapsuleSize(55.0f, FMath::Lerp(CapsuleCurrentHeight, CapsuleMinHeight, t));
+		
+		FVector CamLoc = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation();
+		CamLoc.Z = FMath::Lerp(CameraCurrentHeight, CameraMinHeight, t);
+		PlayerCharacter->GetFirstPersonCameraComponent()->SetRelativeLocation(CamLoc);
+		
+		ShrinkTime += GetWorld()->GetDeltaSeconds();
+	}
+	else
+	{
+		ShrinkTime = 0.0f;
+		GetWorld()->GetTimerManager().ClearTimer(CapsuleSizeShrinkTimer);
 	}
 }
 
 bool USlidingStateComponent::IsUnderObject() const
 {
-	FVector SweepStart = PlayerCapsule->GetComponentLocation() + FVector::UpVector * 50.0f;
+	FVector SweepStart = PlayerCharacter->GetActorLocation() + FVector::UpVector * 50.0f - FVector::ForwardVector * 1.0f;
 	FVector SweepEnd = SweepStart + FVector::UpVector * 10.0f;
 		
 	return SweepCapsuleSingle(SweepStart, SweepEnd);
@@ -176,35 +211,56 @@ bool USlidingStateComponent::SweepCapsuleSingle(FVector& Start, FVector& End) co
 	const auto LineEnd = PlayerCharacter->GetActorLocation() - GetOwner()->GetActorUpVector() * 50.f + Offset;
 	
 	LineTraceSingle(HitR2, LineStart, LineEnd);
-	//DrawDebugLine(GetWorld(), LineStart, LineEnd, FColor::Green, false, 0, 0, 3);
-	//DrawDebugCapsule(GetWorld(), Start, 55.0f, 96.0f, FQuat::Identity, FColor::Green, false, 0, 0, 3);
 
 	FCollisionQueryParams CollisionParams;
 	CollisionParams.AddIgnoredActor(GetOwner());
-	//CollisionParams.AddIgnoredActor(HitR2.GetActor());
+
+	const FCollisionShape CollisionShape = FCollisionShape::MakeBox(FVector(55.0f, 75.0f, 96.0f));
+	FQuat Rotation = FQuat::Identity;
 	
-	const FCollisionShape CollisionShape = FCollisionShape::MakeCapsule(55.0f, 96.0f);
+	if (float Angle = 0.0f; IsOnSlope(&Angle))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Angle : %f"), Angle);
+		Rotation = FQuat(FRotator(Angle, 0, 0));
+	}
 	
-	return GetWorld()->SweepSingleByChannel(HitR, Start, End, FQuat::Identity, ECC_Visibility, CollisionShape, CollisionParams);
+	DrawDebugBox(GetWorld(), Start, FVector(55.0f, 75.0f, 96.0f), Rotation, FColor::Green, false, 0, 0, 3);
+	
+	return GetWorld()->SweepSingleByChannel(HitR, Start, End, Rotation, ECC_Visibility, CollisionShape, CollisionParams);
 }
 
-bool USlidingStateComponent::IsOnSlope() const
+bool USlidingStateComponent::IsOnSlope(float* angle) const
 {
 	const FVector Offset = FVector(0,0, -PlayerCapsule->GetScaledCapsuleHalfHeight());
 	const auto Start = PlayerCharacter->GetActorLocation() + Offset;
 	const auto End = PlayerCharacter->GetActorLocation() - GetOwner()->GetActorUpVector() * 10.0f + Offset;
 	bool OnSlope = false;
 	float DotProduct = 0.0f;
+	float Angle = 0.0f;
 	
 	if (FHitResult HitResult; LineTraceSingle(HitResult, Start, End))
 	{
-		float Angle = 0.0f;
 		Angle = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(HitResult.ImpactNormal, FVector::UpVector)));
 		OnSlope = FMath::Abs(Angle) > 1e-6;
 		DotProduct = FVector::DotProduct(PlayerCharacter->GetVelocity(), HitResult.ImpactNormal);
 	}
 
+	if (angle != nullptr)
+	{
+		*angle = Angle;
+	}
+	
 	return OnSlope && DotProduct > 0.0f;
+}
+
+bool USlidingStateComponent::IsTimerOn(const FTimerHandle& Timer) const
+{
+	return GetWorld()->GetTimerManager().IsTimerActive(Timer);
+}
+
+void USlidingStateComponent::StopTimer(FTimerHandle& Timer) const
+{
+	GetWorld()->GetTimerManager().ClearTimer(Timer);
 }
 
 void USlidingStateComponent::OverrideDebug()

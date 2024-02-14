@@ -106,12 +106,13 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 void AMyCharacter::JumpAndDash()
 {
-	if (GetCharacterMovement()->IsMovingOnGround() || StateMachine != nullptr &&
-		(StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->GetCurrentEnumState() == ECharacterState::WallClimbing))
+	if ((GetCharacterMovement()->IsMovingOnGround() || StateMachine != nullptr &&
+		(StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning ||
+			StateMachine->GetCurrentEnumState() == ECharacterState::WallClimbing)) &&
+			SetStateBool(ECharacterState::DefaultState))
 	{
 		GetCharacterMovement()->AddImpulse(GetActorUpVector() * JumpStrength, true);
 		HandleJumpEvent();
-		SetState(ECharacterState::DefaultState);
 	}
 	else if (TouchedGroundOrWall && SetStateBool(ECharacterState::AirDashing))
 	{

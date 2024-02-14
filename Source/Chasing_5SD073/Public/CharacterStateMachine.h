@@ -113,5 +113,7 @@ private:
 
 	
 	bool RunUpdate = false;
+
+	bool one, two;
 };
 

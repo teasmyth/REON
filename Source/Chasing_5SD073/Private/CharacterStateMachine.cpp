@@ -53,12 +53,18 @@ bool UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 
 	if (CurrentState != nullptr)
 	{
-		if (!TranslatedState->GetTransitionList()[CurrentEnumState]) return false;
-		//If the current state does not allow the change to the new state, return.
+		one = TranslatedState->GetTransitionList()[CurrentEnumState];
+		two = CurrentState->GetCanExitState();
+		if (one && two)
+		{
 
-		RunUpdate = false;
-		//Green light! Setting new state is go!
-		CurrentState->OnExitState(*this);
+			//If the current state does not allow the change to the new state, return.
+
+			RunUpdate = false;
+			//Green light! Setting new state is go!
+			CurrentState->OnExitState(*this);
+		}
+		else return false;
 	}
 	if (DebugStateMachine && GEngine && NewStateEnum != ECharacterState::DefaultState)
 	{
@@ -164,7 +170,7 @@ void UCharacterStateMachine::DetectStates()
 #pragma region Player Helper Methods
 void UCharacterStateMachine::ManualExitState()
 {
-	if (CurrentState != nullptr)
+	if (CurrentState != nullptr && CurrentState->GetCanExitState())
 	{
 		SetState(ECharacterState::DefaultState);
 	}

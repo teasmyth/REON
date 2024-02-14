@@ -37,14 +37,21 @@ public:
 
 private:
 	void ResetCapsuleSize();
+	void ShrinkCapsuleSize();
 	bool IsUnderObject() const;
 	bool SweepCapsuleSingle(FVector& Start, FVector& End) const;
-	bool IsOnSlope() const;
+	bool IsOnSlope(float* angle = nullptr) const;
+
+	bool IsTimerOn(const FTimerHandle& Timer) const;
+	void StopTimer(FTimerHandle& Timer) const;
 
 private:
 	UPROPERTY(EditAnywhere, Category= "Settings",
 		meta = (Tooltip = "This does not represent the max time of the slide. The numbers represent the max speed of the player."))
 	UCurveFloat* SlideSpeedCurve;
+
+	UPROPERTY(EditAnywhere, Category= "Settings")
+	UCurveFloat* CapsuleSizeCurve;
 
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "Max Slide Duration (seconds)", ClampMin = 0))
 	float MaxSlideDuration = 0;
@@ -65,6 +72,9 @@ private:
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "The duration of the capsule resize", ClampMin = 0))
 	float CapsuleResizeDuration = 1.0f;
 
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "The duration of the capsule resize", ClampMin = 0))
+	float CapsuleShrinkDuration = 1.0f;
+
 	///Internal
 	float InternalTimer = 0;
 	float CameraFullHeight = 0;
@@ -72,4 +82,16 @@ private:
 
 	bool IsCapsuleShrunk = false;
 	FTimerHandle CapsuleSizeResetTimer;
+	FTimerHandle CapsuleSizeShrinkTimer;
+
+	float ExpandTime = 0.0f;
+	float ShrinkTime = 0.0f;
+
+	float CapsuleMinHeight = 55.0f;
+	float CapsuleMaxHeight = 96.0f;
+	float CapsuleCurrentHeight = 0;
+
+	float CameraMinHeight = 15.0f;
+	float CameraMaxHeight = 60.0f;
+	float CameraCurrentHeight = 0;
 };
