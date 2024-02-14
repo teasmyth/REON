@@ -170,6 +170,8 @@ void OctreeGraph::ReconstructPath(const OctreeNode* Start, const OctreeNode* End
 		Previous = CameFrom;
 		CameFrom = CameFrom->CameFrom;
 	}
+
+	//OutPathList.Insert(Start->NodeBounds.GetCenter(),0);
 }
 
 FVector OctreeGraph::DirectionTowardsSharedFaceFromSmallerNode(const OctreeNode* Node1, const OctreeNode* Node2)

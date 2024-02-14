@@ -2,6 +2,8 @@
 
 #include "Pathfinding/OctreeNode.h"
 
+#include "Kismet/KismetSystemLibrary.h"
+
 LLM_DEFINE_TAG(OctreeNode);
 
 OctreeNode::OctreeNode(const FBox& Bounds, OctreeNode* Parent)
@@ -53,7 +55,7 @@ OctreeNode::~OctreeNode()
 	//ContainedActors.Empty();
 }
 
-void OctreeNode::DivideNode(const AActor* Actor, const float& MinSize)
+void OctreeNode::DivideNode(const AActor* Actor, const float& MinSize, const UWorld* World, const bool& DivideUsingBounds)
 {
 	const FBox ActorBox = Actor->GetComponentsBoundingBox();
 
@@ -61,24 +63,38 @@ void OctreeNode::DivideNode(const AActor* Actor, const float& MinSize)
 	NodeList.Add(this);
 
 	for (int i = 0; i < NodeList.Num(); i++)
-
 	{
 		if (NodeList[i]->Occupied && NodeList[i]->ChildrenOctreeNodes.IsEmpty()) continue;
 		//We only deem a node occupied if it needs no further division.
 
-		const bool Intersects = NodeList[i]->NodeBounds.Intersect(ActorBox);
-		const bool IsInside = ActorBox.IsInside(NodeList[i]->NodeBounds);
 
 		//Alongside checking size, if it doesn't intersect with Actor, or the complete opposite, fully contained within ActorBox, no need to divide
-		if (NodeList[i]->NodeBounds.GetSize().Y <= MinSize || !Intersects || IsInside)
+		if (DivideUsingBounds)
 		{
-			if (Intersects || IsInside)
+			const bool Intersects = NodeList[i]->NodeBounds.Intersect(ActorBox);
+			const bool IsInside = ActorBox.IsInside(NodeList[i]->NodeBounds);
+
+			if (NodeList[i]->NodeBounds.GetSize().Y <= MinSize || !Intersects || IsInside)
 			{
-				NodeList[i]->Occupied = true;
+				if (Intersects || IsInside)
+				{
+					NodeList[i]->Occupied = true;
+				}
+				continue;
 			}
-			continue;
 		}
-		
+		else
+		{
+			if (NodeList[i]->NodeBounds.GetSize().Y <= MinSize)
+			{
+				if (BoxOverlap(World, NodeList[i]->NodeBounds))
+				{
+					NodeList[i]->Occupied = true;
+				}
+				continue;
+			}
+		}
+
 		if (NodeList[i]->ChildrenNodeBounds.IsEmpty())
 		{
 			NodeList[i]->SetupChildrenBounds();
@@ -86,9 +102,19 @@ void OctreeNode::DivideNode(const AActor* Actor, const float& MinSize)
 
 		for (int j = 0; j < 8; j++)
 		{
-			if (NodeList[i]->ChildrenNodeBounds[j].Intersect(ActorBox))
+			if (DivideUsingBounds)
 			{
-				NodeList.Add(NodeList[i]->ChildrenOctreeNodes[j]);
+				if (NodeList[i]->ChildrenNodeBounds[j].Intersect(ActorBox))
+				{
+					NodeList.Add(NodeList[i]->ChildrenOctreeNodes[j]);
+				}
+			}
+			else
+			{
+				if (BoxOverlap(World, NodeList[i]->ChildrenOctreeNodes[j]->NodeBounds))
+				{
+					NodeList.Add(NodeList[i]->ChildrenOctreeNodes[j]);
+				}
 			}
 		}
 	}
@@ -112,8 +138,28 @@ void OctreeNode::SetupChildrenBounds()
 
 	ChildrenOctreeNodes.SetNum(8);
 
-	for (int i = 0;i < 8; i++)
+	for (int i = 0; i < 8; i++)
 	{
 		ChildrenOctreeNodes[i] = new OctreeNode(ChildrenNodeBounds[i], this);
 	}
+}
+
+bool OctreeNode::BoxOverlap(const UWorld* World, const FBox& Box)
+{
+	FCollisionObjectQueryParams ObjectQueryParams;
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldDynamic);
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic); // Check for pawns
+
+	FCollisionQueryParams QueryParams;
+	QueryParams.bTraceComplex = false;
+
+	TArray<FOverlapResult> OverlapResults;
+	return World->OverlapMultiByObjectType(
+		OverlapResults,
+		Box.GetCenter(), // Position of the area to check
+		FQuat::Identity, // Rotation of the area to check
+		ObjectQueryParams,
+		FCollisionShape::MakeBox(Box.GetExtent()), // Size of the area to check
+		QueryParams
+	);
 }

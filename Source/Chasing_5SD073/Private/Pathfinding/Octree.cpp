@@ -31,14 +31,12 @@ void AOctree::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	// In Tick method or wherever you want to record frame times, calculate frame time
-
-	TotalFrameTime += GetWorld()->GetDeltaSeconds();
-	NumFrames++;
 }
 
 void AOctree::BeginPlay()
 {
 	Super::BeginPlay();
+	//PreviousNextLocation = FVector::ZeroVector;
 
 	//Defining the colliders borders
 	const TArray ConvexVerts = {
@@ -64,9 +62,6 @@ void AOctree::BeginPlay()
 		// 	ShowGrid();
 		// }
 	});
-
-
-	TotalFrameTime = 0.0f;
 }
 
 void AOctree::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -79,9 +74,6 @@ void AOctree::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		delete RootNode;
 	}
 	delete NavigationGraph;
-
-	double AverageFrameTime = NumFrames / TotalFrameTime;
-	UE_LOG(LogTemp, Warning, TEXT("Average Frame Time: %f seconds"), AverageFrameTime);
 }
 
 void AOctree::OnConstruction(const FTransform& Transform)
@@ -301,12 +293,18 @@ void AOctree::ShowGrid()
 
 	for (const auto Node : NavigationGraph->Nodes)
 	{
-		CreateLine(Node->NodeBounds.Min, FVector(Node->NodeBounds.Max.X,Node->NodeBounds.Min.Y,Node->NodeBounds.Min.Z), FVector::UpVector, Vertices, Triangles, LineThickness);
-		CreateLine(Node->NodeBounds.Min, FVector(Node->NodeBounds.Min.X,Node->NodeBounds.Max.Y,Node->NodeBounds.Min.Z), FVector::UpVector, Vertices, Triangles, LineThickness);
-		CreateLine(Node->NodeBounds.Min, FVector(Node->NodeBounds.Min.X,Node->NodeBounds.Min.Y,Node->NodeBounds.Max.Z), FVector::ForwardVector, Vertices, Triangles, LineThickness);
-		CreateLine(Node->NodeBounds.Max, FVector(Node->NodeBounds.Min.X,Node->NodeBounds.Max.Y,Node->NodeBounds.Max.Z), FVector::UpVector, Vertices, Triangles, LineThickness);
-		CreateLine(Node->NodeBounds.Max, FVector(Node->NodeBounds.Max.X,Node->NodeBounds.Min.Y,Node->NodeBounds.Max.Z), FVector::UpVector, Vertices, Triangles, LineThickness);
-		CreateLine(Node->NodeBounds.Max, FVector(Node->NodeBounds.Max.X,Node->NodeBounds.Max.Y,Node->NodeBounds.Min.Z), FVector::UpVector, Vertices, Triangles, LineThickness);
+		CreateLine(Node->NodeBounds.Min, FVector(Node->NodeBounds.Max.X, Node->NodeBounds.Min.Y, Node->NodeBounds.Min.Z), FVector::UpVector, Vertices,
+		           Triangles, LineThickness);
+		CreateLine(Node->NodeBounds.Min, FVector(Node->NodeBounds.Min.X, Node->NodeBounds.Max.Y, Node->NodeBounds.Min.Z), FVector::UpVector, Vertices,
+		           Triangles, LineThickness);
+		CreateLine(Node->NodeBounds.Min, FVector(Node->NodeBounds.Min.X, Node->NodeBounds.Min.Y, Node->NodeBounds.Max.Z), FVector::ForwardVector,
+		           Vertices, Triangles, LineThickness);
+		CreateLine(Node->NodeBounds.Max, FVector(Node->NodeBounds.Min.X, Node->NodeBounds.Max.Y, Node->NodeBounds.Max.Z), FVector::UpVector, Vertices,
+		           Triangles, LineThickness);
+		CreateLine(Node->NodeBounds.Max, FVector(Node->NodeBounds.Max.X, Node->NodeBounds.Min.Y, Node->NodeBounds.Max.Z), FVector::UpVector, Vertices,
+		           Triangles, LineThickness);
+		CreateLine(Node->NodeBounds.Max, FVector(Node->NodeBounds.Max.X, Node->NodeBounds.Max.Y, Node->NodeBounds.Min.Z), FVector::UpVector, Vertices,
+		           Triangles, LineThickness);
 		//CreateLine(Start, End, FVector::UpVector, Vertices, Triangles, LineThickness);
 		//CreateLine(Start, End, FVector::UpVector, Vertices, Triangles, LineThickness);
 		//TODO
@@ -353,28 +351,36 @@ void AOctree::SetUpOctreesAsync()
 
 void AOctree::MakeOctree(const FVector& Origin)
 {
-	TArray<FOverlapResult> Result;
 	const FVector Size = FVector(SingleVolumeSize);
 	const FBox Bounds = FBox(Origin, Origin + Size);
-
-	FCollisionQueryParams TraceParams;
-	TraceParams.AddIgnoredActor(this);
-
-	if (!ActorToIgnore.IsEmpty())
-	{
-		for (const auto Actors : ActorToIgnore)
-		{
-			TraceParams.AddIgnoredActor(Actors);
-		}
-	}
-
-	GetWorld()->OverlapMultiByChannel(Result, Bounds.GetCenter(), FQuat::Identity, CollisionChannel, FCollisionShape::MakeBox(Size / 2.0f),
-	                                  TraceParams);
-
 	OctreeNode* NewRootNode = new OctreeNode(Bounds, nullptr);
 	RootNodes.Add(NewRootNode);
 	NavigationGraph->AddRootNode(NewRootNode);
-	AddObjects(Result, NewRootNode);
+
+
+	if (!UsePhysicsOverlap)
+	{
+		TArray<FOverlapResult> Result;
+		FCollisionQueryParams TraceParams;
+		TraceParams.AddIgnoredActor(this);
+
+		if (!ActorToIgnore.IsEmpty())
+		{
+			for (const auto Actors : ActorToIgnore)
+			{
+				TraceParams.AddIgnoredActor(Actors);
+			}
+		}
+
+		GetWorld()->OverlapMultiByChannel(Result, Bounds.GetCenter(), FQuat::Identity, CollisionChannel, FCollisionShape::MakeBox(Size / 2.0f),
+		                                  TraceParams);
+		AddObjects(Result, NewRootNode);
+	}
+	else
+	{
+		NewRootNode->DivideNode(this, MinNodeSize, GetWorld(), false);
+	}
+
 	GetEmptyNodes(NewRootNode);
 	AdjustChildNodes(NewRootNode);
 }
@@ -388,7 +394,7 @@ void AOctree::AddObjects(TArray<FOverlapResult> FoundObjects, OctreeNode* RootN)
 
 	for (const auto& Hit : FoundObjects)
 	{
-		RootN->DivideNode(Hit.GetActor(), MinNodeSize);
+		RootN->DivideNode(Hit.GetActor(), MinNodeSize, GetWorld(), true);
 	}
 }
 
@@ -414,6 +420,7 @@ void AOctree::GetEmptyNodes(OctreeNode* Node) const
 			if (!NodeList[i]->Occupied) //NodeList[i]->ContainedActors.IsEmpty())
 			{
 				NavigationGraph->AddNode(NodeList[i]);
+				//DrawDebugBox(GetWorld(), NodeList[i]->NodeBounds.GetCenter(), NodeList[i]->NodeBounds.GetExtent(), FColor::Green, true, 10.0f);
 			}
 			else
 			{
@@ -464,83 +471,116 @@ void AOctree::AdjustChildNodes(OctreeNode* Node)
 }
 
 
-bool AOctree::GetAStarPath(const FVector& Start, const FVector& End, FVector& NextLocation, const AActor* Agent) const
+bool AOctree::GetAStarPath(const AActor* Agent, const FVector& End, FVector& OutNextLocation)
 {
-	NextLocation = FVector::ZeroVector;
-
+	if (!IsSetup)
+	{
+		return false;
+	}
 
 	TArray<FVector> OutPath;
-
-	if (!IsSetup) return false;
+	const FVector Start = Agent->GetActorLocation();
 
 	if (NavigationGraph->OctreeAStar(Start, End, OutPath))
 	{
-		if (FVector::Distance(Start, End) <= 20.0f) //Not meaningful enough to be a public variable, what do I do.
+		if (OutPath.Num() < 3)
 		{
-			return false;
-		}
-
-		if (OutPath.Num() == 1)
-		{
-			NextLocation = OutPath[0];
+			OutNextLocation = OutPath[0];
 			return true;
 		}
 
 		//Path smoothing. If the agent can skip a path point because it wouldn't collide, it should (skip). This ensures a more natural looking movement.
 		FHitResult Hit;
-		FCollisionShape ColShape = FCollisionShape::MakeSphere(Agent->GetComponentsBoundingBox().GetSize().X);
+		FCollisionShape ColShape = FCollisionShape::MakeSphere(
+			Agent->FindComponentByClass<UStaticMeshComponent>()->Bounds.GetBox().GetSize().X / 2.0f);
 		FCollisionQueryParams TraceParams;
 		TraceParams.AddIgnoredActor(Agent);
 
-		for (int i = 2; i < OutPath.Num(); i++)
+		for (int i = 1; i < OutPath.Num(); i++)
 		{
-			if (!GetWorld()->SweepSingleByChannel(Hit, OutPath[0], OutPath[i], FQuat::Identity, CollisionChannel, ColShape, TraceParams))
+			if (!GetWorld()->SweepSingleByChannel(Hit, Start, OutPath[i], FQuat::Identity, CollisionChannel, ColShape, TraceParams))
 			{
 				continue;
 			}
 
-			NextLocation = OutPath[i - 1];
+			OutNextLocation = OutPath[i - 1];
 			return true;
 		}
 
 		//If we are here then there was no path smoothing necessary.
-		NextLocation = OutPath.Last();
+		OutNextLocation = OutPath.Last();
 		return true;
 	}
 
+	//Couldn't find path, using previous location. Not finding path usually happens when we are moving through a space that is considered occupied
+	//However, the path smoothing deems it empty (which is accurate). In those moments, we cannot find a path because we cannot find a node.
+	//In that case, we can use previous location and 'drift' until we are once again inside an OctreeNode.
 	return false;
 }
 
-bool AOctree::GetAStarPathAsync(const FVector& Start, const FVector& End, FVector& NextLocation, const AActor* Agent) const
+bool AOctree::GetAStarPathToTarget(const AActor* Agent, const AActor* End, FVector& NextLocation)
 {
-	if (FVector::Distance(Start, End) <= 20.0f)
+	return false;
+}
+
+void AOctree::GetAStarPathAsyncToLocation(const AActor* Agent, const FVector& Target, FVector& OutNextDirection)
+{
+	const FVector Start = Agent->GetActorLocation();
+	const FVector End = Target;
+
+	if (FVector::Distance(Start, End) <= 20.0f || !IsSetup) //Not meaningful enough to be a public variable, what do I do.
 	{
-		return false;
+		OutNextDirection = FVector::ZeroVector;
+		return;
 	}
-	
-	std::lock_guard<std::mutex> Lock(PathfindingMutex);
 
 	// Check if pathfinding is already in progress or if the thread is joinable
 	if (IsPathfindingInProgress || (PathfindingThread && PathfindingThread->joinable()))
 	{
-		return false; // Pathfinding is already in progress, no need to start again
+		OutNextDirection = (PreviousNextLocation - Start).GetSafeNormal();;
+		return; // Pathfinding is already in progress, no need to start again
 	}
-		
-	PathfindingThread = std::make_unique<std::thread>([&, Start, End, Agent]()
+
+	/*
+	 *End and Agent are captured by value, so the thread has its own copy of these variables.
+	 *This ensures that the thread can safely use these variables even if they are modified or destroyed in the Blueprint.
+	 */
+	FVector EndCopy = End;
+	const AActor* AgentCopy = Agent;
+
+
+	PathfindingThread = std::make_unique<std::thread>([&, AgentCopy, EndCopy]()
 	{
-		
-		std::lock_guard<std::mutex> Lock(PathfindingMutex);
+		std::lock_guard Lock(PathfindingMutex);
+
 		IsPathfindingInProgress = true;
+		FVector LocalNextLocation = PreviousNextLocation;
 
-		
-		const bool FoundPath = GetAStarPath(Start, End, NextLocation, Agent);
+		if (!GetAStarPath(AgentCopy, EndCopy, LocalNextLocation))
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "No path found. Using Previous");
+			/*if (PreviousNextLocation == FVector::ZeroVector)
+			{
+				OutNextDirection = (EndCopy - AgentCopy->GetActorLocation()).GetSafeNormal();
+				IsPathfindingInProgress = false;
+				return;
+			}*/
+			OutNextDirection = (EndCopy - AgentCopy->GetActorLocation()).GetSafeNormal();
+			//OutNextDirection = (PreviousNextLocation - AgentCopy->GetActorLocation()).GetSafeNormal();
+			IsPathfindingInProgress = false;
+			return;
+		}
 
+		PreviousNextLocation = LocalNextLocation;
+		OutNextDirection = (LocalNextLocation - AgentCopy->GetActorLocation()).GetSafeNormal();
 		IsPathfindingInProgress = false;
-
-		return FoundPath;
 	});
-	
-	PathfindingThread->detach();
 
-	return true; 
+
+	PathfindingThread->detach();
+}
+
+void AOctree::GetAStarPathAsyncToTarget(const AActor* Agent, const AActor* Target, FVector& OutNextLocation)
+{
+	GetAStarPathAsyncToLocation(Agent, Target->GetActorLocation(), OutNextLocation);
 }

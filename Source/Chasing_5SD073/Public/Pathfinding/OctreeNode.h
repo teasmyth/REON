@@ -25,7 +25,9 @@ public:
 	TArray<OctreeNode*> ChildrenOctreeNodes;
 	TArray<FBox> ChildrenNodeBounds;
 
-	void DivideNode(const AActor* Actor, const float& MinSize);
+	void DivideNode(const AActor* Actor, const float& MinSize, const UWorld* World, const bool& DivideUsingBounds = false);
 	void SetupChildrenBounds();
+
+	bool BoxOverlap(const UWorld* World, const FBox& Box);
 
 };

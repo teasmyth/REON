@@ -70,7 +70,7 @@ private:
 
 	static void CreateLine(const FVector& Start, const FVector& End, const FVector& Normal, TArray<FVector>& Vertices, TArray<int32>& Triangles,
 	                       const float& LineThickness);
-	
+
 
 	void ShowGrid();
 
@@ -88,6 +88,9 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true"))
 	bool AutoEncapsulateObjects;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true"))
+	bool UsePhysicsOverlap;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree",
 		meta = (AllowPrivateAccess = "true", ClampMin = 1))
@@ -115,18 +118,24 @@ private:
 	void DrawOctreeBorders();
 
 	UFUNCTION(BlueprintCallable, Category="Octree")
-	bool GetAStarPath(const FVector& Start, const FVector& End, FVector& NextLocation, const AActor* Agent) const;
+	bool GetAStarPath(const AActor* Agent, const FVector& End, FVector& OutNextLocation);
 
 	UFUNCTION(BlueprintCallable, Category="Octree")
-	bool GetAStarPathAsync(const FVector& Start, const FVector& End, FVector& NextLocation, const AActor* Agent) const;
+	bool GetAStarPathToTarget(const AActor* Agent, const AActor* End, FVector& NextLocation);
+
+
+	UFUNCTION(BlueprintCallable, Category="Octree")
+	void GetAStarPathAsyncToLocation(const AActor* Agent, const FVector& Target, FVector& OutNextDirection);
+
+	UFUNCTION(BlueprintCallable, Category="Octree")
+	void GetAStarPathAsyncToTarget(const AActor* Agent, const AActor* Target, FVector& OutNextLocation);
 
 	std::atomic<bool> IsSetup = false;
+	float AgentMeshHalfSize = 0;
 
-	mutable std::unique_ptr<std::thread> PathfindingThread;
-	mutable std::mutex PathfindingMutex;
-	mutable bool IsPathfindingInProgress = false;
+	FVector PreviousNextLocation = FVector::ZeroVector;
 
-	double TotalFrameTime;
-	double NumFrames;
-	double PreviousFrameTime;
+	std::unique_ptr<std::thread> PathfindingThread;
+	std::mutex PathfindingMutex;
+	bool IsPathfindingInProgress = false;
 };
