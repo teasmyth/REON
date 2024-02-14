@@ -25,6 +25,10 @@ AOctree::AOctree()
 	ProceduralMesh->bUseComplexAsSimpleCollision = false;
 
 	ProceduralMesh->SetMaterial(0, nullptr);
+
+
+	static ConstructorHelpers::FObjectFinder<UMaterial> MaterialFinder(TEXT("Material'/Game/Materials/Octree/M_OctreeVisual.M_OctreeVisual'"));
+	OctreeMaterial = MaterialFinder.Object;
 }
 
 void AOctree::Tick(float DeltaSeconds)
@@ -55,12 +59,12 @@ void AOctree::BeginPlay()
 
 	auto TurnTimeToNormalAsync = Async(EAsyncExecution::Thread, [&]()
 	{
-		SetUpOctreesAsync();
-		IsSetup = true;
 		// if (ShowGridAfterCalculation)
 		// {
 		// 	ShowGrid();
 		// }
+		SetUpOctreesAsync();
+		IsSetup = true;
 	});
 }
 

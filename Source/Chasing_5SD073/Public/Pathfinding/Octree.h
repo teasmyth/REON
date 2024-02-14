@@ -45,7 +45,7 @@ private:
 	UMaterial* OctreeMaterial = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree|Drawing", meta = (AllowPrivateAccess = "true"))
-	float LineThickness;
+	float LineThickness = 20.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree|Drawing", meta = (AllowPrivateAccess = "true", ClampMin = 0, ClampMax = 1))
 	float Opacity;
