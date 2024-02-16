@@ -2,8 +2,6 @@
 
 #include "Pathfinding/OctreeNode.h"
 
-#include "Kismet/KismetSystemLibrary.h"
-
 LLM_DEFINE_TAG(OctreeNode);
 
 OctreeNode::OctreeNode(const FBox& Bounds, OctreeNode* Parent)
@@ -20,12 +18,15 @@ OctreeNode::OctreeNode(const FBox& Bounds, OctreeNode* Parent)
 	//ContainedActors.Empty();
 	ChildrenOctreeNodes.Empty();
 	ChildrenNodeBounds.Empty();
+	ChildIDs.Empty();
+	NeighborIDs.Empty();
 	Neighbors.Empty();
 }
 
 OctreeNode::OctreeNode()
 {
 	LLM_SCOPE_BYTAG(OctreeNode);
+	NodeBounds = FBox();
 	Parent = nullptr;
 	CameFrom = nullptr;
 	Occupied = false;
@@ -35,6 +36,8 @@ OctreeNode::OctreeNode()
 	//ContainedActors.Empty();
 	ChildrenOctreeNodes.Empty();
 	ChildrenNodeBounds.Empty();
+	ChildIDs.Empty();
+	NeighborIDs.Empty();
 	Neighbors.Empty();
 }
 
@@ -117,6 +120,8 @@ void OctreeNode::DivideNode(const AActor* Actor, const float& MinSize, const UWo
 				}
 			}
 		}
+
+		NodeList[i]->ChildrenNodeBounds.Empty();
 	}
 }
 

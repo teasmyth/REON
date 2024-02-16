@@ -4,6 +4,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Serialization/BufferArchive.h"
 
 
 AOctree::AOctree()
@@ -54,18 +55,106 @@ void AOctree::BeginPlay()
 		FVector(GetOctreeSizeX(), GetOctreeSizeY(), 0)
 	};
 
+
 	ProceduralMesh->ClearCollisionConvexMeshes();
 	ProceduralMesh->AddCollisionConvexMesh(ConvexVerts);
 
-	auto TurnTimeToNormalAsync = Async(EAsyncExecution::Thread, [&]()
+
+	FString SpecificFileName = "OctreeFiles/" + GetWorld()->GetName() + "OctreeNodes.bin";
+	const FString FileName = FPaths::Combine(FPaths::ProjectDir(), SpecificFileName);
+	
+
+	if (!LoadNodesFromFile(FileName))
 	{
+		GEngine->AddOnScreenDebugMessage(-1, 3, FColor::Red, "No file found. Creating new nodes");
+
+		SetUpOctreesAsync();
+
+		SaveNodesToFile(FileName);
+		IsSetup = true;
+
+		//auto TurnTimeToNormalAsync = Async(EAsyncExecution::Thread, [&]()
+		//{
 		// if (ShowGridAfterCalculation)
 		// {
 		// 	ShowGrid();
 		// }
-		SetUpOctreesAsync();
+
+		//});
+	}
+	else
+	{
+		
 		IsSetup = true;
-	});
+	}
+	
+}
+
+void AOctree::SaveNodesToFile(const FString& filename)
+{
+	FBufferArchive ToBinary;
+	
+
+	int Size = NavigationGraph->Nodes.Num();
+	ToBinary << Size;
+	ToBinary << NavigationGraph->Nodes;
+	ToBinary << Size;
+	ToBinary << NavigationGraph->RootNodes;
+	
+	
+	if (!FFileHelper::SaveArrayToFile(ToBinary, *filename))
+	{
+		UE_LOG(LogTemp, Error, TEXT("Couldn't save octree. Check the file path and permissions."));
+	}
+	else
+	{
+		ToBinary.FlushCache();
+		ToBinary.Empty();
+		UE_LOG(LogTemp, Warning, TEXT("Saved octree successfully."));
+	}
+}
+
+bool AOctree::LoadNodesFromFile(const FString& Filename)
+{
+	TArray<uint8> BinaryArray;
+
+	if (FFileHelper::LoadFileToArray(BinaryArray, *Filename))
+	{
+		if (BinaryArray.Num() <= 0)
+		{
+			UE_LOG(LogTemp, Error, TEXT("Failed to deserialize octree nodes from file."));
+			return false;
+		}
+		NavigationGraph = new OctreeGraph();
+		FMemoryReader FromBinary = FMemoryReader(BinaryArray, true); //true, free data after done
+		FromBinary.Seek(0);
+		int Size = 0;
+		FromBinary << Size;
+		NavigationGraph->Nodes.SetNum(Size);
+		FromBinary << NavigationGraph->Nodes;
+		FromBinary << Size;
+		NavigationGraph->RootNodes.SetNum(Size);
+		FromBinary << NavigationGraph->RootNodes;
+		GEngine->AddOnScreenDebugMessage(-1, 3, FColor::Red, "Save File found. Loading nodes, skipping create");
+		FromBinary.FlushCache();
+		BinaryArray.Empty();
+		FromBinary.Close();
+
+		
+
+		if (NavigationGraph->Nodes.Num() > 0)
+		{
+			NavigationGraph->ReconstructPointersForNodes(RootNodes[0]);
+			return true;
+		}
+
+
+		UE_LOG(LogTemp, Error, TEXT("Failed to deserialize octree nodes from file."));
+		return false;
+	}
+
+	UE_LOG(LogTemp, Error, TEXT("Failed to load file into array."));
+	return false;
 }
 
 void AOctree::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -78,6 +167,7 @@ void AOctree::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		delete RootNode;
 	}
 	delete NavigationGraph;
+	
 }
 
 void AOctree::OnConstruction(const FTransform& Transform)
@@ -386,7 +476,7 @@ void AOctree::MakeOctree(const FVector& Origin)
 	}
 
 	GetEmptyNodes(NewRootNode);
-	AdjustChildNodes(NewRootNode);
+	AdjustChildNodesAndIDs(NewRootNode);
 }
 
 void AOctree::AddObjects(TArray<FOverlapResult> FoundObjects, OctreeNode* RootN) const
@@ -411,6 +501,7 @@ void AOctree::GetEmptyNodes(OctreeNode* Node) const
 
 	TArray<OctreeNode*> NodeList;
 	NodeList.Add(Node);
+	Node->ID = 1;
 
 	for (int i = 0; i < NodeList.Num(); i++)
 	{
@@ -419,11 +510,20 @@ void AOctree::GetEmptyNodes(OctreeNode* Node) const
 			continue;
 		}
 
+
+		//NodeID_Index++;
+
+		if (NodeList[i]->Parent != nullptr)
+		{
+			NodeList[i]->ParentID = NodeList[i]->Parent->ID;
+		}
+
 		if (NodeList[i]->ChildrenOctreeNodes.IsEmpty())
 		{
 			if (!NodeList[i]->Occupied) //NodeList[i]->ContainedActors.IsEmpty())
 			{
 				NavigationGraph->AddNode(NodeList[i]);
+				NodeList[i]->ID = NavigationGraph->Nodes.Num();
 				//DrawDebugBox(GetWorld(), NodeList[i]->NodeBounds.GetCenter(), NodeList[i]->NodeBounds.GetExtent(), FColor::Green, true, 10.0f);
 			}
 			else
@@ -444,7 +544,7 @@ void AOctree::GetEmptyNodes(OctreeNode* Node) const
 	}
 }
 
-void AOctree::AdjustChildNodes(OctreeNode* Node)
+void AOctree::AdjustChildNodesAndIDs(OctreeNode* Node) const
 {
 	if (Node == nullptr)
 	{
@@ -456,8 +556,9 @@ void AOctree::AdjustChildNodes(OctreeNode* Node)
 
 	for (int i = 0; i < NodeList.Num(); i++)
 	{
+		OctreeNode* CurrentNode = NodeList[i];
 		TArray<OctreeNode*> CleanedChildNodes;
-		for (auto Child : NodeList[i]->ChildrenOctreeNodes)
+		for (auto Child : CurrentNode->ChildrenOctreeNodes)
 		{
 			if (Child != nullptr)
 			{
@@ -465,10 +566,11 @@ void AOctree::AdjustChildNodes(OctreeNode* Node)
 			}
 		}
 
-		NodeList[i]->ChildrenOctreeNodes = CleanedChildNodes;
+		CurrentNode->ChildrenOctreeNodes = CleanedChildNodes;
 
-		for (const auto Child : CleanedChildNodes)
+		for (const auto& Child : CurrentNode->ChildrenOctreeNodes)
 		{
+			CurrentNode->ChildIDs.Add(Child->ID);
 			NodeList.Add(Child);
 		}
 	}

@@ -27,6 +27,11 @@ public:
 	static FVector DirectionTowardsSharedFaceFromSmallerNode(const OctreeNode* Node1, const OctreeNode* Node2);
 	static float ManhattanDistance(const OctreeNode* From, const OctreeNode* To);
 	OctreeNode* FindGraphNode(const FVector& Location);
+	void ReconstructPointersForNodes( OctreeNode* RootNode);
+	OctreeNode* FindGraphNodeByID(const int& ID);
+
+	
+
 
 private:
 	TArray<FVector> Directions
@@ -48,3 +53,29 @@ struct FOctreeNodeCompare
 		return (Node1->F > Node2->F);
 	}
 };
+
+
+FORCEINLINE FArchive& operator <<(FArchive& Ar, OctreeGraph*& Graph)
+{
+	if (Ar.IsLoading())
+	{
+		if (Graph == nullptr)
+		{
+			Graph = new OctreeGraph();
+		}
+
+		Ar << Graph->Nodes;
+		Ar << Graph->RootNodes;
+	}
+	else if (Ar.IsSaving())
+	{
+		if (Graph != nullptr)
+		{
+			Ar << Graph->Nodes;
+			Ar << Graph->RootNodes;
+		}
+	}
+
+	return Ar;
+}
+

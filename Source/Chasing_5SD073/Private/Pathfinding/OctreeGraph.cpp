@@ -11,11 +11,13 @@
 OctreeGraph::OctreeGraph()
 {
 	Nodes.Empty();
+	RootNodes.Empty();
 }
 
 OctreeGraph::~OctreeGraph()
 {
 	Nodes.Empty();
+	RootNodes.Empty();
 }
 
 void OctreeGraph::AddNode(OctreeNode* Node)
@@ -37,17 +39,20 @@ void OctreeGraph::ConnectNodes()
 			const FVector NeighborLocation = Node->NodeBounds.GetCenter() + Direction * Node->NodeBounds.GetSize().X;
 			OctreeNode* PotentialNeighbor = FindGraphNode(NeighborLocation);
 
-			if (PotentialNeighbor != nullptr  && !Node->Neighbors.Contains(PotentialNeighbor) && Node->NodeBounds.Intersect(PotentialNeighbor->NodeBounds))
+			if (PotentialNeighbor != nullptr && !Node->Neighbors.Contains(PotentialNeighbor) && Node->NodeBounds.Intersect(
+				PotentialNeighbor->NodeBounds))
 			{
 				Node->Neighbors.Add(PotentialNeighbor);
+				Node->NeighborIDs.Add(PotentialNeighbor->ID);
 				PotentialNeighbor->Neighbors.Add(Node);
+				PotentialNeighbor->NeighborIDs.Add(Node->ID);
 			}
 		}
 	}
 }
 
 //Can do weighted to increase performance * 2. Higher numbers should yield faster path finding but might sacrifice accuracy.
-static float ExtraHWeight = 2.0f; 
+static float ExtraHWeight = 2.0f;
 
 bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, TArray<FVector>& OutPathList)
 {
@@ -165,7 +170,7 @@ void OctreeGraph::ReconstructPath(const OctreeNode* Start, const OctreeNode* End
 			const FVector BufferVector = DirectionTowardsSharedFaceFromSmallerNode(Previous, CameFrom);
 			OutPathList.Insert(BufferVector, 0);
 		}
-		
+
 		OutPathList.Insert(CameFrom->NodeBounds.GetCenter(), 0);
 		Previous = CameFrom;
 		CameFrom = CameFrom->CameFrom;
@@ -192,7 +197,7 @@ FVector OctreeGraph::DirectionTowardsSharedFaceFromSmallerNode(const OctreeNode*
 		SmallerCenter = Node2->NodeBounds.GetCenter();
 		LargerCenter = Node1->NodeBounds.GetCenter();
 	}
-	
+
 	// Calculate the difference vector between the centers of the two boxes
 	const FVector Delta = LargerCenter - SmallerCenter;
 
@@ -271,6 +276,63 @@ OctreeNode* OctreeGraph::FindGraphNode(const FVector& Location)
 	{
 		return CurrentNode;
 	}
-	
+
+	return nullptr;
+}
+
+void OctreeGraph::ReconstructPointersForNodes(OctreeNode* RootNode)
+{
+	/*
+	if (Nodes.IsEmpty())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Nodes list is empty in graphs. Cant reconstruct pointers"));
+	}
+	*/
+
+	TArray<OctreeNode*> NodeList;
+	NodeList.Add(RootNode);
+
+	for (int i = 0; i < NodeList.Num(); i++)
+	{
+		for (const auto& Node : Nodes)
+		{
+			for (const auto& ChildID : Node->ChildIDs)
+			{
+				if (OctreeNode* FoundNode = FindGraphNodeByID(ChildID); FoundNode != nullptr)
+				{
+					Node->ChildrenOctreeNodes.Add(FoundNode);
+				}
+			}
+
+			for (const auto& NeighborID : Node->NeighborIDs)
+			{
+				if (OctreeNode* FoundNode = FindGraphNodeByID(NeighborID); FoundNode != nullptr)
+				{
+					Node->Neighbors.Add(FoundNode);
+				}
+			}
+
+			if (OctreeNode* Parent = FindGraphNodeByID(Node->ParentID); Parent != nullptr)
+			{
+				Node->Parent = Parent;
+			}
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("Nodes list is empty in graphs. Cant reconstruct pointers. %i"), Nodes.Num());
+	}
+}
+
+OctreeNode* OctreeGraph::FindGraphNodeByID(const int& ID)
+{
+	if (ID == 0) return nullptr;
+	for (const auto Node : Nodes)
+	{
+		if (Node->ID == ID)
+		{
+			return Node;
+		}
+	}
+	int bruh = ID;
+	UE_LOG(LogTemp, Warning, TEXT("searched number is %i"), bruh);
 	return nullptr;
 }

@@ -114,7 +114,7 @@ private:
 	void MakeOctree(const FVector& Origin);
 	void AddObjects(TArray<FOverlapResult> FoundObjects, OctreeNode* RootN) const;
 	void GetEmptyNodes(OctreeNode* Node) const;
-	static void AdjustChildNodes(OctreeNode* Node);
+	void AdjustChildNodesAndIDs(OctreeNode* Node) const;
 	void DrawOctreeBorders();
 
 	UFUNCTION(BlueprintCallable, Category="Octree")
@@ -133,9 +133,13 @@ private:
 	UFUNCTION(BlueprintCallable, Category="Octree")
 	void SetAgentHalfMeshSize(const float& HalfSize) { AgentMeshHalfSize = HalfSize; }
 
+	void SaveNodesToFile(const FString& filename);
+	bool LoadNodesFromFile(const FString& Filename);
+	
 	std::atomic<bool> IsSetup = false;
 
 	float AgentMeshHalfSize = 0;
+	int NodeID_Index = 1;
 
 	FVector PreviousNextLocation = FVector::ZeroVector;
 
