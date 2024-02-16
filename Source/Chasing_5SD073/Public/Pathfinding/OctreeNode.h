@@ -18,11 +18,15 @@ public:
 	float G;
 	float H;
 	FBox NodeBounds;
-	int ParentID = 0;
-	int ID = 0;
-	TArray<int> ChildIDs;
-	TArray<int> NeighborIDs;
+	//int ParentID = 0;
+	//int ID = 0;
+	//TArray<int> ChildIDs;
+	//TArray<int> NeighborIDs;
+	TArray<FVector> ChildCenters;
+	TArray<FVector> NeighborCenters;
+	FVector ParentCenter;
 	bool Occupied = false;
+	bool NavigationNode = false;
 	OctreeNode* CameFrom;
 	TArray<OctreeNode*> Neighbors;
 	//TArray<AActor*> ContainedActors; //This should be the approach if we have moving obstacles.
@@ -37,19 +41,6 @@ public:
 	void SetupChildrenBounds();
 
 	bool BoxOverlap(const UWorld* World, const FBox& Box);
-
-
-	void SaveLoadData(FArchive& Ar, OctreeNode* Node)
-	{
-		Ar << Node->F;
-		Ar << Node->G;
-		Ar << Node->H;
-		Ar << Node->NodeBounds;
-		Ar << Node->ParentID;
-		Ar << Node->ID;
-		Ar << Node->ChildIDs;
-		Ar << Node->NeighborIDs;
-	}
 };
 
 inline FArchive& operator <<(FArchive& Ar, OctreeNode*& Node)
@@ -70,12 +61,24 @@ inline FArchive& operator <<(FArchive& Ar, OctreeNode*& Node)
 	Ar << Node->G;
 	Ar << Node->H;
 	Ar << Node->NodeBounds;
-	Ar << Node->ParentID;
-	Ar << Node->ID;
+	//Ar << Node->ParentID;
+	//Ar << Node->ID;
+	Ar << Node->ChildCenters;
+	Ar << Node->NeighborCenters;
+	Ar << Node->ParentCenter;
+	Ar << Node->NavigationNode;
 
+	int Size = Node->ChildrenOctreeNodes.Num();
+	Ar << Size;
+	if (Ar.IsLoading())
+	{
+		Node->ChildrenOctreeNodes.SetNum(Size);
+	}
+	Ar << Node->ChildrenOctreeNodes;
 
 	//UE_LOG(LogTemp, Warning, TEXT("Before serialization: Node->ID = %d, Node->ChildIDs = %d"), Node->ID, Node->ChildIDs.Num());
 
+	/*
 	if (Ar.IsSaving())
 	{
 		Ar << Node->ChildIDs;
@@ -87,6 +90,7 @@ inline FArchive& operator <<(FArchive& Ar, OctreeNode*& Node)
 		Ar << Node->NeighborIDs;
 		
 	}
+	*/
 
 	//	UE_LOG(LogTemp, Warning, TEXT("After serialization/deserialization: Node->ID = %d, Node->ChildIDs.Num() = %d"), Node->ID, Node->ChildIDs.Num());
 

@@ -18,9 +18,9 @@ OctreeNode::OctreeNode(const FBox& Bounds, OctreeNode* Parent)
 	//ContainedActors.Empty();
 	ChildrenOctreeNodes.Empty();
 	ChildrenNodeBounds.Empty();
-	ChildIDs.Empty();
-	NeighborIDs.Empty();
-	Neighbors.Empty();
+	//ChildIDs.Empty();
+	//NeighborIDs.Empty();
+	//Neighbors.Empty();
 }
 
 OctreeNode::OctreeNode()
@@ -36,9 +36,9 @@ OctreeNode::OctreeNode()
 	//ContainedActors.Empty();
 	ChildrenOctreeNodes.Empty();
 	ChildrenNodeBounds.Empty();
-	ChildIDs.Empty();
-	NeighborIDs.Empty();
-	Neighbors.Empty();
+	//ChildIDs.Empty();
+	//NeighborIDs.Empty();
+	//Neighbors.Empty();
 }
 
 OctreeNode::~OctreeNode()

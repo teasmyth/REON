@@ -15,20 +15,21 @@ public:
 	OctreeGraph();
 	~OctreeGraph();
 
-	TArray<OctreeNode*> Nodes;
-	TArray<OctreeNode*> RootNodes;
+	//TArray<OctreeNode*> Nodes;
 
-	void AddNode(OctreeNode* Node);
-	void AddRootNode(OctreeNode* Node);
+	//TArray<OctreeNode*> RootNodes;
 
-	void ConnectNodes();
-	bool OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, TArray<FVector>& OutPathList);
+	//void AddNode(OctreeNode* Node);
+	//void AddRootNode(OctreeNode* Node);
+
+	void ConnectNodes(OctreeNode* RootNode);
+	bool OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, OctreeNode* RootNode, TArray<FVector>& OutPathList);
 	static void ReconstructPath(const OctreeNode* Start, const OctreeNode* End, TArray<FVector>& OutPathList);
 	static FVector DirectionTowardsSharedFaceFromSmallerNode(const OctreeNode* Node1, const OctreeNode* Node2);
 	static float ManhattanDistance(const OctreeNode* From, const OctreeNode* To);
-	OctreeNode* FindGraphNode(const FVector& Location);
+	OctreeNode* FindGraphNode(const FVector& Location,  OctreeNode* RootNode);
 	void ReconstructPointersForNodes( OctreeNode* RootNode);
-	OctreeNode* FindGraphNodeByID(const int& ID);
+	//OctreeNode* FindGraphNodeByID(const int& ID);
 
 	
 
@@ -54,7 +55,7 @@ struct FOctreeNodeCompare
 	}
 };
 
-
+/*
 FORCEINLINE FArchive& operator <<(FArchive& Ar, OctreeGraph*& Graph)
 {
 	if (Ar.IsLoading())
@@ -78,4 +79,5 @@ FORCEINLINE FArchive& operator <<(FArchive& Ar, OctreeGraph*& Graph)
 
 	return Ar;
 }
+*/
 
