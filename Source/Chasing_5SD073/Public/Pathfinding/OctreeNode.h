@@ -14,14 +14,13 @@ public:
 	OctreeNode();
 	~OctreeNode();
 
+	int ID = -1;
+
 	float F;
 	float G;
 	float H;
 	FBox NodeBounds;
-	//int ParentID = 0;
-	//int ID = 0;
-	//TArray<int> ChildIDs;
-	//TArray<int> NeighborIDs;
+	
 	TArray<FVector> ChildCenters;
 	TArray<FVector> NeighborCenters;
 	FVector ParentCenter;
@@ -29,18 +28,19 @@ public:
 	bool NavigationNode = false;
 	OctreeNode* CameFrom;
 	TArray<OctreeNode*> Neighbors;
-	//TArray<AActor*> ContainedActors; //This should be the approach if we have moving obstacles.
+	
 
 
-	OctreeNode* Parent; //For my current needs, it is redundant. Decided to keep it anyway.
+	OctreeNode* Parent;
 
 	TArray<OctreeNode*> ChildrenOctreeNodes;
 	TArray<FBox> ChildrenNodeBounds;
+	TArray<FBox> NeighborBounds;
 
-	void DivideNode(const AActor* Actor, const float& MinSize, const UWorld* World, const bool& DivideUsingBounds = false);
+	void DivideNode(const FBox& ActorBox, const float& MinSize, const UWorld* World, const bool& DivideUsingBounds = false);
 	void SetupChildrenBounds();
 
-	bool BoxOverlap(const UWorld* World, const FBox& Box);
+	static bool BoxOverlap(const UWorld* World, const FBox& Box);
 };
 
 inline FArchive& operator <<(FArchive& Ar, OctreeNode*& Node)
@@ -61,8 +61,7 @@ inline FArchive& operator <<(FArchive& Ar, OctreeNode*& Node)
 	Ar << Node->G;
 	Ar << Node->H;
 	Ar << Node->NodeBounds;
-	//Ar << Node->ParentID;
-	//Ar << Node->ID;
+	
 	Ar << Node->ChildCenters;
 	Ar << Node->NeighborCenters;
 	Ar << Node->ParentCenter;
@@ -75,24 +74,6 @@ inline FArchive& operator <<(FArchive& Ar, OctreeNode*& Node)
 		Node->ChildrenOctreeNodes.SetNum(Size);
 	}
 	Ar << Node->ChildrenOctreeNodes;
-
-	//UE_LOG(LogTemp, Warning, TEXT("Before serialization: Node->ID = %d, Node->ChildIDs = %d"), Node->ID, Node->ChildIDs.Num());
-
-	/*
-	if (Ar.IsSaving())
-	{
-		Ar << Node->ChildIDs;
-		Ar << Node->NeighborIDs;
-	}
-	else if (Ar.IsLoading())
-	{
-		Ar << Node->ChildIDs;
-		Ar << Node->NeighborIDs;
-		
-	}
-	*/
-
-	//	UE_LOG(LogTemp, Warning, TEXT("After serialization/deserialization: Node->ID = %d, Node->ChildIDs.Num() = %d"), Node->ID, Node->ChildIDs.Num());
-
+	
 	return Ar;
 }

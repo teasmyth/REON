@@ -11,6 +11,7 @@ OctreeNode::OctreeNode(const FBox& Bounds, OctreeNode* Parent)
 	this->Parent = Parent;
 	CameFrom = nullptr;
 	Occupied = false;
+	NavigationNode = false;
 	F = FLT_MAX;
 	G = FLT_MAX;
 	H = FLT_MAX;
@@ -18,9 +19,6 @@ OctreeNode::OctreeNode(const FBox& Bounds, OctreeNode* Parent)
 	//ContainedActors.Empty();
 	ChildrenOctreeNodes.Empty();
 	ChildrenNodeBounds.Empty();
-	//ChildIDs.Empty();
-	//NeighborIDs.Empty();
-	//Neighbors.Empty();
 }
 
 OctreeNode::OctreeNode()
@@ -30,15 +28,14 @@ OctreeNode::OctreeNode()
 	Parent = nullptr;
 	CameFrom = nullptr;
 	Occupied = false;
+	NavigationNode = false;
 	F = FLT_MAX;
 	G = FLT_MAX;
 	H = FLT_MAX;
+	
 	//ContainedActors.Empty();
 	ChildrenOctreeNodes.Empty();
 	ChildrenNodeBounds.Empty();
-	//ChildIDs.Empty();
-	//NeighborIDs.Empty();
-	//Neighbors.Empty();
 }
 
 OctreeNode::~OctreeNode()
@@ -53,27 +50,21 @@ OctreeNode::~OctreeNode()
 			delete Child;
 		}
 	}
-	ChildrenOctreeNodes.Empty();
-	ChildrenNodeBounds.Empty();
-	//ContainedActors.Empty();
 }
 
-void OctreeNode::DivideNode(const AActor* Actor, const float& MinSize, const UWorld* World, const bool& DivideUsingBounds)
+void OctreeNode::DivideNode(const FBox& ActorBox, const float& MinSize, const UWorld* World, const bool& DivideUsingBounds)
 {
-	const FBox ActorBox = Actor->GetComponentsBoundingBox();
-
 	TArray<OctreeNode*> NodeList;
 	NodeList.Add(this);
 
 	for (int i = 0; i < NodeList.Num(); i++)
 	{
-		if (NodeList[i]->Occupied && NodeList[i]->ChildrenOctreeNodes.IsEmpty()) continue;
-		//We only deem a node occupied if it needs no further division.
-
-
-		//Alongside checking size, if it doesn't intersect with Actor, or the complete opposite, fully contained within ActorBox, no need to divide
 		if (DivideUsingBounds)
 		{
+			//We only deem a node occupied if it needs no further division.
+			if (NodeList[i]->Occupied && NodeList[i]->ChildrenOctreeNodes.IsEmpty()) continue;
+
+			//Alongside checking size, if it doesn't intersect with Actor, or the complete opposite, fully contained within ActorBox, no need to divide
 			const bool Intersects = NodeList[i]->NodeBounds.Intersect(ActorBox);
 			const bool IsInside = ActorBox.IsInside(NodeList[i]->NodeBounds);
 
@@ -102,26 +93,25 @@ void OctreeNode::DivideNode(const AActor* Actor, const float& MinSize, const UWo
 		{
 			NodeList[i]->SetupChildrenBounds();
 		}
-
+		
 		for (int j = 0; j < 8; j++)
 		{
 			if (DivideUsingBounds)
 			{
 				if (NodeList[i]->ChildrenNodeBounds[j].Intersect(ActorBox))
 				{
+					
 					NodeList.Add(NodeList[i]->ChildrenOctreeNodes[j]);
 				}
 			}
 			else
 			{
-				if (BoxOverlap(World, NodeList[i]->ChildrenOctreeNodes[j]->NodeBounds))
+				if (BoxOverlap(World, NodeList[i]->ChildrenNodeBounds[j]))
 				{
 					NodeList.Add(NodeList[i]->ChildrenOctreeNodes[j]);
 				}
 			}
 		}
-
-		NodeList[i]->ChildrenNodeBounds.Empty();
 	}
 }
 
@@ -153,7 +143,7 @@ bool OctreeNode::BoxOverlap(const UWorld* World, const FBox& Box)
 {
 	FCollisionObjectQueryParams ObjectQueryParams;
 	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldDynamic);
-	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic); // Check for pawns
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic); 
 
 	FCollisionQueryParams QueryParams;
 	QueryParams.bTraceComplex = false;
@@ -161,10 +151,10 @@ bool OctreeNode::BoxOverlap(const UWorld* World, const FBox& Box)
 	TArray<FOverlapResult> OverlapResults;
 	return World->OverlapMultiByObjectType(
 		OverlapResults,
-		Box.GetCenter(), // Position of the area to check
-		FQuat::Identity, // Rotation of the area to check
+		Box.GetCenter(), 
+		FQuat::Identity, 
 		ObjectQueryParams,
-		FCollisionShape::MakeBox(Box.GetExtent()), // Size of the area to check
+		FCollisionShape::MakeBox(Box.GetExtent()), 
 		QueryParams
 	);
 }

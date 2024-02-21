@@ -4,35 +4,25 @@
 
 #include "CoreMinimal.h"
 #include "OctreeNode.h"
+#include <vector>
 
-/**
- * 
- */
+
 
 class CHASING_5SD073_API OctreeGraph
 {
 public:
 	OctreeGraph();
 	~OctreeGraph();
-
-	//TArray<OctreeNode*> Nodes;
-
-	//TArray<OctreeNode*> RootNodes;
-
-	//void AddNode(OctreeNode* Node);
-	//void AddRootNode(OctreeNode* Node);
+	
+	TArray<float> PathfindingTimes;
 
 	void ConnectNodes(OctreeNode* RootNode);
 	bool OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, OctreeNode* RootNode, TArray<FVector>& OutPathList);
 	static void ReconstructPath(const OctreeNode* Start, const OctreeNode* End, TArray<FVector>& OutPathList);
 	static FVector DirectionTowardsSharedFaceFromSmallerNode(const OctreeNode* Node1, const OctreeNode* Node2);
 	static float ManhattanDistance(const OctreeNode* From, const OctreeNode* To);
-	OctreeNode* FindGraphNode(const FVector& Location,  OctreeNode* RootNode);
-	void ReconstructPointersForNodes( OctreeNode* RootNode);
-	//OctreeNode* FindGraphNodeByID(const int& ID);
-
-	
-
+	static OctreeNode* FindGraphNode(const FVector& Location, OctreeNode* RootNode);
+	void ReconstructPointersForNodes(OctreeNode* RootNode);
 
 private:
 	TArray<FVector> Directions
@@ -46,6 +36,7 @@ private:
 	};
 };
 
+
 struct FOctreeNodeCompare
 {
 	//Will put the lowest FScore above all
@@ -54,30 +45,3 @@ struct FOctreeNodeCompare
 		return (Node1->F > Node2->F);
 	}
 };
-
-/*
-FORCEINLINE FArchive& operator <<(FArchive& Ar, OctreeGraph*& Graph)
-{
-	if (Ar.IsLoading())
-	{
-		if (Graph == nullptr)
-		{
-			Graph = new OctreeGraph();
-		}
-
-		Ar << Graph->Nodes;
-		Ar << Graph->RootNodes;
-	}
-	else if (Ar.IsSaving())
-	{
-		if (Graph != nullptr)
-		{
-			Ar << Graph->Nodes;
-			Ar << Graph->RootNodes;
-		}
-	}
-
-	return Ar;
-}
-*/
-
