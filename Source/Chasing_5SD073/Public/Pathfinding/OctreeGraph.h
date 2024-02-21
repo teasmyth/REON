@@ -6,6 +6,51 @@
 #include "OctreeNode.h"
 #include <vector>
 
+struct FPathfindingData
+{
+	TArray<OctreeNode*> Nodes;
+	TArray<float> F;
+	TArray<float> G;
+	TArray<float> H;
+	TArray<OctreeNode*> CameFrom;
+
+	void AddNode(OctreeNode* NodeToAdd)
+	{
+		Nodes.Add(NodeToAdd);
+		F.Add(FLT_MAX);
+		G.Add(FLT_MAX);
+		H.Add(FLT_MAX);
+		CameFrom.Add(nullptr);
+	}
+
+	void RemoveNode(OctreeNode* NodeToRemove)
+	{
+		const int Index = Nodes.Find(NodeToRemove);
+		if (Index != INDEX_NONE)
+		{
+			Nodes.RemoveAt(Index);
+			F.RemoveAt(Index);
+			G.RemoveAt(Index);
+			H.RemoveAt(Index);
+			CameFrom.RemoveAt(Index);
+		}
+	}
+
+	int GetLowestIndex() const
+	{
+		int Index = -1;
+		float LowestF = FLT_MAX;
+		for (int i = 0; i < F.Num(); i++)
+		{
+			if (F[i] < LowestF)
+			{
+				LowestF = F[i];
+				Index = i;
+			}
+		}
+		return Index; 
+	}
+};
 
 
 class CHASING_5SD073_API OctreeGraph
@@ -13,7 +58,7 @@ class CHASING_5SD073_API OctreeGraph
 public:
 	OctreeGraph();
 	~OctreeGraph();
-	
+
 	TArray<float> PathfindingTimes;
 
 	void ConnectNodes(OctreeNode* RootNode);

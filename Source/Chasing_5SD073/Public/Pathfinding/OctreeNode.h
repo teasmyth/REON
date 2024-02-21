@@ -32,7 +32,6 @@ public:
 
 
 	OctreeNode* Parent;
-
 	TArray<OctreeNode*> ChildrenOctreeNodes;
 	TArray<FBox> ChildrenNodeBounds;
 	TArray<FBox> NeighborBounds;

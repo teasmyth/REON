@@ -32,7 +32,11 @@ void UWallClimbingStateComponent::TickComponent(float DeltaTime, ELevelTick Tick
 
 bool UWallClimbingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	return PrevResult.GetActor() != HitResult.GetActor();
+	if (PrevResult.GetActor() != HitResult.GetActor() && PlayerCharacter->GetCharacterMovementInput().Y > 0.01f)
+	{
+		return true;
+	}
+	return false;
 }
 
 void UWallClimbingStateComponent::OnEnterState(UCharacterStateMachine& SM)
@@ -68,6 +72,11 @@ void UWallClimbingStateComponent::OnExitState(UCharacterStateMachine& SM)
 void UWallClimbingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
 {
 	Super::OverrideMovementInput(SM, NewMovementVector);
+
+	if (NewMovementVector.Y < 0.01f)
+	{
+		SM.ManualExitState();
+	}
 
 	const float CurrentSpeed = WallClimbSpeed * GetWorld()->GetDeltaSeconds();
 	const float VerticalMovement = CurrentSpeed * (InternalTimer / MaxWallClimbDuration);
