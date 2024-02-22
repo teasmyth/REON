@@ -10,7 +10,6 @@
 #include "OctreeGraph.h"
 #include "Octree.generated.h"
 
-
 class UProceduralMeshComponent;
 
 UCLASS()
@@ -63,20 +62,20 @@ private:
 	float GetOctreeSizeZ() const { return SingleVolumeSize + ((ExpandVolumeZAxis - 1) * SingleVolumeSize); }
 
 
+	FVector Loc;
+	
 	void ResizeOctree();
-	void DrawOctree();
 	
 	void CalculateBorders();
 	UFUNCTION(CallInEditor)
-	void DrawGrid() const;
+	void DrawGrid();
 	UFUNCTION(CallInEditor)
-	void DeleteGrid() const;
+	void DeleteGrid();
 	void DrawLine(const FVector& Start, const FVector& End, const FVector& Normal, TArray<FVector>& Vertices, TArray<int32>& Triangles) const;
 
 
 #pragma endregion
-
-	int NodeID = 0;
+	
 	OctreeNode* RootNode;
 	OctreeGraph NavigationGraph;
 
@@ -90,7 +89,7 @@ private:
 	bool AutoEncapsulateObjects = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true"))
-	bool UsePhysicsOverlap = true;
+	bool UseOverlap = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree",
 		meta = (AllowPrivateAccess = "true", ClampMin = 1))
@@ -112,7 +111,7 @@ private:
 	void SetUpOctreesAsync(bool IsLoading);
 	OctreeNode* MakeOctree(const FVector& Origin, const int& Index);
 	void AddObjects(TArray<FBox> FoundObjects, OctreeNode* RootN) const;
-	void GetEmptyNodes(OctreeNode* Node);
+	static void GetEmptyNodes(OctreeNode* Node);
 	static void AdjustDanglingChildNodes(OctreeNode* Node);
 
 
@@ -140,27 +139,7 @@ private:
 
 	FString SaveFileName;
 	TArray<TArray<FBox>> AllHitResults;
-
-	//TODO special data structure to only save center, neighbor and children center, dont need to save the rest.
-
-	static bool AreOverlapResultsEqual(const FOverlapResult& Result1, const FOverlapResult& Result2)
-	{
-		return Result1.GetActor() == Result2.GetActor() && Result1.Component->Bounds.BoxExtent == Result2.Component->Bounds.BoxExtent && Result1.
-			Component->GetComponentLocation() == Result2.Component->GetComponentLocation();
-	}
-
-	static bool DoesItContainOverlapResult(const FOverlapResult& Result, const TArray<FOverlapResult>& OverlapResults)
-	{
-		for (const auto& HitResult : OverlapResults)
-		{
-			if (AreOverlapResultsEqual(Result, HitResult))
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-
+	
 	std::atomic<bool> IsSetup = false;
 
 	float AgentMeshHalfSize = 0;

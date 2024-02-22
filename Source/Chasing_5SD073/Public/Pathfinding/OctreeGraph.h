@@ -4,8 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "OctreeNode.h"
-#include <vector>
 
+//TODO remove all the values present here from OctreeNode, and just make a new FPathfindingData when needed.
 struct FPathfindingData
 {
 	TArray<OctreeNode*> Nodes;
@@ -59,15 +59,13 @@ public:
 	OctreeGraph();
 	~OctreeGraph();
 
-	TArray<float> PathfindingTimes;
-
 	void ConnectNodes(OctreeNode* RootNode);
 	bool OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, OctreeNode* RootNode, TArray<FVector>& OutPathList);
 	static void ReconstructPath(const OctreeNode* Start, const OctreeNode* End, TArray<FVector>& OutPathList);
 	static FVector DirectionTowardsSharedFaceFromSmallerNode(const OctreeNode* Node1, const OctreeNode* Node2);
 	static float ManhattanDistance(const OctreeNode* From, const OctreeNode* To);
 	static OctreeNode* FindGraphNode(const FVector& Location, OctreeNode* RootNode);
-	void ReconstructPointersForNodes(OctreeNode* RootNode);
+	static void ReconstructPointersForNodes(OctreeNode* RootNode);
 
 private:
 	TArray<FVector> Directions

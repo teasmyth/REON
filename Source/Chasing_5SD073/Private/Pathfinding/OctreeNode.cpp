@@ -15,10 +15,6 @@ OctreeNode::OctreeNode(const FBox& Bounds, OctreeNode* Parent)
 	F = FLT_MAX;
 	G = FLT_MAX;
 	H = FLT_MAX;
-
-	//ContainedActors.Empty();
-	ChildrenOctreeNodes.Empty();
-	ChildrenNodeBounds.Empty();
 }
 
 OctreeNode::OctreeNode()
@@ -33,9 +29,6 @@ OctreeNode::OctreeNode()
 	G = FLT_MAX;
 	H = FLT_MAX;
 	
-	//ContainedActors.Empty();
-	ChildrenOctreeNodes.Empty();
-	ChildrenNodeBounds.Empty();
 }
 
 OctreeNode::~OctreeNode()

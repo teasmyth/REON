@@ -12,13 +12,11 @@ OctreeGraph::OctreeGraph()
 {
 	UE_LOG(LogTemp, Warning, TEXT("new OctreeGraph"));
 	//OctreeNodes = FOctreeNodes();
-	PathfindingTimes.Empty();
 }
 
 OctreeGraph::~OctreeGraph()
 {
 	UE_LOG(LogTemp, Warning, TEXT("OctreeGraph destroyed"));
-	PathfindingTimes.Empty();
 }
 
 
@@ -40,10 +38,9 @@ void OctreeGraph::ConnectNodes(OctreeNode* RootNode)
 				{
 					NodeList[i]->Neighbors.Add(PotentialNeighbor);
 					NodeList[i]->NeighborCenters.Add(PotentialNeighbor->NodeBounds.GetCenter());
-					NodeList[i]->NeighborBounds.Add(PotentialNeighbor->NodeBounds);
+					
 					PotentialNeighbor->Neighbors.Add(NodeList[i]);
 					PotentialNeighbor->NeighborCenters.Add(NodeList[i]->NodeBounds.GetCenter());
-					PotentialNeighbor->NeighborBounds.Add(NodeList[i]->NodeBounds);
 				}
 			}
 		}
@@ -61,12 +58,8 @@ static float ExtraHWeight = 3.0f;
 
 bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, OctreeNode* RootNode, TArray<FVector>& OutPathList)
 {
-	const double TimeStart = FPlatformTime::Seconds();
-
 	OctreeNode* Start = FindGraphNode(StartLocation, RootNode);
 	const OctreeNode* End = FindGraphNode(EndLocation, RootNode);
-	OutPathList.Empty();
-
 
 	if (Start == nullptr || End == nullptr)
 	{
@@ -100,15 +93,6 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 				Node->H = FLT_MAX;
 				Node->CameFrom = nullptr;
 			}
-
-			PathfindingTimes.Add(FPlatformTime::Seconds() - TimeStart);
-			float total = 0;
-			for (const auto Time : PathfindingTimes)
-			{
-				total += Time;
-			}
-
-			UE_LOG(LogTemp, Warning, TEXT("Time taken for A* avg: %f"), total / PathfindingTimes.Num());
 
 			return true;
 		}
@@ -173,8 +157,7 @@ void OctreeGraph::ReconstructPath(const OctreeNode* Start, const OctreeNode* End
 	{
 		return;
 	}
-
-	OutPathList.Empty();
+	
 	OutPathList.Add(End->NodeBounds.GetCenter());
 
 	const OctreeNode* CameFrom = End->CameFrom;
@@ -192,8 +175,6 @@ void OctreeGraph::ReconstructPath(const OctreeNode* Start, const OctreeNode* End
 		Previous = CameFrom;
 		CameFrom = CameFrom->CameFrom;
 	}
-
-	//OutPathList.Insert(Start->NodeBounds.GetCenter(),0);
 }
 
 FVector OctreeGraph::DirectionTowardsSharedFaceFromSmallerNode(const OctreeNode* Node1, const OctreeNode* Node2)
@@ -263,7 +244,6 @@ OctreeNode* OctreeGraph::FindGraphNode(const FVector& Location, OctreeNode* Root
 		return nullptr;
 	}
 
-
 	while (!CurrentNode->ChildrenOctreeNodes.IsEmpty())
 	{
 		OctreeNode* Closest = CurrentNode->ChildrenOctreeNodes[0];
@@ -272,6 +252,7 @@ OctreeNode* OctreeGraph::FindGraphNode(const FVector& Location, OctreeNode* Root
 			if (Node->NodeBounds.IsInside(Location))
 			{
 				Closest = Node;
+				break;
 			}
 		}
 		CurrentNode = Closest;
@@ -280,7 +261,7 @@ OctreeNode* OctreeGraph::FindGraphNode(const FVector& Location, OctreeNode* Root
 	//Because of the parent-child relationship, sometimes there will be nodes that may have child but also occupied at the same.
 	//Occupied means that it intersects, but it will have children that may not intersect.
 	//They will be filtered out when adding them to NodeBounds but cannot delete them as it would delete their children who are useful.
-	if (CurrentNode != nullptr && CurrentNode->NavigationNode) //NodeBounds.Contains(CurrentNode))
+	if (CurrentNode != nullptr && CurrentNode->NavigationNode)
 	{
 		return CurrentNode;
 	}
@@ -311,15 +292,9 @@ void OctreeGraph::ReconstructPointersForNodes(OctreeNode* RootNode)
 			}
 		}
 
-		if (OctreeNode* Parent = FindGraphNode(NodeList[i]->ParentCenter, RootNode); Parent != nullptr)
-		{
-			NodeList[i]->Parent = Parent;
-		}
-
 		for (auto Child : NodeList[i]->ChildrenOctreeNodes)
 		{
 			NodeList.Add(Child);
 		}
 	}
-	//UE_LOG(LogTemp, Warning, TEXT("NodeBounds list is empty in graphs. Cant reconstruct pointers. %i"), NodeBounds.Num());
 }

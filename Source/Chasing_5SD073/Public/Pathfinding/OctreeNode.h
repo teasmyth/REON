@@ -14,27 +14,22 @@ public:
 	OctreeNode();
 	~OctreeNode();
 
-	int ID = -1;
-
 	float F;
 	float G;
 	float H;
 	FBox NodeBounds;
 	
-	TArray<FVector> ChildCenters;
-	TArray<FVector> NeighborCenters;
-	FVector ParentCenter;
+	OctreeNode* Parent;
 	bool Occupied = false;
 	bool NavigationNode = false;
 	OctreeNode* CameFrom;
 	TArray<OctreeNode*> Neighbors;
-	
-
-
-	OctreeNode* Parent;
 	TArray<OctreeNode*> ChildrenOctreeNodes;
+
+	TArray<FVector> ChildCenters;
+	TArray<FVector> NeighborCenters;
 	TArray<FBox> ChildrenNodeBounds;
-	TArray<FBox> NeighborBounds;
+
 
 	void DivideNode(const FBox& ActorBox, const float& MinSize, const UWorld* World, const bool& DivideUsingBounds = false);
 	void SetupChildrenBounds();
@@ -55,16 +50,12 @@ inline FArchive& operator <<(FArchive& Ar, OctreeNode*& Node)
 			return Ar;
 		}
 	}
-	
-	Ar << Node->F;
-	Ar << Node->G;
-	Ar << Node->H;
+
 	Ar << Node->NodeBounds;
-	
 	Ar << Node->ChildCenters;
 	Ar << Node->NeighborCenters;
-	Ar << Node->ParentCenter;
 	Ar << Node->NavigationNode;
+
 
 	int Size = Node->ChildrenOctreeNodes.Num();
 	Ar << Size;
@@ -73,6 +64,7 @@ inline FArchive& operator <<(FArchive& Ar, OctreeNode*& Node)
 		Node->ChildrenOctreeNodes.SetNum(Size);
 	}
 	Ar << Node->ChildrenOctreeNodes;
-	
+
+
 	return Ar;
 }

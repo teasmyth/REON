@@ -22,15 +22,17 @@ AOctree::AOctree()
 	ProceduralMesh->SetGenerateOverlapEvents(false);
 	ProceduralMesh->CanCharacterStepUpOn = ECB_No;
 	ProceduralMesh->SetCollisionProfileName("NoCollision");
-	ProceduralMesh->bHiddenInGame = false;
+	ProceduralMesh->bHiddenInGame = true;
 	ProceduralMesh->bUseComplexAsSimpleCollision = false;
 
 	ProceduralMesh->bNeverDistanceCull = false;
 	ProceduralMesh->SetMaterial(0, nullptr);
 
-
 	static ConstructorHelpers::FObjectFinder<UMaterial> MaterialFinder(TEXT("Material'/Game/Materials/Octree/M_OctreeVisual.M_OctreeVisual'"));
-	OctreeMaterial = MaterialFinder.Object;
+	if (MaterialFinder.Object != nullptr)
+	{
+		OctreeMaterial = MaterialFinder.Object;
+	}
 }
 
 void AOctree::Tick(float DeltaSeconds)
@@ -43,42 +45,26 @@ void AOctree::BeginPlay()
 {
 	Super::BeginPlay();
 
-	UE_LOG(LogTemp, Warning, TEXT("Octree Begin Play"));
-	
-	NavigationGraph =  OctreeGraph();
 	PreviousNextLocation = FVector::ZeroVector;
 	FString SpecificFileName = "OctreeFiles/" + GetWorld()->GetName() + "OctreeNodes.bin";
 	SaveFileName = FPaths::Combine(FPaths::ProjectSavedDir(), SpecificFileName);
 
-	//UE_LOG(LogTemp, Warning, TEXT("Saved dir: %s"), *FPaths::ProjectSavedDir());
-
-	SetUpOctreesAsync(false);
-	IsSetup = true;
-
-	/*
-	if (!LoadNodesFromFile(SaveFileName))
+	auto TurnTimeToNormalAsync = Async(EAsyncExecution::Thread, [&]()
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "No file found. Creating new nodes");
+		if (!LoadNodesFromFile(SaveFileName))
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "No file found. Creating new nodes");
 
-		SetUpOctreesAsync(false);
+			SetUpOctreesAsync(false);
 
-		SaveNodesToFile(SaveFileName);
-		IsSetup = true;
-
-		//auto TurnTimeToNormalAsync = Async(EAsyncExecution::Thread, [&]()
-		//{
-		// if (ShowGridAfterCalculation)
-		// {
-		// 	ShowGrid();
-		// }
-
-		//});
-	}
-	else
-	{
-		IsSetup = true;
-	}
-	*/
+			SaveNodesToFile(SaveFileName);
+			IsSetup = true;
+		}
+		else
+		{
+			IsSetup = true;
+		}
+	});
 }
 
 #pragma region Saving/Loading Data
@@ -89,10 +75,10 @@ void AOctree::SaveNodesToFile(const FString& Filename)
 
 	FBufferArchive ToBinary;
 
-	ToBinary << AllHitResults;
+	ToBinary << UseOverlap;
+	//ToBinary << AllHitResults;
 	ToBinary << RootNode;
 
-	//ToBinary << NavigationGraph->NodeBounds;
 
 	if (FFileHelper::SaveArrayToFile(ToBinary, *Filename))
 	{
@@ -120,19 +106,30 @@ bool AOctree::LoadNodesFromFile(const FString& Filename)
 
 		FMemoryReader FromBinary = FMemoryReader(BinaryArray, true); //true, free data after done
 		FromBinary.Seek(0);
-		SetUpOctreesAsync(true);
 
-		//Todo: define how to save
-		FromBinary << AllHitResults;
-		FromBinary << RootNode;
+		bool WasUsingOverlap;
+		FromBinary << WasUsingOverlap;
 
-		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "Save File found. Loading nodes, skipping create");
+		if (WasUsingOverlap == UseOverlap)
+		{
+			SetUpOctreesAsync(true);
+			//FromBinary << AllHitResults;
+			FromBinary << RootNode;
+			GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "Save File found. Loading nodes, skipping create");
+			NavigationGraph.ReconstructPointersForNodes(RootNode);
+		}
+		else
+		{
+			SetUpOctreesAsync(false);
+			GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "Save File found but incorrect. Remaking Octree");
+			SaveNodesToFile(*Filename);
+		}
+
+
 		FromBinary.FlushCache();
 		BinaryArray.Empty();
 		FromBinary.Close();
 
-
-		NavigationGraph.ReconstructPointersForNodes(RootNode);
 		return true;
 	}
 
@@ -148,33 +145,54 @@ void AOctree::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 
 	IsSetup = false;
-	SaveNodesToFile(SaveFileName);
-
+	//SaveNodesToFile(SaveFileName);
 	delete RootNode;
-	//delete NavigationGraph;
 }
 
 void AOctree::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	ResizeOctree();
-	DrawOctree();
+	if (SaveFileName == "")
+	{
+		SaveFileName = FPaths::Combine(FPaths::ProjectSavedDir(), "OctreeFiles/" + GetWorld()->GetName() + "OctreeNodes.bin");
+	}
+
+	if (!GridDrawn)
+	{
+		ResizeOctree();
+		CalculateBorders();
+	}
+	else
+	{
+		DrawGrid();
+	}
 }
 
 #pragma region Drawing
-void AOctree::DrawGrid() const
+void AOctree::DrawGrid()
 {
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "No mesh data found. Creating borders instead");
+	if (GridDrawn)
+	{
+		DynamicMaterialInstance->SetVectorParameterValue("Color", Color);
+		DynamicMaterialInstance->SetScalarParameterValue("Opacity", Color.A);
+		return;
+	}
 
+	if (RootNode == nullptr)
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "Root node is null. Cannot draw grid.");
+		}
+	}
+
+	GridDrawn = true;
 	ProceduralMesh->ClearAllMeshSections();
+	ProceduralMesh->bHiddenInGame = false;
 
-	// Create arrays to store the vertices and the triangles
 	TArray<FVector> Vertices;
 	TArray<int32> Triangles;
-
-	// Define variables for the start and end of the line
-	TSet<TPair<FVector, FVector>> CreatedLines;
 
 	TArray<OctreeNode*> NodeList;
 	NodeList.Add(RootNode);
@@ -185,100 +203,81 @@ void AOctree::DrawGrid() const
 		{
 			if (Child->NavigationNode)
 			{
-				TPair<FVector, FVector> Pairs[12] =
-				{
-					TPair<FVector, FVector>(Child->NodeBounds.Min,
-					                        FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Min.Z)),
-					TPair<FVector, FVector>(FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Min.Z),
-					                        FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Max.Z)),
-					TPair<FVector, FVector>(FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Max.Z),
-					                        FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Max.Z)),
-					TPair<FVector, FVector>(FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Max.Z),
-					                        Child->NodeBounds.Min),
-					TPair<FVector, FVector>(FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z),
-					                        FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z)),
-					TPair<FVector, FVector>(FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z),
-					                        Child->NodeBounds.Max),
-					TPair<FVector, FVector>(Child->NodeBounds.Max,
-					                        FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Max.Z)),
-					TPair<FVector, FVector>(FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Max.Z),
-					                        FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z)),
-					TPair<FVector, FVector>(Child->NodeBounds.Min,
-					                        FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z)),
-					TPair<FVector, FVector>(FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Max.Z),
-					                        FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Max.Z)),
-					TPair<FVector, FVector>(FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Min.Z),
-					                        FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z)),
-					TPair<FVector, FVector>(FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z), Child->NodeBounds.Max)
-				};
+				const FVector Center = Child->NodeBounds.GetCenter();
+				const FVector Extent = Child->NodeBounds.GetExtent();
 
-				for (const auto& Pair : Pairs)
-				{
-					if (!CreatedLines.Contains(Pair))
-					{
-						FVector NormalVector = (Pair.Value - Pair.Key).GetSafeNormal();
-						if (NormalVector.X > 0)
-						{
-							NormalVector = FVector::RightVector;
-						}
-						DrawLine(Pair.Key, Pair.Value, NormalVector, Vertices, Triangles);
-						CreatedLines.Add(Pair);
-					}
-				}
-				/*
-				DrawLine(Child->NodeBounds.Min, FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Min.Z), FVector::RightVector, Vertices, Triangles, GridLineThickness);
-				DrawLine(FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Min.Z), FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Max.Z), FVector::ForwardVector, Vertices, Triangles, GridLineThickness);
-				DrawLine(FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Max.Z), FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Max.Z), FVector::UpVector, Vertices, Triangles, GridLineThickness);
-				DrawLine(FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Max.Z), Child->NodeBounds.Min, FVector::ForwardVector, Vertices, Triangles, GridLineThickness);
-				DrawLine(FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z), FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z), FVector::RightVector, Vertices, Triangles, GridLineThickness);
-				DrawLine(FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z), Child->NodeBounds.Max, FVector::ForwardVector, Vertices, Triangles, GridLineThickness);
-				DrawLine(Child->NodeBounds.Max, FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Max.Z), FVector::RightVector, Vertices, Triangles, GridLineThickness);
-				DrawLine(FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Max.Z), FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z), FVector::ForwardVector, Vertices, Triangles, GridLineThickness);
-				DrawLine(Child->NodeBounds.Min, FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z), FVector::UpVector, Vertices, Triangles, GridLineThickness);
-				DrawLine(FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Max.Z), FVector(Child->NodeBounds.Min.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Max.Z), FVector::UpVector, Vertices, Triangles, GridLineThickness);
-				DrawLine(FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Min.Y, Child->NodeBounds.Min.Z), FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z), FVector::UpVector, Vertices, Triangles, GridLineThickness);
-				DrawLine(FVector(Child->NodeBounds.Max.X, Child->NodeBounds.Max.Y, Child->NodeBounds.Min.Z), Child->NodeBounds.Max, FVector::UpVector, Vertices, Triangles, GridLineThickness);
-*/
+				// Draw lines for each edge of the cube
+				DrawLine(Center - Extent, FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z), FVector::RightVector, Vertices,
+				         Triangles);
+				DrawLine(FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z),
+				         FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z), FVector::ForwardVector, Vertices, Triangles);
+				DrawLine(FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z),
+				         FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z), FVector::RightVector, Vertices, Triangles);
+				DrawLine(FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z),
+				         FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z), FVector::ForwardVector, Vertices, Triangles);
+
+				DrawLine(FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z),
+				         FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::RightVector, Vertices, Triangles);
+				DrawLine(FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z),
+				         FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z), FVector::ForwardVector, Vertices, Triangles);
+				DrawLine(FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z),
+				         FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z), FVector::RightVector, Vertices, Triangles);
+				DrawLine(FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z),
+				         FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::ForwardVector, Vertices, Triangles);
+
+				DrawLine(FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z),
+				         FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::UpVector, Vertices, Triangles);
+				DrawLine(FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z),
+				         FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z), FVector::UpVector, Vertices, Triangles);
+				DrawLine(FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z),
+				         FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::UpVector, Vertices, Triangles);
+				DrawLine(FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z),
+				         FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::UpVector, Vertices, Triangles);
 			}
 			NodeList.Add(Child);
 		}
 	}
 
-
 	// Unused variables that are required to be passed to CreateMeshSection
-	TArray<FVector> Normals;
-	TArray<FVector2D> UVs;
-	TArray<FColor> Colors;
-	TArray<FProcMeshTangent> Tangents;
+	const TArray<FVector> Normals;
+	const TArray<FVector2D> UVs;
+	const TArray<FColor> Colors;
+	const TArray<FProcMeshTangent> Tangents;
 
 	// Add the geometry to the procedural mesh so it will render
 	ProceduralMesh->CreateMeshSection(0, Vertices, Triangles, Normals, UVs, Colors, Tangents, false);
 
+	if (DynamicMaterialInstance == nullptr)
+	{
+		DynamicMaterialInstance = UMaterialInstanceDynamic::Create(OctreeMaterial, this);
+	}
 
-	// Set the material on the procedural mesh so it's color/opacity can be configurable
 	DynamicMaterialInstance->SetVectorParameterValue("Color", Color);
-	//DynamicMaterialInstance->SetScalarParameterValue("Opacity", Color.A);
+	DynamicMaterialInstance->SetScalarParameterValue("Opacity", Color.A);
 	ProceduralMesh->SetMaterial(0, DynamicMaterialInstance);
 }
 
-void AOctree::DeleteGrid() const
+void AOctree::DeleteGrid()
 {
-	
+	GridDrawn = false;
+	CalculateBorders();
 }
 
-void AOctree::CalculateBorders() 
+void AOctree::CalculateBorders()
 {
 	FVector Start = FVector::ZeroVector;
 	FVector End = FVector::ZeroVector;
 	TArray<FVector> OctreeVertices;
 	TArray<int32> OctreeTriangles;
+	ProceduralMesh->bHiddenInGame = true;
+	ProceduralMesh->ClearAllMeshSections();
 
 	for (int32 y = 0; y <= GetOctreeSizeY(); y += GetOctreeSizeY())
 	{
 		for (int32 z = 0; z <= GetOctreeSizeZ(); z += GetOctreeSizeZ())
 		{
-			Start = FVector(0, y, z);
-			End = FVector(GetOctreeSizeX(), y, z);
+			Start = FVector(0, y, z) + GetActorLocation();
+			End = FVector(GetOctreeSizeX(), y, z) + GetActorLocation();
 			DrawLine(Start, End, FVector::UpVector, OctreeVertices, OctreeTriangles);
 		}
 	}
@@ -287,8 +286,8 @@ void AOctree::CalculateBorders()
 	{
 		for (int32 z = 0; z <= GetOctreeSizeZ(); z += GetOctreeSizeZ())
 		{
-			Start = FVector(x, 0, z);
-			End = FVector(x, GetOctreeSizeY(), z);
+			Start = FVector(x, 0, z) + GetActorLocation();
+			End = FVector(x, GetOctreeSizeY(), z) + GetActorLocation();
 			DrawLine(Start, End, FVector::UpVector, OctreeVertices, OctreeTriangles);
 		}
 	}
@@ -297,28 +296,11 @@ void AOctree::CalculateBorders()
 	{
 		for (int32 y = 0; y <= GetOctreeSizeY(); y += GetOctreeSizeY())
 		{
-			Start = FVector(x, y, 0);
-			End = FVector(x, y, GetOctreeSizeZ());
+			Start = FVector(x, y, 0) + GetActorLocation();
+			End = FVector(x, y, GetOctreeSizeZ()) + GetActorLocation();
 			DrawLine(Start, End, FVector::ForwardVector, OctreeVertices, OctreeTriangles);
 		}
 	}
-
-	/*
-	// Unused variables that are required to be passed to CreateMeshSection
-	const TArray<FVector> Normals;
-	const TArray<FVector2D> UVs;
-	const TArray<FColor> Colors;
-	const TArray<FProcMeshTangent> Tangents;
-
-	// Add the geometry to the procedural mesh so it will render
-	ProceduralMesh->CreateMeshSection(0, OctreeVertices, OctreeTriangles, Normals, UVs, Colors, Tangents, false);
-
-	// Set the material on the procedural mesh so it's color/opacity can be configurable
-	//UMaterialInstanceDynamic* DynamicMaterialInstance = UMaterialInstanceDynamic::Create(OctreeMaterial, this);
-	DynamicMaterialInstance->SetVectorParameterValue("Color", Color);
-	//DynamicMaterialInstance->SetScalarParameterValue("Opacity", 0.5f);
-	//ProceduralMesh->SetMaterial(0, DynamicMaterialInstance);
-	*/
 
 	const TArray<FVector> Normals;
 	const TArray<FVector2D> UVs;
@@ -331,7 +313,9 @@ void AOctree::CalculateBorders()
 	{
 		DynamicMaterialInstance = UMaterialInstanceDynamic::Create(OctreeMaterial, this);
 	}
+
 	DynamicMaterialInstance->SetVectorParameterValue("Color", Color);
+	DynamicMaterialInstance->SetScalarParameterValue("Opacity", Color.A);
 	ProceduralMesh->SetMaterial(0, DynamicMaterialInstance);
 }
 
@@ -339,7 +323,10 @@ void AOctree::DrawLine(const FVector& Start, const FVector& End, const FVector& 
 {
 	// Calculate the half line thickness and the thickness direction
 	const float HalfLineThickness = GridLineThickness / 2.0f;
-	FVector Line = End - Start;
+
+	const FVector NewStart = Start - GetActorLocation();
+	const FVector NewEnd = End - GetActorLocation();
+	FVector Line = NewEnd - NewStart;
 	Line.Normalize();
 
 	// 0--------------------------1
@@ -359,13 +346,13 @@ void AOctree::DrawLine(const FVector& Start, const FVector& End, const FVector& 
 		Triangles.Add(Vertices.Num() + 1);
 
 		// Vertex 0
-		Vertices.Add(Start + (ThicknessDirection * HalfLineThickness));
+		Vertices.Add(NewStart + (ThicknessDirection * HalfLineThickness));
 		// Vertex 1
-		Vertices.Add(End + (ThicknessDirection * HalfLineThickness));
+		Vertices.Add(NewEnd + (ThicknessDirection * HalfLineThickness));
 		// Vertex 2
-		Vertices.Add(Start - (ThicknessDirection * HalfLineThickness));
+		Vertices.Add(NewStart - (ThicknessDirection * HalfLineThickness));
 		// Vertex 3
-		Vertices.Add(End - (ThicknessDirection * HalfLineThickness));
+		Vertices.Add(NewEnd - (ThicknessDirection * HalfLineThickness));
 	};
 
 	const FVector Direction1 = UKismetMathLibrary::Cross_VectorVector(Line, Normal);
@@ -375,57 +362,18 @@ void AOctree::DrawLine(const FVector& Start, const FVector& End, const FVector& 
 	CreateFlatLine(Direction2);
 }
 
-void AOctree::DrawOctree()
-{
-	//Defining the colliders borders
-
-	if (OctreeMaterial == nullptr || GridDrawn) return;
-
-	const TArray ConvexVerts = {
-		FVector(GetOctreeSizeX(), 0, GetOctreeSizeZ()),
-		FVector(0, 0, GetOctreeSizeZ()),
-		FVector(0, 0, 0),
-		FVector(GetOctreeSizeX(), 0, 0),
-		FVector(GetOctreeSizeX(), GetOctreeSizeY(), GetOctreeSizeZ()),
-		FVector(0, GetOctreeSizeY(), GetOctreeSizeZ()),
-		FVector(0, GetOctreeSizeY(), 0),
-		FVector(GetOctreeSizeX(), GetOctreeSizeY(), 0)
-	};
-
-	ProceduralMesh->ClearCollisionConvexMeshes();
-	ProceduralMesh->AddCollisionConvexMesh(ConvexVerts);
-
-	TArray<FVector> OctreeVertices;
-	TArray<int32> OctreeTriangles;
-
-	ProceduralMesh->ClearAllMeshSections();
-	CalculateBorders();
-
-	const TArray<FVector> Normals;
-	const TArray<FVector2D> UVs;
-	const TArray<FColor> Colors;
-	const TArray<FProcMeshTangent> Tangents;
-
-	ProceduralMesh->CreateMeshSection(0, OctreeVertices, OctreeTriangles, Normals, UVs, Colors, Tangents, false);
-
-	if (DynamicMaterialInstance == nullptr)
-	{
-		DynamicMaterialInstance = UMaterialInstanceDynamic::Create(OctreeMaterial, this);
-	}
-	DynamicMaterialInstance->SetVectorParameterValue("Color", Color);
-	ProceduralMesh->SetMaterial(0, DynamicMaterialInstance);
-}
-
 #pragma endregion
 
 void AOctree::BakeOctree()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Baking octree"));
-	SetUpOctreesAsync(false);
-	DrawOctree();
-	SaveNodesToFile(SaveFileName);
-	delete RootNode;
-	//delete NavigationGraph;
+	if (!IsSetup)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Baking Octree"));
+		SetUpOctreesAsync(false);
+		SaveNodesToFile(SaveFileName);
+		delete RootNode;
+	}
+	else UE_LOG(LogTemp, Warning, TEXT("Game is running, cant bake Octree."));
 }
 
 #pragma region Making Octree
@@ -440,13 +388,12 @@ void AOctree::ResizeOctree()
 		TArray<AActor*> Actors;
 		UGameplayStatics::GetAllActorsOfClass(GetWorld(), ActorBaseClass, Actors);
 
-		FBox EnclosingBox = Actors[0]->GetComponentsBoundingBox();
+		FBox EnclosingBox = FBox();
 
-		// Iterate over all actors to find the bounding box that encapsulates all positions
 		for (const AActor* Actor : Actors)
 		{
-			if (Actor && !ActorToIgnore.Contains(Actor) && Actor->GetRootComponent() && Actor->GetRootComponent()->GetCollisionObjectType() ==
-				CollisionChannel)
+			if (!ActorToIgnore.Contains(Actor) && Actor->GetRootComponent() && Actor->GetRootComponent()->GetCollisionObjectType() ==
+				CollisionChannel && Actor->FindComponentByClass<UStaticMeshComponent>())
 			{
 				EnclosingBox += Actor->GetComponentsBoundingBox();
 			}
@@ -474,17 +421,18 @@ void AOctree::ResizeOctree()
 void AOctree::SetUpOctreesAsync(const bool IsLoading)
 {
 	FVector Size = FVector(ExpandVolumeXAxis * SingleVolumeSize, ExpandVolumeYAxis * SingleVolumeSize, ExpandVolumeZAxis * SingleVolumeSize);
-	//Add a little bit of padding, in case there is one single Octree underneath, which would prevent FindNode to work properly.
-	//As they would have the same FBox.
+	//Add a little bit of padding, in case there is one single Octree underneath, which sometimes prevent FindNode to work properly.
 	Size *= 1.02f;
 	RootNode = new OctreeNode(FBox(GetActorLocation(), GetActorLocation() + Size), nullptr);
 
 	RootNode->ChildrenOctreeNodes.SetNum(ExpandVolumeXAxis * ExpandVolumeYAxis * ExpandVolumeZAxis);
+	/*
 	if (!AllHitResults.IsEmpty() && AllHitResults.Num() != ExpandVolumeXAxis * ExpandVolumeYAxis * ExpandVolumeZAxis)
 	{
 		//Meaning our previous results are completely outdated.
 		AllHitResults.Empty();
 	}
+	*/
 
 	if (IsLoading) return;
 
@@ -504,7 +452,6 @@ void AOctree::SetUpOctreesAsync(const bool IsLoading)
 	GetEmptyNodes(RootNode);
 	AdjustDanglingChildNodes(RootNode);
 	NavigationGraph.ConnectNodes(RootNode);
-	UE_LOG(LogTemp, Warning, TEXT("Octree setup"));
 }
 
 OctreeNode* AOctree::MakeOctree(const FVector& Origin, const int& Index)
@@ -513,7 +460,7 @@ OctreeNode* AOctree::MakeOctree(const FVector& Origin, const int& Index)
 	const FBox Bounds = FBox(Origin, Origin + Size);
 	OctreeNode* NewRootNode = new OctreeNode(Bounds, nullptr);
 
-	if (!UsePhysicsOverlap)
+	if (!UseOverlap)
 	{
 		TArray<FOverlapResult> Result;
 		FCollisionQueryParams TraceParams;
@@ -537,9 +484,10 @@ OctreeNode* AOctree::MakeOctree(const FVector& Origin, const int& Index)
 			BoxResults.Add(Overlap.GetActor()->GetComponentsBoundingBox());
 		}
 
-		
-		if (!AllHitResults.IsEmpty())
+		AddObjects(BoxResults, NewRootNode);
 
+		/*
+		if (!AllHitResults.IsEmpty())
 		{
 			TArray<FBox> NewResults;
 			for (auto OverlapBox : AllHitResults[Index])
@@ -549,7 +497,7 @@ OctreeNode* AOctree::MakeOctree(const FVector& Origin, const int& Index)
 					NewResults.Add(OverlapBox);
 				}
 			}
-			
+
 
 			for (auto OverlapBox : BoxResults)
 			{
@@ -559,27 +507,28 @@ OctreeNode* AOctree::MakeOctree(const FVector& Origin, const int& Index)
 				}
 			}
 
-			/*
+
 			for (auto NewResult : NewResults)
 			{
-				UE_LOG(LogTemp, Warning, TEXT("New result: %s"), *NewResult.GetCenter());
+				UE_LOG(LogTemp, Warning, TEXT("New result: %f, %f, %f"), NewResult.GetCenter().X, NewResult.GetCenter().Y, NewResult.GetCenter().Z);
 			}
-			*/
 
 			AddObjects(NewResults, NewRootNode);
+			
 		}
 		else
 		{
 			AddObjects(BoxResults, NewRootNode);
 		}
 		AllHitResults.Add(BoxResults);
+		*/
 	}
 	else
 	{
 		NewRootNode->DivideNode(FBox(), MinNodeSize, GetWorld(), false);
 	}
 
-	
+
 	return NewRootNode;
 }
 
@@ -614,24 +563,17 @@ void AOctree::GetEmptyNodes(OctreeNode* Node)
 			continue;
 		}
 
-		NodeList[i]->ID = NodeID;
-		NodeID++;
-
 		if (NodeList[i]->ChildrenOctreeNodes.IsEmpty())
 		{
 			if (!NodeList[i]->Occupied) //NodeList[i]->ContainedActors.IsEmpty())
 			{
 				NodeList[i]->NavigationNode = true;
-				
-				//DrawDebugBox(GetWorld(), NodeList[i]->NodeBounds.GetCenter(), NodeList[i]->NodeBounds.GetExtent(), FColor::Green, true, 10.0f);
 			}
 			else
 			{
-				
 				const int Index = NodeList[i]->Parent->ChildrenOctreeNodes.Find(NodeList[i]);
 				NodeList[i]->Parent->ChildrenOctreeNodes[Index] = nullptr;
 				delete NodeList[i];
-				
 				//I adjust the null pointers in AdjustDanglingChildNodes(). Here I should not touch it while it is iterating through it.
 			}
 		}
@@ -766,14 +708,7 @@ void AOctree::GetAStarPathAsyncToLocation(const AActor* Agent, const FVector& Ta
 		if (!GetAStarPath(AgentCopy, EndCopy, LocalNextLocation))
 		{
 			GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "No path found. Using Previous");
-			/*if (PreviousNextLocation == FVector::ZeroVector)
-			{
-				OutNextDirection = (EndCopy - AgentCopy->GetActorLocation()).GetSafeNormal();
-				IsPathfindingInProgress = false;
-				return;
-			}*/
 			OutNextDirection = (EndCopy - AgentCopy->GetActorLocation()).GetSafeNormal();
-			//OutNextDirection = (PreviousNextLocation - AgentCopy->GetActorLocation()).GetSafeNormal();
 			IsPathfindingInProgress = false;
 			return;
 		}
