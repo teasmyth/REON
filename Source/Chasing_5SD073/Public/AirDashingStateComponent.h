@@ -7,6 +7,7 @@
 #include "Components/ActorComponent.h"
 #include "AirDashingStateComponent.generated.h"
 
+typedef TPair<FVector, FVector> Line;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class CHASING_5SD073_API UAirDashingStateComponent : public UStateComponentBase
@@ -33,6 +34,8 @@ public:
 	virtual void OverrideDebug() override;
 
 private:
+	TArray<Line> GetEdges(const FBox& Bounds) const;
+	void EdgeCorrection(const FVector& CurrentPosition) const;
 	void AddSlide();
 	
 private:
@@ -41,7 +44,15 @@ private:
 
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "The duration of the 'blink'", ClampMin = 0))
 	float AirDashTime = 0;
+
+	UPROPERTY(EditAnywhere, Category= "Edge Correction", meta = (ToolTip = "Enable edge correction debug"))
+	bool EnableEdgeCorrectionDebug = true;
 	
+	UPROPERTY(EditAnywhere, Category= "Edge Correction", meta = (ToolTip = "Min distance from an edge", ClampMin = 0))
+	float EdgeDistThreshold = 10.0f;
+
+	UPROPERTY(EditAnywhere, Category= "Edge Correction", meta = (ToolTip = "The time it takes to perform edge correction", ClampMin = 0))
+	float InterpSpeed = 0.05f;
 	
 	//Internal
 	FVector InitialForwardVector;

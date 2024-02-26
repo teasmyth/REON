@@ -7,6 +7,14 @@
 #include "Components/ActorComponent.h"
 #include "SlidingStateComponent.generated.h"
 
+struct FSurfaceInfo
+{
+	float Angle;
+	FVector Normal;
+	bool MovingDown;
+	bool IsSlopedSurface;
+};
+
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class CHASING_5SD073_API USlidingStateComponent : public UStateComponentBase
@@ -40,7 +48,8 @@ private:
 	void ShrinkCapsuleSize();
 	bool IsUnderObject() const;
 	bool SweepCapsuleSingle(FVector& Start, FVector& End) const;
-	bool IsOnSlope(float* angle = nullptr) const;
+	bool IsOnSlope(FSurfaceInfo& SlopeInfo) const;
+	FSurfaceInfo GetSurfaceInfo() const;
 
 	bool IsTimerOn(const FTimerHandle& Timer) const;
 	void StopTimer(FTimerHandle& Timer) const;

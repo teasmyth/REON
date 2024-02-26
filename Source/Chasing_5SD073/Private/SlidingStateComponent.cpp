@@ -31,14 +31,12 @@ void USlidingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 bool USlidingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	if (PlayerCharacter->GetCharacterMovementState() != EMovementState::Idle && DetectGround() && IsTimerOn(CapsuleSizeResetTimer))
+	if (PlayerCharacter->GetCharacterMovementState() != EMovementState::Idle && DetectGround() && !IsTimerOn(CapsuleSizeResetTimer))
 	{
 		return true;
 	}
 	return false;
 }
-
-
 
 void USlidingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
@@ -47,7 +45,7 @@ void USlidingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	InternalTimer = 0;
 	PlayerCharacter->bUseControllerRotationYaw = false;
 
-	if (!IsOnSlope())
+	if (FSurfaceInfo Info; !IsOnSlope(Info))
 	{
 		const float Ratio = PlayerCharacter->GetHorizontalVelocity() / PlayerCharacter->GetMaxRunningSpeed();
 		PlayerCharacter->LaunchCharacter(PlayerCharacter->GetActorForwardVector() * SlideSpeedCurve->GetFloatValue(0) * Ratio, false, false);
@@ -79,7 +77,8 @@ void USlidingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 		CanExitState = true;
 	}
 
-	if (!IsOnSlope())
+	const auto Info = GetSurfaceInfo();
+	if (!Info.IsSlopedSurface || (Info.IsSlopedSurface && Info.MovingDown))
 	{
 		if (InternalTimer > MaxSlideDuration || !IsUnderObject() && WasUnderObject)
 		{
@@ -218,10 +217,10 @@ bool USlidingStateComponent::SweepCapsuleSingle(FVector& Start, FVector& End) co
 	const FCollisionShape CollisionShape = FCollisionShape::MakeBox(FVector(55.0f, 75.0f, 96.0f));
 	FQuat Rotation = FQuat::Identity;
 	
-	if (float Angle = 0.0f; IsOnSlope(&Angle))
+	if (FSurfaceInfo Info; IsOnSlope(Info))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Angle : %f"), Angle);
-		Rotation = FQuat(FRotator(Angle, 0, 0));
+		UE_LOG(LogTemp, Warning, TEXT("Angle : %f"), Info.Angle);
+		Rotation = FQuat(FRotator(Info.Angle, 0, 0));
 	}
 	
 	DrawDebugBox(GetWorld(), Start, FVector(55.0f, 75.0f, 96.0f), Rotation, FColor::Green, false, 0, 0, 3);
@@ -229,28 +228,61 @@ bool USlidingStateComponent::SweepCapsuleSingle(FVector& Start, FVector& End) co
 	return GetWorld()->SweepSingleByChannel(HitR, Start, End, Rotation, ECC_Visibility, CollisionShape, CollisionParams);
 }
 
-bool USlidingStateComponent::IsOnSlope(float* angle) const
+bool USlidingStateComponent::IsOnSlope(FSurfaceInfo& SlopeInfo) const
 {
 	const FVector Offset = FVector(0,0, -PlayerCapsule->GetScaledCapsuleHalfHeight());
 	const auto Start = PlayerCharacter->GetActorLocation() + Offset;
 	const auto End = PlayerCharacter->GetActorLocation() - GetOwner()->GetActorUpVector() * 10.0f + Offset;
+	
 	bool OnSlope = false;
 	float DotProduct = 0.0f;
 	float Angle = 0.0f;
 	
 	if (FHitResult HitResult; LineTraceSingle(HitResult, Start, End))
 	{
+		// Angle between the normal of the hit and the up vector
 		Angle = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(HitResult.ImpactNormal, FVector::UpVector)));
+		// If the angle is not 0, then the player is on a slope
 		OnSlope = FMath::Abs(Angle) > 1e-6;
+		// Dot product between the player's velocity and the normal of the hit
 		DotProduct = FVector::DotProduct(PlayerCharacter->GetVelocity(), HitResult.ImpactNormal);
-	}
 
-	if (angle != nullptr)
-	{
-		*angle = Angle;
+		SlopeInfo.Angle = Angle;
+		SlopeInfo.MovingDown = DotProduct > 0.0f;
+		SlopeInfo.Normal = HitResult.ImpactNormal;
 	}
 	
-	return OnSlope && DotProduct > 0.0f;
+	return OnSlope;
+}
+
+FSurfaceInfo USlidingStateComponent::GetSurfaceInfo() const
+{
+	FSurfaceInfo Info;
+	
+	const FVector Offset = FVector(0,0, -PlayerCapsule->GetScaledCapsuleHalfHeight());
+	const auto Start = PlayerCharacter->GetActorLocation() + Offset;
+	const auto End = PlayerCharacter->GetActorLocation() - GetOwner()->GetActorUpVector() * 10.0f + Offset;
+	
+	bool OnSlope = false;
+	float DotProduct = 0.0f;
+	float Angle = 0.0f;
+	
+	if (FHitResult HitResult; LineTraceSingle(HitResult, Start, End))
+	{
+		// Angle between the normal of the hit and the up vector
+		Angle = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(HitResult.ImpactNormal, FVector::UpVector)));
+		// If the angle is not 0, then the player is on a slope
+		OnSlope = FMath::Abs(Angle) > 1e-6;
+		// Dot product between the player's velocity and the normal of the hit
+		DotProduct = FVector::DotProduct(PlayerCharacter->GetVelocity(), HitResult.ImpactNormal);
+
+		Info.Angle = Angle;
+		Info.MovingDown = DotProduct < 0.0f;
+		Info.Normal = HitResult.ImpactNormal;
+		Info.IsSlopedSurface = OnSlope;
+	}
+	
+	return Info;
 }
 
 bool USlidingStateComponent::IsTimerOn(const FTimerHandle& Timer) const
