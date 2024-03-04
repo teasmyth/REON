@@ -41,8 +41,18 @@ OctreeNode::~OctreeNode()
 		if (Child != nullptr)
 		{
 			delete Child;
+			Child = nullptr;
 		}
 	}
+
+	
+	for (const OctreeNode* Neighbor : Neighbors)
+	{
+		Neighbor = nullptr;
+	}
+
+	Neighbors.Empty();
+	
 }
 
 void OctreeNode::DivideNode(const FBox& ActorBox, const float& MinSize, const UWorld* World, const bool& DivideUsingBounds)

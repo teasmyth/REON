@@ -44,12 +44,12 @@ void AOctree::Tick(float DeltaSeconds)
 void AOctree::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
 	PreviousNextLocation = FVector::ZeroVector;
 	FString SpecificFileName = "OctreeFiles/" + GetWorld()->GetName() + "OctreeNodes.bin";
 	SaveFileName = FPaths::Combine(FPaths::ProjectSavedDir(), SpecificFileName);
 
-	auto TurnTimeToNormalAsync = Async(EAsyncExecution::Thread, [&]()
+	auto LoadGame = Async(EAsyncExecution::Thread, [&]()
 	{
 		if (!LoadNodesFromFile(SaveFileName))
 		{
@@ -144,9 +144,18 @@ void AOctree::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
 
+	/*
+	if (IsPathfindingInProgress && (PathfindingThread && PathfindingThread->joinable()))
+	{
+		// Wait for the thread to finish
+		PathfindingThread->join();
+	}
+	*/
+
 	IsSetup = false;
 	//SaveNodesToFile(SaveFileName);
 	delete RootNode;
+	RootNode = nullptr;
 }
 
 void AOctree::OnConstruction(const FTransform& Transform)
@@ -669,7 +678,7 @@ bool AOctree::GetAStarPath(const AActor* Agent, const FVector& End, FVector& Out
 
 bool AOctree::GetAStarPathToTarget(const AActor* Agent, const AActor* End, FVector& NextLocation)
 {
-	return false;
+	return GetAStarPath(Agent, End->GetActorLocation(), NextLocation);
 }
 
 void AOctree::GetAStarPathAsyncToLocation(const AActor* Agent, const FVector& Target, FVector& OutNextDirection)
@@ -704,6 +713,7 @@ void AOctree::GetAStarPathAsyncToLocation(const AActor* Agent, const FVector& Ta
 
 		IsPathfindingInProgress = true;
 		FVector LocalNextLocation = PreviousNextLocation;
+
 
 		if (!GetAStarPath(AgentCopy, EndCopy, LocalNextLocation))
 		{

@@ -104,6 +104,8 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 
 		for (const auto Neighbor : CurrentNode->Neighbors)
 		{
+			if (Neighbor == nullptr) continue;
+			
 			if (ClosedList.Contains(Neighbor)) continue; //We already have the best route to that node.
 
 			const float TentativeG = CurrentNode->G + ManhattanDistance(CurrentNode, Neighbor);
