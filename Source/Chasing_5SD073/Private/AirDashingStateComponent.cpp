@@ -46,11 +46,11 @@ void UAirDashingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	HorizontalVelocity = PlayerCharacter->GetHorizontalVelocity();
 }
 
-bool sweep = false;
-
 void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
 	Super::OnUpdateState(SM);
+
+	bool sweep = true;
 
 	//Instead of relying on physics, (cause it is janky) I am manually calculating where the player is supposed to be.
 	InternalTimer += GetWorld()->GetDeltaSeconds();
@@ -117,15 +117,18 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 					UE_LOG(LogTemp, Warning, TEXT("Min Dis: %f"), MinDis)
 					DrawDebugPoint(GetWorld(), p, 15, FColor::Red, false, 5, 0);
 				}
-				
-				NextFrameLocation.Z += FMath::Abs(EdgeDistThreshold - MinDis) * 2;
+
+				UE_LOG(LogTemp, Warning, TEXT("Edge Correction Amount: %f"), FMath::Abs(MinDis))
+				NextFrameLocation.Z += EdgeCorrectionAmount;
+
+				sweep = false;
 				
 				break;
 			}
 		}
 	}
 	
-	PlayerCharacter->SetActorLocation(NextFrameLocation, true); //true prevent player 'dashing' inside of a wall, stop at hitting.
+	PlayerCharacter->SetActorLocation(NextFrameLocation, sweep); //true prevent player 'dashing' inside of a wall, stop at hitting.
 
 	if (InternalTimer >= AirDashTime) SM.ManualExitState();
 }

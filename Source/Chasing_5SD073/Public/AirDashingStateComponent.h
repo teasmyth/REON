@@ -47,6 +47,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category= "Edge Correction", meta = (ToolTip = "Enable edge correction debug"))
 	bool EnableEdgeCorrectionDebug = true;
+
+	UPROPERTY(EditAnywhere, Category= "Edge Correction", meta = (ToolTip = "Min distance from an edge", ClampMin = 0))
+	float EdgeCorrectionAmount = 2.0f;
 	
 	UPROPERTY(EditAnywhere, Category= "Edge Correction", meta = (ToolTip = "Min distance from an edge", ClampMin = 0))
 	float EdgeDistThreshold = 10.0f;
