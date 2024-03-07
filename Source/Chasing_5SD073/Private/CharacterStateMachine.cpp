@@ -145,6 +145,13 @@ void UCharacterStateMachine::OverrideCameraInput(FVector2d& NewRotationVector)
 	}
 }
 
+void UCharacterStateMachine::OverrideJump(FVector& JumpVector)
+{
+	if (CurrentState != nullptr)
+	{
+		CurrentState->OverrideJump(*this, JumpVector);
+	}
+}
 
 
 void UCharacterStateMachine::DetectStates()
@@ -251,11 +258,11 @@ UStateComponentBase* UCharacterStateMachine::TranslateEnumToState(const ECharact
 	return nullptr;
 }
 
-void UCharacterStateMachine::DebugText(const FString& Text)
+void UCharacterStateMachine::DebugText(const FString& Text, const float Lifetime)
 {
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1,0, FColor::Red, Text);
+		GEngine->AddOnScreenDebugMessage(-1,Lifetime, FColor::Red, Text);
 	}
 }
 #pragma endregion

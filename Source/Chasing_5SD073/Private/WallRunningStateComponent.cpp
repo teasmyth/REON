@@ -29,14 +29,6 @@ void UWallRunningStateComponent::BeginPlay()
 void UWallRunningStateComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	/*
-	DetectAndSetWallRun();
-	if (PlayerMovement->IsMovingOnGround())
-	{
-		PrevResult = EmptyResult;
-	}
-	*/
 }
 
 bool UWallRunningStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
@@ -137,15 +129,15 @@ bool UWallRunningStateComponent::CheckWhetherStillWallRunning()
 void UWallRunningStateComponent::OverrideDebug()
 {
 	if (!DebugMechanic) return;
-	
+
 	Super::OverrideDebug();
 
 	const FVector Start = GetOwner()->GetActorLocation();
 	const FVector LengthVector = GetOwner()->GetActorRotation().Vector() * WallCheckDistance;
-  
+
 	//Side check debug. Right and Left
-	DrawDebugLine(GetWorld(), Start, Start + RotateVector(LengthVector, WallRunSideAngle), DebugColor, false, 0, 0, 3);
-	DrawDebugLine(GetWorld(), Start, Start + RotateVector(LengthVector, -WallRunSideAngle), DebugColor, false, 0, 0, 3);
+	DrawDebugLine(GetWorld(), Start, Start + RotateVector(LengthVector, FRotator(0, WallRunSideAngle, 0)), DebugColor, false, 0, 0, 3);
+	DrawDebugLine(GetWorld(), Start, Start + RotateVector(LengthVector, FRotator(0, -WallRunSideAngle, 0)), DebugColor, false, 0, 0, 3);
 
 
 	if (PlayerCharacter->GetCharacterStateMachine()->GetCurrentEnumState() == ECharacterState::WallRunning)
@@ -160,23 +152,36 @@ void UWallRunningStateComponent::OverrideDebug()
 void UWallRunningStateComponent::OverrideDetectState(UCharacterStateMachine& SM)
 {
 	Super::OverrideDetectState(SM);
-	
+
 	if (PlayerMovement->IsMovingOnGround())
 	{
 		PrevResult = EmptyResult;
 	}
-	
+
 	const FVector Start = GetOwner()->GetActorLocation();
 
 	FHitResult RightSide;
-	const FVector RightVector = RotateVector(GetOwner()->GetActorRotation().Vector(), WallRunSideAngle, WallCheckDistance);
+	const FVector RightVector = RotateVector(GetOwner()->GetActorRotation().Vector(), FRotator(0, WallRunSideAngle, 0), WallCheckDistance);
 	const bool bRightSideHit = LineTraceSingle(RightSide, Start, Start + RightVector);
 
 	FHitResult LeftSide;
-	const FVector LeftVector = RotateVector(GetOwner()->GetActorRotation().Vector(), -WallRunSideAngle, WallCheckDistance);
+	const FVector LeftVector = RotateVector(GetOwner()->GetActorRotation().Vector(), FRotator(0, -WallRunSideAngle, 0), WallCheckDistance);
 	const bool bLeftSideHit = LineTraceSingle(LeftSide, Start, Start + LeftVector);
 
-	if (bRightSideHit && !bLeftSideHit || !bRightSideHit && bLeftSideHit)
+	if (bRightSideHit && !bLeftSideHit)
+	{
+		WallOrientation = Right;
+	}
+	else if (!bRightSideHit && bLeftSideHit)
+	{
+		WallOrientation = Left;
+	}
+	else
+	{
+		WallOrientation = None;
+	}
+
+	if (WallOrientation != None)
 	{
 		const FHitResult NewResult = bRightSideHit ? RightSide : LeftSide;
 		if (HitResult.GetActor() == NewResult.GetActor())
@@ -185,7 +190,7 @@ void UWallRunningStateComponent::OverrideDetectState(UCharacterStateMachine& SM)
 
 			if (TriggerTimer >= WallRunTriggerDelay)
 			{
-				WallOrientation = bRightSideHit ? Right : Left;
+				//WallOrientation = bRightSideHit ? Right : Left;
 				PlayerCharacter->GetCharacterStateMachine()->SetState(ECharacterState::WallRunning);
 			}
 		}
@@ -198,5 +203,26 @@ void UWallRunningStateComponent::OverrideDetectState(UCharacterStateMachine& SM)
 	else
 	{
 		TriggerTimer = 0;
+	}
+}
+
+void UWallRunningStateComponent::OverrideJump(UCharacterStateMachine& SM, FVector& JumpVector)
+{
+	Super::OverrideJump(SM, JumpVector);
+
+	if (FMath::Abs(PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeRotation().Yaw) < WallRunTapAngle)
+	{
+		FVector NewJumpVector;
+		
+		if (WallOrientation == Right)
+		{
+			NewJumpVector = -PlayerCharacter->GetActorRightVector();
+		}
+		else if (WallOrientation == Left)
+		{
+			NewJumpVector = PlayerCharacter->GetActorRightVector();
+		}
+		
+		JumpVector = (NewJumpVector * TapJumpForceSideModifier + PlayerCharacter->GetActorUpVector() * TapJumpForceUpModifier) * JumpVector.Size();
 	}
 }

@@ -79,6 +79,8 @@ public:
 
 	virtual void OverrideCameraInput(UCharacterStateMachine& SM, FVector2d& NewRotationVector);
 
+	virtual void OverrideJump(UCharacterStateMachine& SM, FVector& JumpVector);
+
 	//This for mechanics that require automated triggers rather than manual one. State machine will make sure a mechanic will not try to detect itself
 	//Or if the mechanic prohibits transitioning from the current state.
 	virtual void OverrideDetectState(UCharacterStateMachine& SM);
@@ -99,7 +101,8 @@ protected:
 	bool LineTraceSingle(FHitResult& HitR, const FVector& Start, const FVector& End) const;
 	//Line Trace Single Channel, used when HitResult is not needed. Return true if there is a hit. Automatically ignores Owner and uses ECC_Visibility.
 	bool LineTraceSingle(const FVector& Start, const FVector& End) const;
-	static FVector RotateVector(const FVector& InVector, const float AngleInDegrees, const float Length = 1);
+	
+	static FVector RotateVector(const FVector& VectorToRotate, const FRotator& RotationDegreesPerAxis, const float LengthOverride = 1);
 
 	bool IsKeyDown(const FKey& Key) const;
 

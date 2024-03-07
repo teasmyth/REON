@@ -36,17 +36,18 @@ public:
 	virtual void OverrideCameraInput(UCharacterStateMachine& SM, FVector2d& NewRotationVector) override;
 	virtual void OverrideDebug() override;
 	virtual void OverrideDetectState(UCharacterStateMachine& SM) override;
+	virtual void OverrideJump(UCharacterStateMachine& SM, FVector& JumpVector) override;
 
-	
+
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE EWallOrientation GetWallOrientation() const { return WallOrientation;}
+	FORCEINLINE EWallOrientation GetWallOrientation() const { return WallOrientation; }
 
-	
 private:
 	void RotatePlayerAlongsideWall(const FHitResult& Hit) const;
 	bool CheckWhetherStillWallRunning();
 
-	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "This stops sensors from being an insta trigger, preventing accidentals.", ClampMin = 0))
+	UPROPERTY(EditAnywhere, Category= "Settings",
+		meta = (Tooltip = "This stops sensors from being an insta trigger, preventing accidentals.", ClampMin = 0))
 	float WallRunTriggerDelay = 0;
 
 	UPROPERTY(EditAnywhere, Category= "Settings")
@@ -64,11 +65,22 @@ private:
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
 	float MaxWallRunDuration = 0;
 	
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
+	float WallRunTapAngle = 80.0f;
+
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0, Tooltip = "This takes the original JumpStrength as a base and multiplies it by this value."))
+	float TapJumpForceUpModifier = 0.35f;
+	
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0, Tooltip = "This takes the original JumpStrength as a base and multiplies it by this value."))
+	float TapJumpForceSideModifier = 1.85f;
+	
+	
+
 	//Internal
 	EWallOrientation WallOrientation = None;
 	FHitResult PrevResult;
 	FHitResult HitResult;
-	FHitResult EmptyResult; 
+	FHitResult EmptyResult;
 	float GravityTimer;
 	float TriggerTimer;
 	float WallRunTimer;
