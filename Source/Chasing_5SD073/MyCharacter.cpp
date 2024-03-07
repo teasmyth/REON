@@ -170,8 +170,7 @@ void AMyCharacter::MovementStateCheck()
 			GetCharacterMovement()->Velocity = FVector::ZeroVector;
 			PlayerFellEvent();
 		}
-
-		else if (CurrentMovementState != EMovementState::Idle && GetHorizontalVelocity() <= 0.1f)
+		else if (CurrentMovementState != EMovementState::Idle && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing && GetHorizontalVelocity() <= 0.1f)
 		{
 			CurrentMovementState = EMovementState::Idle;
 			AccelerationTimer = 0;

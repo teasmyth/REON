@@ -35,7 +35,6 @@ public:
 
 private:
 	TArray<Line> GetEdges(const FBox& Bounds) const;
-	void EdgeCorrection(const FVector& CurrentPosition) const;
 	void AddSlide();
 	
 private:
@@ -61,6 +60,7 @@ private:
 	FVector InitialForwardVector;
 	double InternalTimer;
 
+	bool SweepOnDash = true;
 	bool IsHoldingW = false;
 	float HorizontalVelocity = 0.0f;
 

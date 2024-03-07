@@ -219,11 +219,8 @@ bool USlidingStateComponent::SweepCapsuleSingle(FVector& Start, FVector& End) co
 	
 	if (FSurfaceInfo Info; IsOnSlope(Info))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Angle : %f"), Info.Angle);
 		Rotation = FQuat(FRotator(Info.Angle, 0, 0));
 	}
-	
-	DrawDebugBox(GetWorld(), Start, FVector(55.0f, 75.0f, 96.0f), Rotation, FColor::Green, false, 0, 0, 3);
 	
 	return GetWorld()->SweepSingleByChannel(HitR, Start, End, Rotation, ECC_Visibility, CollisionShape, CollisionParams);
 }

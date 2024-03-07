@@ -207,8 +207,11 @@ private: //For mechanics
 
 	//Debug
 
+public:
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	float AccelerationTimer = 0;
+
+private:
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	float LookBackTimer = 0;
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")

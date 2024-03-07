@@ -50,8 +50,8 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
 	Super::OnUpdateState(SM);
 
-	bool sweep = true;
-
+	SweepOnDash = true;
+	
 	//Instead of relying on physics, (cause it is janky) I am manually calculating where the player is supposed to be.
 	InternalTimer += GetWorld()->GetDeltaSeconds();
 	FVector NextFrameLocation = PlayerCharacter->GetActorLocation() + InitialForwardVector * AirDashDistance * (InternalTimer / AirDashTime) *
@@ -114,21 +114,23 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 			{
 				if (EnableEdgeCorrectionDebug)
 				{
-					UE_LOG(LogTemp, Warning, TEXT("Min Dis: %f"), MinDis)
+					UE_LOG(LogTemp, Warning, TEXT("Min Dis: %f"), MinDis);
 					DrawDebugPoint(GetWorld(), p, 15, FColor::Red, false, 5, 0);
 				}
-
-				UE_LOG(LogTemp, Warning, TEXT("Edge Correction Amount: %f"), FMath::Abs(MinDis))
+				
 				NextFrameLocation.Z += EdgeCorrectionAmount;
 
-				sweep = false;
+				SweepOnDash = false;
 				
 				break;
 			}
 		}
 	}
+
+	if (EnableEdgeCorrectionDebug)
+		UE_LOG(LogTemp, Warning, TEXT("Sweeping: %hs"), SweepOnDash ? "true" : "false");
 	
-	PlayerCharacter->SetActorLocation(NextFrameLocation, sweep); //true prevent player 'dashing' inside of a wall, stop at hitting.
+	PlayerCharacter->SetActorLocation(NextFrameLocation, SweepOnDash); //true prevent player 'dashing' inside of a wall, stop at hitting.
 
 	if (InternalTimer >= AirDashTime) SM.ManualExitState();
 }
@@ -136,9 +138,11 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 void UAirDashingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
 	Super::OnExitState(SM);
+
+	PlayerCharacter->AccelerationTimer = 10;
 	
-	GetWorld()->GetTimerManager().ClearTimer(SlideTimerHandle);
-	GetWorld()->GetTimerManager().SetTimer(SlideTimerHandle, this, &UAirDashingStateComponent::AddSlide, GetWorld()->GetDeltaSeconds(), true);
+	//GetWorld()->GetTimerManager().ClearTimer(SlideTimerHandle);
+	//GetWorld()->GetTimerManager().SetTimer(SlideTimerHandle, this, &UAirDashingStateComponent::AddSlide, GetWorld()->GetDeltaSeconds(), true);
 }
 
 void UAirDashingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
@@ -168,48 +172,20 @@ TArray<Line> UAirDashingStateComponent::GetEdges(const FBox& Bounds) const
 	const FVector Max = Bounds.Max;
 		
 	TArray Corners = {
-		FVector(Min.X, Min.Y, Min.Z),
 		FVector(Min.X, Min.Y, Max.Z),
-		FVector(Min.X, Max.Y, Min.Z),
 		FVector(Min.X, Max.Y, Max.Z),
-		FVector(Max.X, Min.Y, Min.Z),
 		FVector(Max.X, Min.Y, Max.Z),
-		FVector(Max.X, Max.Y, Min.Z),
 		FVector(Max.X, Max.Y, Max.Z)
 	};
-	
+
 	TArray Lines = {
 		TPair<FVector, FVector>(Corners[0], Corners[1]),
-		TPair<FVector, FVector>(Corners[0], Corners[2]),
-		TPair<FVector, FVector>(Corners[0], Corners[4]),
-		TPair<FVector, FVector>(Corners[3], Corners[1]),
+		TPair<FVector, FVector>(Corners[1], Corners[3]),
 		TPair<FVector, FVector>(Corners[3], Corners[2]),
-		TPair<FVector, FVector>(Corners[3], Corners[7]),
-		TPair<FVector, FVector>(Corners[5], Corners[1]),
-		TPair<FVector, FVector>(Corners[5], Corners[4]),
-		TPair<FVector, FVector>(Corners[5], Corners[7]),
-		TPair<FVector, FVector>(Corners[6], Corners[2]),
-		TPair<FVector, FVector>(Corners[6], Corners[4]),
-		TPair<FVector, FVector>(Corners[6], Corners[7])
+		TPair<FVector, FVector>(Corners[2], Corners[0])
 	};
 
 	return Lines;
-}
-
-void UAirDashingStateComponent::EdgeCorrection(const FVector& CurrentPosition) const
-{
-	// Get the current position
-	FVector TargetPosition = CurrentPosition;
-	TargetPosition.Z += 70.0f;
-
-	// Get the elapsed time since the last frame
-	const float DeltaTime = GetWorld()->GetDeltaSeconds();
-
-	// Interpolate the current position to the target position
-	const FVector InterpolatedPosition = FMath::VInterpTo(CurrentPosition, TargetPosition, DeltaTime, InterpSpeed);
-
-	// Set the player's position to the interpolated position
-	PlayerCharacter->SetActorLocation(InterpolatedPosition);
 }
 
 void UAirDashingStateComponent::AddSlide()
