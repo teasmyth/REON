@@ -61,7 +61,10 @@ private:
 
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
 	float MaxWallClimbDuration = 0;
-
+	
+	UPROPERTY(EditAnywhere, Category= "Settings")
+	bool DisableTapWallFacingJump;
+	
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0, Tooltip = "This takes the original JumpStrength as a base and multiplies it by this value."))
 	float WallFacingJumpUpForceMultiplier = 1.0f;
 

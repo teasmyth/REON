@@ -208,11 +208,9 @@ void UWallClimbingStateComponent::OverrideJump(UCharacterStateMachine& SM, FVect
 {
 	Super::OverrideJump(SM, JumpVector);
 
-	if (FMath::Abs(PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeRotation().Yaw) < WallClimbAngle)
+	if (!DisableTapWallFacingJump && FMath::Abs(PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeRotation().Yaw) < WallClimbAngle)
 	{
 		JumpVector = (PlayerCharacter->GetActorUpVector() * WallFacingJumpUpForceMultiplier - PlayerCharacter->GetActorForwardVector() *
 			WallFacingJumpBackForceMultiplier) * JumpVector.Size();
-
-		DrawDebugLine(GetWorld(), PlayerCharacter->GetActorLocation(), PlayerCharacter->GetActorLocation() + JumpVector, FColor::Red, false, 4, 0, 3);
 	}
 }

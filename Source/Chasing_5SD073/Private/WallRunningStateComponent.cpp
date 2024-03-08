@@ -190,7 +190,6 @@ void UWallRunningStateComponent::OverrideDetectState(UCharacterStateMachine& SM)
 
 			if (TriggerTimer >= WallRunTriggerDelay)
 			{
-				//WallOrientation = bRightSideHit ? Right : Left;
 				PlayerCharacter->GetCharacterStateMachine()->SetState(ECharacterState::WallRunning);
 			}
 		}
@@ -210,7 +209,7 @@ void UWallRunningStateComponent::OverrideJump(UCharacterStateMachine& SM, FVecto
 {
 	Super::OverrideJump(SM, JumpVector);
 
-	if (FMath::Abs(PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeRotation().Yaw) < WallRunTapAngle)
+	if (!DisableTapJump && FMath::Abs(PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeRotation().Yaw) < WallRunTapAngle)
 	{
 		FVector NewJumpVector;
 		

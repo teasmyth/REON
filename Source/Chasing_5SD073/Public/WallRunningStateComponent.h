@@ -64,6 +64,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
 	float MaxWallRunDuration = 0;
+
+	UPROPERTY(EditAnywhere, Category= "Settings")
+	bool DisableTapJump;	
 	
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
 	float WallRunTapAngle = 80.0f;
