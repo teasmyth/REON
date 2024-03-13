@@ -44,6 +44,7 @@ void UAirDashingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	PlayerMovement->Velocity = FVector(InitialForwardVector.X * Speed, InitialForwardVector.Y * Speed, PlayerMovement->Velocity.Z);
 	
 	HorizontalVelocity = PlayerCharacter->GetHorizontalVelocity();
+	AccelerationTimer = PlayerCharacter->AccelerationTimer;
 }
 
 void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
@@ -139,7 +140,7 @@ void UAirDashingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
 	Super::OnExitState(SM);
 
-	PlayerCharacter->AccelerationTimer = 10;
+	PlayerCharacter->AccelerationTimer = AccelerationTimer;
 	
 	//GetWorld()->GetTimerManager().ClearTimer(SlideTimerHandle);
 	//GetWorld()->GetTimerManager().SetTimer(SlideTimerHandle, this, &UAirDashingStateComponent::AddSlide, GetWorld()->GetDeltaSeconds(), true);

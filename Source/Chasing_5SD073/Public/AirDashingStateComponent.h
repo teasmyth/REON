@@ -63,6 +63,7 @@ private:
 	bool SweepOnDash = true;
 	bool IsHoldingW = false;
 	float HorizontalVelocity = 0.0f;
+	float AccelerationTimer = 0.0f;
 
 	FTimerHandle SlideTimerHandle;
 	FTimerHandle ImpulseTimerHandle;
