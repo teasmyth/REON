@@ -20,7 +20,7 @@ class UCameraComponent;
 class UCharacterStateMachine;
 
 UENUM(BlueprintType)
-enum class EMovementState : uint8
+enum class ECharacterMovementState : uint8
 {
 	Idle,
 	Walking,
@@ -121,7 +121,7 @@ public:
 	void ResetSlide();
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE EMovementState GetCharacterMovementState() const { return CurrentMovementState; }
+	FORCEINLINE ECharacterMovementState GetCharacterMovementState() const { return CurrentMovementState; }
 
 	UFUNCTION(BlueprintPure)
 	FORCEINLINE FVector GetCharacterMovementInput() const { return PreviousMovementVector;}
@@ -148,7 +148,7 @@ public:
 
 private: //For mechanics
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings", DisplayName= "Current Movement State")
-	EMovementState CurrentMovementState = EMovementState::Idle;
+	ECharacterMovementState CurrentMovementState = ECharacterMovementState::Idle;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement")
 	float ForwardMovementErrorTime = 0.1;

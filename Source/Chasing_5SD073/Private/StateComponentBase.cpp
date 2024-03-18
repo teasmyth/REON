@@ -91,6 +91,10 @@ void UStateComponentBase::OverrideCameraInput(UCharacterStateMachine& SM, FVecto
 {
 }
 
+void UStateComponentBase::OverrideJump(UCharacterStateMachine& SM, FVector& JumpVector)
+{
+}
+
 void UStateComponentBase::OverrideDetectState(UCharacterStateMachine& SM)
 {
 }
@@ -115,15 +119,15 @@ bool UStateComponentBase::LineTraceSingle(const FVector& Start, const FVector& E
 	return GetWorld()->LineTraceSingleByChannel(HitR, Start, End, ECC_Visibility, CollisionParams);
 }
 
-FVector UStateComponentBase::RotateVector(const FVector& InVector, const float AngleInDegrees, const float Length)
+FVector UStateComponentBase::RotateVector(const FVector& VectorToRotate, const FRotator& RotationDegreesPerAxis, const float LengthOverride)
 {
-	const FRotator Rotation = FRotator(0.0f, AngleInDegrees, 0.0f);
-	const FQuat QuatRotation = FQuat(Rotation);
-	FVector RotatedVector = QuatRotation.RotateVector(InVector);
-	if (Length != 1)
+	//const FRotator Rotation = FRotator(RotationDegreesPerAxis.X, RotationDegreesPerAxis.Y, RotationDegreesPerAxis.Z);
+	const FQuat QuatRotation = FQuat(RotationDegreesPerAxis);
+	FVector RotatedVector = QuatRotation.RotateVector(VectorToRotate);
+	if (LengthOverride != 1)
 	{
 		RotatedVector.Normalize();
-		RotatedVector *= Length;
+		RotatedVector *= LengthOverride;
 	}
 	return RotatedVector;
 }

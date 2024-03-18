@@ -96,7 +96,7 @@ bool UWallClimbingStateComponent::CheckLedge() const
 {
 	const FVector Start = PlayerCapsule->GetComponentLocation() + FVector(0, 0, LedgeGrabCheckZOffset);
 	const FVector End = Start + PlayerCharacter->GetActorForwardVector() * LedgeGrabCheckDistance;
-	
+
 	if (!LineTraceSingle(Start, End))
 	{
 		return true;
@@ -108,7 +108,7 @@ bool UWallClimbingStateComponent::CheckLeg() const
 {
 	const FVector Start = PlayerCapsule->GetComponentLocation() - FVector(0, 0, PlayerCapsule->GetScaledCapsuleHalfHeight());
 	const FVector End = Start + PlayerCharacter->GetActorForwardVector() * LedgeGrabCheckDistance;
-	
+
 	if (!LineTraceSingle(Start, End))
 	{
 		return true;
@@ -149,7 +149,7 @@ void UWallClimbingStateComponent::DetectWallClimb()
 void UWallClimbingStateComponent::OverrideDebug()
 {
 	if (!DebugMechanic) return;
-	
+
 	//Super::OverrideDebug();
 
 	const FVector Start = GetOwner()->GetActorLocation();
@@ -158,9 +158,9 @@ void UWallClimbingStateComponent::OverrideDebug()
 	//Wall Climb Detection
 	const FVector ForwardVec = GetOwner()->GetActorForwardVector() * WallCheckDistance;
 	DrawDebugLine(GetWorld(), Start, Start + ForwardVec, DebugColor, false, 0, 0, 3);
-	DrawDebugLine(GetWorld(), Start, Start + RotateVector(ForwardVec, WallClimbAngle), DebugColor, false, 0, 0, 3);
-	DrawDebugLine(GetWorld(), Start, Start + RotateVector(ForwardVec, -WallClimbAngle), DebugColor, false, 0, 0, 3);
-	
+	DrawDebugLine(GetWorld(), Start, Start + RotateVector(ForwardVec, FRotator(0, WallClimbAngle, 0)), DebugColor, false, 0, 0, 3);
+	DrawDebugLine(GetWorld(), Start, Start + RotateVector(ForwardVec, FRotator(0, -WallClimbAngle, 0)), DebugColor, false, 0, 0, 3);
+
 	//Ledge Detection
 	const FVector LedgeStart = Start + FVector(0, 0, LedgeGrabCheckZOffset);
 	DrawDebugLine(GetWorld(), LedgeStart, LedgeStart + End, DebugColor, false, 0, 0, 3);
@@ -173,9 +173,9 @@ void UWallClimbingStateComponent::OverrideDebug()
 void UWallClimbingStateComponent::OverrideDetectState(UCharacterStateMachine& SM)
 {
 	Super::OverrideDetectState(SM);
-	
+
 	if (PlayerMovement->IsMovingOnGround()) PrevResult = EmptyResult;
-	
+
 	const FVector Start = GetOwner()->GetActorLocation();
 	const FVector End = Start + GetOwner()->GetActorRotation().Vector() * WallCheckDistance;
 
@@ -202,4 +202,15 @@ void UWallClimbingStateComponent::OverrideDetectState(UCharacterStateMachine& SM
 		}
 	}
 	else TriggerTimer = 0;
+}
+
+void UWallClimbingStateComponent::OverrideJump(UCharacterStateMachine& SM, FVector& JumpVector)
+{
+	Super::OverrideJump(SM, JumpVector);
+
+	if (!DisableTapWallFacingJump && FMath::Abs(PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeRotation().Yaw) < WallClimbAngle)
+	{
+		JumpVector = (PlayerCharacter->GetActorUpVector() * WallFacingJumpUpForceMultiplier - PlayerCharacter->GetActorForwardVector() *
+			WallFacingJumpBackForceMultiplier) * JumpVector.Size();
+	}
 }

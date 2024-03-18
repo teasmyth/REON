@@ -106,12 +106,15 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 void AMyCharacter::JumpAndDash()
 {
-	if ((GetCharacterMovement()->IsMovingOnGround() || StateMachine != nullptr &&
-		(StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning ||
-			StateMachine->GetCurrentEnumState() == ECharacterState::WallClimbing)) &&
-			SetStateBool(ECharacterState::DefaultState))
+	if (StateMachine == nullptr) return;
+
+	FVector JumpVector = GetActorUpVector() * JumpStrength;
+	StateMachine->OverrideJump(JumpVector);
+
+	if ((GetCharacterMovement()->IsMovingOnGround() || (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
+			GetCurrentEnumState() == ECharacterState::WallClimbing)) &&	SetStateBool(ECharacterState::DefaultState))
 	{
-		GetCharacterMovement()->AddImpulse(GetActorUpVector() * JumpStrength, true);
+		GetCharacterMovement()->AddImpulse(JumpVector, true);
 		HandleJumpEvent();
 	}
 	else if (TouchedGroundOrWall && SetStateBool(ECharacterState::AirDashing))
@@ -125,11 +128,11 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 {
 	AccelerationTimer += DeltaTime; //This resets every time movement state is changed
 
-	if (CurrentMovementState == EMovementState::Idle || CurrentMovementState == EMovementState::Walking)
+	if (CurrentMovementState == ECharacterMovementState::Idle || CurrentMovementState == ECharacterMovementState::Walking)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum * WalkingAccelerationTime->GetFloatValue(AccelerationTimer);
 	}
-	else if (CurrentMovementState == EMovementState::Fell)
+	else if (CurrentMovementState == ECharacterMovementState::Fell)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum * PostFallAccelerationTime->GetFloatValue(
 			AccelerationTimer * (1 - CalculatedPostFallMultiplier));
@@ -153,7 +156,7 @@ void AMyCharacter::MovementStateCheck()
 	if (WasMoving) return;
 
 	//TODO if a player doesnt move for a while, should it still stay in FELL or override it to walking? is that even possible? 
-	if (CurrentMovementState != EMovementState::Fell)
+	if (CurrentMovementState != ECharacterMovementState::Fell)
 	{
 		if (Falling && GetCharacterMovement()->IsMovingOnGround() && FallDistance > 0)
 		{
@@ -165,28 +168,28 @@ void AMyCharacter::MovementStateCheck()
 			const float PotentialPenalty = FallDistance / FallZDistanceUnit * PenaltyMultiplierPerFallUnit;
 			CalculatedPostFallMultiplier = PotentialPenalty >= MaxPenaltyMultiplier ? MaxPenaltyMultiplier : PotentialPenalty;
 			AccelerationTimer = 0;
-			CurrentMovementState = EMovementState::Fell;
+			CurrentMovementState = ECharacterMovementState::Fell;
 			Falling = false;
 			GetCharacterMovement()->Velocity = FVector::ZeroVector;
 			PlayerFellEvent();
 		}
-		else if (CurrentMovementState != EMovementState::Idle && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing && GetHorizontalVelocity() <= 0.1f)
+		else if (CurrentMovementState != ECharacterMovementState::Idle && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing && GetHorizontalVelocity() <= 0.1f)
 		{
-			CurrentMovementState = EMovementState::Idle;
+			CurrentMovementState = ECharacterMovementState::Idle;
 			AccelerationTimer = 0;
 		}
-		else if (CurrentMovementState != EMovementState::Walking && GetHorizontalVelocity() > 1.0f && GetHorizontalVelocity() <=
+		else if (CurrentMovementState != ECharacterMovementState::Walking && GetHorizontalVelocity() > 1.0f && GetHorizontalVelocity() <=
 			RunningStateSpeedMinimum)
 		{
-			CurrentMovementState = EMovementState::Walking;
+			CurrentMovementState = ECharacterMovementState::Walking;
 			AccelerationTimer = 0;
 			EnteredWalkingEvent();
 		}
 	}
 
-	if (CurrentMovementState != EMovementState::Running && GetHorizontalVelocity() > RunningStateSpeedMinimum)
+	if (CurrentMovementState != ECharacterMovementState::Running && GetHorizontalVelocity() > RunningStateSpeedMinimum)
 	{
-		CurrentMovementState = EMovementState::Running;
+		CurrentMovementState = ECharacterMovementState::Running;
 		AccelerationTimer = 0;
 		EnteredRunningEvent();
 	}
@@ -370,7 +373,7 @@ void AMyCharacter::SetState(const ECharacterState NewState) const
 
 void AMyCharacter::CameraJitter(float& WalkSpeed)
 {
-	if (bUseControllerRotationYaw && GetCharacterMovement()->IsMovingOnGround() && CurrentMovementState != EMovementState::Fell)
+	if (bUseControllerRotationYaw && GetCharacterMovement()->IsMovingOnGround() && CurrentMovementState != ECharacterMovementState::Fell)
 	{
 		const float AbsDifference = FMath::Abs(GetActorRotation().Yaw - PreviousFrameYaw);
 		const float RoundedDifference = FMath::FloorToFloat(AbsDifference * 10.0f) / 10.0f;;
@@ -384,7 +387,7 @@ void AMyCharacter::CameraJitter(float& WalkSpeed)
 		if (AbsDifference > JitterSlowMinAngle)
 		{
 			WalkSpeed *= (1 - RoundedDifference * Step * JitterSlowPercentageStrength / 100);
-			CurrentMovementState = EMovementState::Walking;
+			CurrentMovementState = ECharacterMovementState::Walking;
 		}
 	}
 	PreviousFrameYaw = GetActorRotation().Yaw;
