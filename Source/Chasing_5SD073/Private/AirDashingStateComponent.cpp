@@ -4,6 +4,7 @@
 #include "AirDashingStateComponent.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
 
 // Sets default values for this component's properties
 UAirDashingStateComponent::UAirDashingStateComponent()
@@ -38,6 +39,7 @@ bool UAirDashingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine&
 void UAirDashingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
 	Super::OnEnterState(SM);
+	
 	InternalTimer = 0;
 	InitialForwardVector = PlayerCharacter->GetFirstPersonCameraComponent()->GetComponentRotation().Vector();
 	const float Speed = PlayerCharacter->GetHorizontalVelocity();
@@ -51,7 +53,8 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
 	Super::OnUpdateState(SM);
 
-	SweepOnDash = true;
+#if 1
+  SweepOnDash = true;
 	
 	//Instead of relying on physics, (cause it is janky) I am manually calculating where the player is supposed to be.
 	InternalTimer += GetWorld()->GetDeltaSeconds();
@@ -60,7 +63,6 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(PlayerCharacter);
-	
 	// Perform a sweep test to check for potential collisions
 	if (FHitResult HitResult; GetWorld()->SweepSingleByChannel(
 		HitResult,
@@ -120,7 +122,8 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 				}
 				
 				NextFrameLocation.Z += EdgeCorrectionAmount;
-
+				//NextFrameLocation = FMath::VInterpTo(NextFrameLocation, NextFrameLocation + FVector::UpVector * EdgeCorrectionAmount, GetWorld()->GetDeltaSeconds(), InterpSpeed);
+				//PlayerMovement->AddImpulse(FVector::UpVector * EdgeCorrectionAmount, true);
 				SweepOnDash = false;
 				
 				break;
@@ -132,7 +135,8 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 		UE_LOG(LogTemp, Warning, TEXT("Sweeping: %hs"), SweepOnDash ? "true" : "false");
 	
 	PlayerCharacter->SetActorLocation(NextFrameLocation, SweepOnDash); //true prevent player 'dashing' inside of a wall, stop at hitting.
-
+#endif
+	
 	if (InternalTimer >= AirDashTime) SM.ManualExitState();
 }
 
@@ -142,8 +146,8 @@ void UAirDashingStateComponent::OnExitState(UCharacterStateMachine& SM)
 
 	PlayerCharacter->AccelerationTimer = AccelerationTimer;
 	
-	//GetWorld()->GetTimerManager().ClearTimer(SlideTimerHandle);
-	//GetWorld()->GetTimerManager().SetTimer(SlideTimerHandle, this, &UAirDashingStateComponent::AddSlide, GetWorld()->GetDeltaSeconds(), true);
+	GetWorld()->GetTimerManager().ClearTimer(SlideTimerHandle);
+	GetWorld()->GetTimerManager().SetTimer(SlideTimerHandle, this, &UAirDashingStateComponent::AddSlide, GetWorld()->GetDeltaSeconds(), true);
 }
 
 void UAirDashingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
