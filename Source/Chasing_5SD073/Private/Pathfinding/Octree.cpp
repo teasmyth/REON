@@ -144,30 +144,11 @@ void AOctree::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
 
-	/*
-	if (IsPathfindingInProgress && (PathfindingThread && PathfindingThread->joinable()))
-	{
-		// Wait for the thread to finish
-		PathfindingThread->join();
-	}
-	*/
-
 	IsSetup = false;
-
-	/*
-	// Wait for the FRunnableThread to finish execution
-	if (PathfindingRunnableThread)
-	{
-		PathfindingRunnableThread->WaitForCompletion();
-		PathfindingRunnableThread->Kill(false); //putting true doesnt seem to work somehow
-	}
-	*/
-
+	
 	// Clean up
 	PathfindingWorker->Stop();
-	delete PathfindingWorker;
-	//delete PathfindingRunnableThread;
-	
+	delete PathfindingWorker;	
 	DeleteOctreeNode(RootNodeSharedPtr);
 }
 
