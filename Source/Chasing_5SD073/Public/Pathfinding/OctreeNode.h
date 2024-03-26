@@ -10,7 +10,7 @@
 class CHASING_5SD073_API OctreeNode
 {
 public:
-	OctreeNode(const FBox& Bounds, OctreeNode* Parent);
+	OctreeNode(const FBox& Bounds, OctreeNode* Parent, const bool ObjectsCanFloat);
 	OctreeNode();
 	~OctreeNode();
 
@@ -18,32 +18,37 @@ public:
 	float G;
 	float H;
 	FBox NodeBounds;
-	
+
 	OctreeNode* Parent;
 	bool Occupied = false;
 	bool NavigationNode = false;
-	OctreeNode* CameFrom;
-	TArray<OctreeNode*> Neighbors;
-	TArray<OctreeNode*> ChildrenOctreeNodes;
+	bool Floatable = false; //Meaning that it is big enough that the agent will look like it is floating in it, compared to a smaller node.
+	
+	TWeakPtr<OctreeNode> CameFrom;
+	TArray<TWeakPtr<OctreeNode>> Neighbors;
+	TArray<TSharedPtr<OctreeNode>> ChildrenOctreeNodes;
 
 	TArray<FVector> ChildCenters;
 	TArray<FVector> NeighborCenters;
 	TArray<FBox> ChildrenNodeBounds;
 
+	static TSharedPtr<OctreeNode> MakeNode(const FBox& Bounds, const TSharedPtr<OctreeNode>& Parent);
 
-	void DivideNode(const FBox& ActorBox, const float& MinSize, const UWorld* World, const bool& DivideUsingBounds = false);
-	void SetupChildrenBounds();
+
+	void DivideNode(const FBox& ActorBox, const float& MinSize, const float FloatAboveGroundPreference, const UWorld* World,
+	                const bool& DivideUsingBounds = false);
+	void SetupChildrenBounds(const float FloatAboveGroundPreference);
 
 	static bool BoxOverlap(const UWorld* World, const FBox& Box);
 };
 
-inline FArchive& operator <<(FArchive& Ar, OctreeNode*& Node)
+inline FArchive& operator <<(FArchive& Ar, TSharedPtr<OctreeNode>& Node)
 {
 	if (Node == nullptr)
 	{
 		if (Ar.IsLoading())
 		{
-			Node = new OctreeNode();
+			Node = MakeShareable(new OctreeNode());
 		}
 		if (Ar.IsSaving())
 		{
@@ -55,7 +60,7 @@ inline FArchive& operator <<(FArchive& Ar, OctreeNode*& Node)
 	Ar << Node->ChildCenters;
 	Ar << Node->NeighborCenters;
 	Ar << Node->NavigationNode;
-
+	Ar << Node->Floatable;
 
 	int Size = Node->ChildrenOctreeNodes.Num();
 	Ar << Size;

@@ -5,9 +5,9 @@
 #include <thread>
 
 #include "CoreMinimal.h"
+#include "FPathfindingWorker.h"
 #include "GameFramework/Actor.h"
 #include "OctreeNode.h"
-#include "OctreeGraph.h"
 #include "Octree.generated.h"
 
 class UProceduralMeshComponent;
@@ -19,6 +19,11 @@ class CHASING_5SD073_API AOctree : public AActor
 
 public:
 	AOctree();
+	TSharedPtr<OctreeNode> GetRootNode() const { return RootNodeSharedPtr; }
+	ECollisionChannel GetCollisionChannel() const { return CollisionChannel; }
+	bool IsOctreeSetup() const { return IsSetup; }
+
+	FPathfindingWorker* GetPathfindingRunnable() const { return PathfindingWorker; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -63,21 +68,22 @@ private:
 
 
 	FVector Loc;
-	
+
 	void ResizeOctree();
-	
+
 	void CalculateBorders();
-	UFUNCTION(CallInEditor)
+	//UFUNCTION(CallInEditor)
 	void DrawGrid();
 	UFUNCTION(CallInEditor)
 	void DeleteGrid();
 	void DrawLine(const FVector& Start, const FVector& End, const FVector& Normal, TArray<FVector>& Vertices, TArray<int32>& Triangles) const;
 
+	void DeleteOctreeNode(TSharedPtr<OctreeNode>& Node);
+
 
 #pragma endregion
-	
-	OctreeNode* RootNode;
-	OctreeGraph NavigationGraph;
+
+	TSharedPtr<OctreeNode> RootNodeSharedPtr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true"))
 	TArray<AActor*> ActorToIgnore;
@@ -91,9 +97,11 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true"))
 	bool UseOverlap = true;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree",
-		meta = (AllowPrivateAccess = "true", ClampMin = 1))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true", ClampMin = 1))
 	float MinNodeSize = 100;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true", ClampMin = 1))
+	float FloatAboveGroundPreference = 200.0f;
 
 	// The number of divisions in the grid along the X axis
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true", ClampMin = 1))
@@ -107,46 +115,28 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true", ClampMin = 1))
 	int32 ExpandVolumeZAxis = 1;
-	
+
 	void SetUpOctreesAsync(bool IsLoading);
-	OctreeNode* MakeOctree(const FVector& Origin, const int& Index);
-	void AddObjects(TArray<FBox> FoundObjects, OctreeNode* RootN) const;
-	static void GetEmptyNodes(OctreeNode* Node);
-	static void AdjustDanglingChildNodes(OctreeNode* Node);
+	TSharedPtr<OctreeNode> MakeOctree(const FVector& Origin, const int& Index);
+	void AddObjects(TArray<FBox> FoundObjects, const TSharedPtr<OctreeNode>& RootN) const;
+	static void GetEmptyNodes(const TSharedPtr<OctreeNode>& Node);
+	static void AdjustDanglingChildNodes(const TSharedPtr<OctreeNode>& Node);
 
 
 	UFUNCTION(CallInEditor, Category="Octree")
 	void BakeOctree();
 
-	UFUNCTION(BlueprintCallable, Category="Octree")
-	bool GetAStarPath(const AActor* Agent, const FVector& End, FVector& OutNextLocation);
-
-	UFUNCTION(BlueprintCallable, Category="Octree")
-	bool GetAStarPathToTarget(const AActor* Agent, const AActor* End, FVector& NextLocation);
-
-
-	UFUNCTION(BlueprintCallable, Category="Octree")
-	void GetAStarPathAsyncToLocation(const AActor* Agent, const FVector& Target, FVector& OutNextDirection);
-
-	UFUNCTION(BlueprintCallable, Category="Octree")
-	void GetAStarPathAsyncToTarget(const AActor* Agent, const AActor* Target, FVector& OutNextLocation);
-
-	UFUNCTION(BlueprintCallable, Category="Octree")
-	void SetAgentHalfMeshSize(const float& HalfSize) { AgentMeshHalfSize = HalfSize; }
-
 	void SaveNodesToFile(const FString& filename);
 	bool LoadNodesFromFile(const FString& Filename);
-	
+
 	FString SaveFileName;
 	TArray<TArray<FBox>> AllHitResults;
-	
+
 	std::atomic<bool> IsSetup = false;
 
 	float AgentMeshHalfSize = 0;
 
 	FVector PreviousNextLocation = FVector::ZeroVector;
-
-	std::unique_ptr<std::thread> PathfindingThread;
-	std::mutex PathfindingMutex;
-	bool IsPathfindingInProgress = false;
+	
+	FPathfindingWorker* PathfindingWorker;
 };

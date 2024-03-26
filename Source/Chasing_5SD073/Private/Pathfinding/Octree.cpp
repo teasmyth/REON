@@ -5,6 +5,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Serialization/BufferArchive.h"
+#include "Pathfinding/OctreeGraph.h"
 
 
 AOctree::AOctree()
@@ -44,8 +45,7 @@ void AOctree::Tick(float DeltaSeconds)
 void AOctree::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	PreviousNextLocation = FVector::ZeroVector;
+
 	FString SpecificFileName = "OctreeFiles/" + GetWorld()->GetName() + "OctreeNodes.bin";
 	SaveFileName = FPaths::Combine(FPaths::ProjectSavedDir(), SpecificFileName);
 
@@ -53,17 +53,17 @@ void AOctree::BeginPlay()
 	{
 		if (!LoadNodesFromFile(SaveFileName))
 		{
+			//GEngine call is not thread safe - just to note.
 			GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "No file found. Creating new nodes");
 
 			SetUpOctreesAsync(false);
 
 			SaveNodesToFile(SaveFileName);
-			IsSetup = true;
 		}
-		else
-		{
-			IsSetup = true;
-		}
+
+		const TWeakPtr<OctreeNode> RootNodeWeakPtr = RootNodeSharedPtr;
+		PathfindingWorker = new FPathfindingWorker(RootNodeWeakPtr);
+		IsSetup = true;
 	});
 }
 
@@ -77,7 +77,7 @@ void AOctree::SaveNodesToFile(const FString& Filename)
 
 	ToBinary << UseOverlap;
 	//ToBinary << AllHitResults;
-	ToBinary << RootNode;
+	ToBinary << RootNodeSharedPtr;
 
 
 	if (FFileHelper::SaveArrayToFile(ToBinary, *Filename))
@@ -114,9 +114,9 @@ bool AOctree::LoadNodesFromFile(const FString& Filename)
 		{
 			SetUpOctreesAsync(true);
 			//FromBinary << AllHitResults;
-			FromBinary << RootNode;
+			FromBinary << RootNodeSharedPtr;
 			GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "Save File found. Loading nodes, skipping create");
-			NavigationGraph.ReconstructPointersForNodes(RootNode);
+			OctreeGraph::ReconstructPointersForNodes(RootNodeSharedPtr);
 		}
 		else
 		{
@@ -153,9 +153,22 @@ void AOctree::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	*/
 
 	IsSetup = false;
-	//SaveNodesToFile(SaveFileName);
-	delete RootNode;
-	RootNode = nullptr;
+
+	/*
+	// Wait for the FRunnableThread to finish execution
+	if (PathfindingRunnableThread)
+	{
+		PathfindingRunnableThread->WaitForCompletion();
+		PathfindingRunnableThread->Kill(false); //putting true doesnt seem to work somehow
+	}
+	*/
+
+	// Clean up
+	PathfindingWorker->Stop();
+	delete PathfindingWorker;
+	//delete PathfindingRunnableThread;
+	
+	DeleteOctreeNode(RootNodeSharedPtr);
 }
 
 void AOctree::OnConstruction(const FTransform& Transform)
@@ -188,7 +201,8 @@ void AOctree::DrawGrid()
 		return;
 	}
 
-	if (RootNode == nullptr)
+
+	if (RootNodeSharedPtr == nullptr)
 	{
 		if (GEngine)
 		{
@@ -203,8 +217,8 @@ void AOctree::DrawGrid()
 	TArray<FVector> Vertices;
 	TArray<int32> Triangles;
 
-	TArray<OctreeNode*> NodeList;
-	NodeList.Add(RootNode);
+	TArray<TSharedPtr<OctreeNode>> NodeList;
+	NodeList.Add(RootNodeSharedPtr);
 
 	for (int i = 0; i < NodeList.Num(); i++)
 	{
@@ -371,7 +385,24 @@ void AOctree::DrawLine(const FVector& Start, const FVector& End, const FVector& 
 	CreateFlatLine(Direction2);
 }
 
+
 #pragma endregion
+
+void AOctree::DeleteOctreeNode(TSharedPtr<OctreeNode>& Node)
+{
+	// Traverse the octree from the root node to the leaf nodes
+	for (TSharedPtr<OctreeNode>& Child : Node->ChildrenOctreeNodes)
+	{
+		if (Child != nullptr)
+		{
+			// Recursively delete child nodes
+			DeleteOctreeNode(Child);
+		}
+	}
+
+	// Set the node's TSharedPtr to nullptr
+	Node = nullptr;
+}
 
 void AOctree::BakeOctree()
 {
@@ -380,7 +411,7 @@ void AOctree::BakeOctree()
 		UE_LOG(LogTemp, Warning, TEXT("Baking Octree"));
 		SetUpOctreesAsync(false);
 		SaveNodesToFile(SaveFileName);
-		delete RootNode;
+		//delete RootNode;
 	}
 	else UE_LOG(LogTemp, Warning, TEXT("Game is running, cant bake Octree."));
 }
@@ -432,9 +463,12 @@ void AOctree::SetUpOctreesAsync(const bool IsLoading)
 	FVector Size = FVector(ExpandVolumeXAxis * SingleVolumeSize, ExpandVolumeYAxis * SingleVolumeSize, ExpandVolumeZAxis * SingleVolumeSize);
 	//Add a little bit of padding, in case there is one single Octree underneath, which sometimes prevent FindNode to work properly.
 	Size *= 1.02f;
-	RootNode = new OctreeNode(FBox(GetActorLocation(), GetActorLocation() + Size), nullptr);
+	//RootNode = new OctreeNode(FBox(GetActorLocation(), GetActorLocation() + Size), nullptr);
+	//RootNodeSharedPtr = MakeShareable(RootNode);
 
-	RootNode->ChildrenOctreeNodes.SetNum(ExpandVolumeXAxis * ExpandVolumeYAxis * ExpandVolumeZAxis);
+	RootNodeSharedPtr = MakeShareable(new OctreeNode(FBox(GetActorLocation(), GetActorLocation() + Size), nullptr, false));
+
+	RootNodeSharedPtr->ChildrenOctreeNodes.SetNum(ExpandVolumeXAxis * ExpandVolumeYAxis * ExpandVolumeZAxis);
 	/*
 	if (!AllHitResults.IsEmpty() && AllHitResults.Num() != ExpandVolumeXAxis * ExpandVolumeYAxis * ExpandVolumeZAxis)
 	{
@@ -453,21 +487,21 @@ void AOctree::SetUpOctreesAsync(const bool IsLoading)
 			for (int Z = 0; Z < ExpandVolumeZAxis; Z++)
 			{
 				const FVector Offset = FVector(X * SingleVolumeSize, Y * SingleVolumeSize, Z * SingleVolumeSize);
-				RootNode->ChildrenOctreeNodes[Index] = MakeOctree(GetActorLocation() + Offset, Index);
+				RootNodeSharedPtr->ChildrenOctreeNodes[Index] = MakeOctree(GetActorLocation() + Offset, Index);
 				Index++;
 			}
 		}
 	}
-	GetEmptyNodes(RootNode);
-	AdjustDanglingChildNodes(RootNode);
-	NavigationGraph.ConnectNodes(RootNode);
+	GetEmptyNodes(RootNodeSharedPtr);
+	AdjustDanglingChildNodes(RootNodeSharedPtr);
+	OctreeGraph::ConnectNodes(RootNodeSharedPtr);
 }
 
-OctreeNode* AOctree::MakeOctree(const FVector& Origin, const int& Index)
+TSharedPtr<OctreeNode> AOctree::MakeOctree(const FVector& Origin, const int& Index)
 {
 	const FVector Size = FVector(SingleVolumeSize);
 	const FBox Bounds = FBox(Origin, Origin + Size);
-	OctreeNode* NewRootNode = new OctreeNode(Bounds, nullptr);
+	TSharedPtr<OctreeNode> NewRootNode = MakeShareable(new OctreeNode(Bounds, nullptr, false));
 
 	if (!UseOverlap)
 	{
@@ -534,7 +568,7 @@ OctreeNode* AOctree::MakeOctree(const FVector& Origin, const int& Index)
 	}
 	else
 	{
-		NewRootNode->DivideNode(FBox(), MinNodeSize, GetWorld(), false);
+		NewRootNode->DivideNode(FBox(), MinNodeSize, FloatAboveGroundPreference, GetWorld(), false);
 	}
 
 
@@ -542,7 +576,7 @@ OctreeNode* AOctree::MakeOctree(const FVector& Origin, const int& Index)
 }
 
 
-void AOctree::AddObjects(TArray<FBox> FoundObjects, OctreeNode* RootN) const
+void AOctree::AddObjects(TArray<FBox> FoundObjects, const TSharedPtr<OctreeNode>& RootN) const
 {
 	if (FoundObjects.IsEmpty())
 	{
@@ -551,18 +585,18 @@ void AOctree::AddObjects(TArray<FBox> FoundObjects, OctreeNode* RootN) const
 
 	for (const auto& Box : FoundObjects)
 	{
-		RootN->DivideNode(Box, MinNodeSize, GetWorld(), true);
+		RootN->DivideNode(Box, MinNodeSize, FloatAboveGroundPreference, GetWorld(), true);
 	}
 }
 
-void AOctree::GetEmptyNodes(OctreeNode* Node)
+void AOctree::GetEmptyNodes(const TSharedPtr<OctreeNode>& Node)
 {
 	if (Node == nullptr)
 	{
 		return;
 	}
 
-	TArray<OctreeNode*> NodeList;
+	TArray<TSharedPtr<OctreeNode>> NodeList;
 	NodeList.Add(Node);
 
 	for (int i = 0; i < NodeList.Num(); i++)
@@ -582,7 +616,7 @@ void AOctree::GetEmptyNodes(OctreeNode* Node)
 			{
 				const int Index = NodeList[i]->Parent->ChildrenOctreeNodes.Find(NodeList[i]);
 				NodeList[i]->Parent->ChildrenOctreeNodes[Index] = nullptr;
-				delete NodeList[i];
+				//delete NodeList[i];
 				//I adjust the null pointers in AdjustDanglingChildNodes(). Here I should not touch it while it is iterating through it.
 			}
 		}
@@ -596,20 +630,20 @@ void AOctree::GetEmptyNodes(OctreeNode* Node)
 	}
 }
 
-void AOctree::AdjustDanglingChildNodes(OctreeNode* Node)
+void AOctree::AdjustDanglingChildNodes(const TSharedPtr<OctreeNode>& Node)
 {
 	if (Node == nullptr)
 	{
 		return;
 	}
 
-	TArray<OctreeNode*> NodeList;
+	TArray<TSharedPtr<OctreeNode>> NodeList;
 	NodeList.Add(Node);
 
 	for (int i = 0; i < NodeList.Num(); i++)
 	{
-		OctreeNode* CurrentNode = NodeList[i];
-		TArray<OctreeNode*> CleanedChildNodes;
+		const TSharedPtr<OctreeNode> CurrentNode = NodeList[i];
+		TArray<TSharedPtr<OctreeNode>> CleanedChildNodes;
 		for (auto Child : CurrentNode->ChildrenOctreeNodes)
 		{
 			if (Child != nullptr)
@@ -630,111 +664,5 @@ void AOctree::AdjustDanglingChildNodes(OctreeNode* Node)
 #pragma endregion
 
 #pragma region Pathfinding
-
-bool AOctree::GetAStarPath(const AActor* Agent, const FVector& End, FVector& OutNextLocation)
-{
-	if (!IsSetup)
-	{
-		return false;
-	}
-
-	const FVector Start = Agent->GetActorLocation();
-
-	if (TArray<FVector> OutPath; NavigationGraph.OctreeAStar(Start, End, RootNode, OutPath))
-	{
-		if (OutPath.Num() < 3)
-		{
-			OutNextLocation = OutPath[0];
-			return true;
-		}
-
-		//Path smoothing. If the agent can skip a path point because it wouldn't collide, it should (skip). This ensures a more natural looking movement.
-		FHitResult Hit;
-		FCollisionShape ColShape = FCollisionShape::MakeSphere(AgentMeshHalfSize);
-		FCollisionQueryParams TraceParams;
-		TraceParams.AddIgnoredActor(Agent);
-
-		for (int i = 1; i < OutPath.Num(); i++)
-		{
-			if (!GetWorld()->SweepSingleByChannel(Hit, Start, OutPath[i], FQuat::Identity, CollisionChannel, ColShape, TraceParams))
-			{
-				continue;
-			}
-
-			OutNextLocation = OutPath[i - 1];
-			return true;
-		}
-
-		//If we are here then there was no path smoothing necessary.
-		OutNextLocation = OutPath.Last();
-		return true;
-	}
-
-	//Couldn't find path, using previous location. Not finding path usually happens when we are moving through a space that is considered occupied
-	//However, the path smoothing deems it empty (which is accurate). In those moments, we cannot find a path because we cannot find a node.
-	//In that case, we can use previous location and 'drift' until we are once again inside an OctreeNode.
-	return false;
-}
-
-bool AOctree::GetAStarPathToTarget(const AActor* Agent, const AActor* End, FVector& NextLocation)
-{
-	return GetAStarPath(Agent, End->GetActorLocation(), NextLocation);
-}
-
-void AOctree::GetAStarPathAsyncToLocation(const AActor* Agent, const FVector& Target, FVector& OutNextDirection)
-{
-	const FVector Start = Agent->GetActorLocation();
-	const FVector End = Target;
-
-	if (FVector::Distance(Start, End) <= 20.0f || !IsSetup || AgentMeshHalfSize == 0) //Not meaningful enough to be a public variable, what do I do.
-	{
-		OutNextDirection = FVector::ZeroVector;
-		return;
-	}
-
-	// Check if pathfinding is already in progress or if the thread is joinable
-	if (IsPathfindingInProgress || (PathfindingThread && PathfindingThread->joinable()))
-	{
-		OutNextDirection = (PreviousNextLocation - Start).GetSafeNormal();;
-		return; // Pathfinding is already in progress, no need to start again
-	}
-
-	/*
-	 *End and Agent are captured by value, so the thread has its own copy of these variables.
-	 *This ensures that the thread can safely use these variables even if they are modified or destroyed in the Blueprint.
-	 */
-	FVector EndCopy = End;
-	const AActor* AgentCopy = Agent;
-
-
-	PathfindingThread = std::make_unique<std::thread>([&, AgentCopy, EndCopy]()
-	{
-		std::lock_guard Lock(PathfindingMutex);
-
-		IsPathfindingInProgress = true;
-		FVector LocalNextLocation = PreviousNextLocation;
-
-
-		if (!GetAStarPath(AgentCopy, EndCopy, LocalNextLocation))
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "No path found. Using Previous");
-			OutNextDirection = (EndCopy - AgentCopy->GetActorLocation()).GetSafeNormal();
-			IsPathfindingInProgress = false;
-			return;
-		}
-
-		PreviousNextLocation = LocalNextLocation;
-		OutNextDirection = (LocalNextLocation - AgentCopy->GetActorLocation()).GetSafeNormal();
-		IsPathfindingInProgress = false;
-	});
-
-
-	PathfindingThread->detach();
-}
-
-void AOctree::GetAStarPathAsyncToTarget(const AActor* Agent, const AActor* Target, FVector& OutNextLocation)
-{
-	GetAStarPathAsyncToLocation(Agent, Target->GetActorLocation(), OutNextLocation);
-}
 
 #pragma endregion

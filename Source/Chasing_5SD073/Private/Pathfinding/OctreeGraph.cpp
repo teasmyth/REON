@@ -20,9 +20,9 @@ OctreeGraph::~OctreeGraph()
 }
 
 
-void OctreeGraph::ConnectNodes(OctreeNode* RootNode)
+void OctreeGraph::ConnectNodes(const TSharedPtr<OctreeNode>& RootNode)
 {
-	TArray<OctreeNode*> NodeList;
+	TArray<TSharedPtr<OctreeNode>> NodeList;
 	NodeList.Add(RootNode);
 	for (int i = 0; i < NodeList.Num(); i++)
 	{
@@ -31,14 +31,14 @@ void OctreeGraph::ConnectNodes(OctreeNode* RootNode)
 			for (auto Direction : Directions)
 			{
 				const FVector NeighborLocation = NodeList[i]->NodeBounds.GetCenter() + Direction * NodeList[i]->NodeBounds.GetSize().X;
-				OctreeNode* PotentialNeighbor = FindGraphNode(NeighborLocation, RootNode);
+				TSharedPtr<OctreeNode> PotentialNeighbor = FindGraphNode(NeighborLocation, RootNode);
 
 				if (PotentialNeighbor != nullptr && PotentialNeighbor->NavigationNode && !NodeList[i]->Neighbors.Contains(PotentialNeighbor)
 					&& NodeList[i]->NodeBounds.Intersect(PotentialNeighbor->NodeBounds))
 				{
 					NodeList[i]->Neighbors.Add(PotentialNeighbor);
 					NodeList[i]->NeighborCenters.Add(PotentialNeighbor->NodeBounds.GetCenter());
-					
+
 					PotentialNeighbor->Neighbors.Add(NodeList[i]);
 					PotentialNeighbor->NeighborCenters.Add(NodeList[i]->NodeBounds.GetCenter());
 				}
@@ -56,20 +56,21 @@ void OctreeGraph::ConnectNodes(OctreeNode* RootNode)
 //Can do weighted to increase performance * 2. Higher numbers should yield faster path finding but might sacrifice accuracy.
 static float ExtraHWeight = 3.0f;
 
-bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, OctreeNode* RootNode, TArray<FVector>& OutPathList)
+bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, TSharedPtr<OctreeNode> RootNode, TArray<FVector>& OutPathList)
 {
-	OctreeNode* Start = FindGraphNode(StartLocation, RootNode);
-	const OctreeNode* End = FindGraphNode(EndLocation, RootNode);
+	TSharedPtr<OctreeNode> Start = FindGraphNode(StartLocation, RootNode);
+	const TSharedPtr<OctreeNode> End = FindGraphNode(EndLocation, RootNode);
+
 
 	if (Start == nullptr || End == nullptr)
 	{
 		return false;
 	}
 
-	std::priority_queue<OctreeNode*, std::vector<OctreeNode*>, FOctreeNodeCompare> OpenSet;
-	TArray<OctreeNode*> OpenList; //I use it to keep track of all the nodes used to reset them and also check which ones I checked before.
-	TArray<OctreeNode*> ClosedList;
-
+	std::priority_queue<TSharedPtr<OctreeNode>, std::vector<TSharedPtr<OctreeNode>>, FOctreeNodeCompare> OpenSet;
+	TArray<TSharedPtr<OctreeNode>> OpenList; //I use it to keep track of all the nodes used to reset them and also check which ones I checked before.
+	TArray<TSharedPtr<OctreeNode>> ClosedList;
+	
 	Start->G = 0;
 	Start->H = ManhattanDistance(Start, End) * ExtraHWeight;
 	Start->F = Start->H;
@@ -79,9 +80,11 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 
 	while (!OpenSet.empty())
 	{
-		OctreeNode* CurrentNode = OpenSet.top();
+		TSharedPtr<OctreeNode> CurrentNodeSharedPtr = OpenSet.top();
 
-		if (CurrentNode == End)
+		if (CurrentNodeSharedPtr == nullptr) return false;
+
+		if (CurrentNodeSharedPtr == End)
 		{
 			ReconstructPath(Start, End, OutPathList);
 			OutPathList.Add(EndLocation);
@@ -98,17 +101,24 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 		}
 
 		OpenSet.pop();
-		ClosedList.Add(CurrentNode);
+		ClosedList.Add(CurrentNodeSharedPtr);
 
-		if (CurrentNode->Neighbors.IsEmpty()) continue;
+		if (CurrentNodeSharedPtr->Neighbors.IsEmpty()) continue;
 
-		for (const auto Neighbor : CurrentNode->Neighbors)
+		for (const auto NeighborShared : CurrentNodeSharedPtr->Neighbors)
 		{
-			if (Neighbor == nullptr) continue;
-			
-			if (ClosedList.Contains(Neighbor)) continue; //We already have the best route to that node.
+			if (NeighborShared == nullptr || !NeighborShared.IsValid() || ClosedList.Contains(NeighborShared)) continue;
+			//We already have the best route to that node.
 
-			const float TentativeG = CurrentNode->G + ManhattanDistance(CurrentNode, Neighbor);
+			TSharedPtr<OctreeNode> Neighbor = NeighborShared.Pin();
+
+			float GWeight = 1;
+
+			//If I will ever have time, I need to work on the whole floatable things.
+		    if (Neighbor != nullptr && !Neighbor->Floatable) GWeight = 10;
+
+
+			const float TentativeG = CurrentNodeSharedPtr->G + ManhattanDistance(CurrentNodeSharedPtr, Neighbor) * GWeight;
 
 			if (Neighbor->G <= TentativeG) continue;
 
@@ -116,7 +126,7 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 			Neighbor->H = ManhattanDistance(Neighbor, End) * ExtraHWeight; // Can do weighted to increase performance
 			Neighbor->F = Neighbor->G + Neighbor->H;
 
-			Neighbor->CameFrom = CurrentNode;
+			Neighbor->CameFrom = CurrentNodeSharedPtr;
 
 			if (!OpenList.Contains(Neighbor))
 			{
@@ -129,7 +139,7 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 	return false;
 }
 
-void OctreeGraph::ReconstructPath(const OctreeNode* Start, const OctreeNode* End, TArray<FVector>& OutPathList)
+void OctreeGraph::ReconstructPath(const TSharedPtr<OctreeNode>& Start, const TSharedPtr<OctreeNode>& End, TArray<FVector>& OutPathList)
 {
 	/* Because I am using NodeBounds Center, adding those to the list might not ensure a smooth path.
 	 * For example, if a tiny node is a neighbor of a big one, the line between them will be diagonal, which actually might not be unobstructed.
@@ -159,11 +169,10 @@ void OctreeGraph::ReconstructPath(const OctreeNode* Start, const OctreeNode* End
 	{
 		return;
 	}
-	
-	OutPathList.Add(End->NodeBounds.GetCenter());
 
-	const OctreeNode* CameFrom = End->CameFrom;
-	const OctreeNode* Previous = End;
+	//I am not checking validity because it must be valid. If not, I know where to look, but it should be impossible to be invalid.
+	TSharedPtr<OctreeNode> CameFrom = End->CameFrom.Pin();
+	TSharedPtr<OctreeNode> Previous = End;
 
 	while (CameFrom != nullptr && CameFrom != Start)
 	{
@@ -175,11 +184,11 @@ void OctreeGraph::ReconstructPath(const OctreeNode* Start, const OctreeNode* End
 
 		OutPathList.Insert(CameFrom->NodeBounds.GetCenter(), 0);
 		Previous = CameFrom;
-		CameFrom = CameFrom->CameFrom;
+		CameFrom = CameFrom->CameFrom.Pin();
 	}
 }
 
-FVector OctreeGraph::DirectionTowardsSharedFaceFromSmallerNode(const OctreeNode* Node1, const OctreeNode* Node2)
+FVector OctreeGraph::DirectionTowardsSharedFaceFromSmallerNode(const TSharedPtr<OctreeNode>& Node1, const TSharedPtr<OctreeNode>& Node2)
 {
 	FBox SmallBounds;
 	FVector SmallerCenter;
@@ -223,7 +232,7 @@ FVector OctreeGraph::DirectionTowardsSharedFaceFromSmallerNode(const OctreeNode*
 	return SmallerCenter + Direction * SmallBounds.GetSize().X;
 }
 
-float OctreeGraph::ManhattanDistance(const OctreeNode* From, const OctreeNode* To)
+float OctreeGraph::ManhattanDistance(const TSharedPtr<OctreeNode>& From, const TSharedPtr<OctreeNode>& To)
 {
 	//Standard Manhattan dist calculation.
 	const FVector Point1 = From->NodeBounds.GetCenter();
@@ -237,18 +246,18 @@ float OctreeGraph::ManhattanDistance(const OctreeNode* From, const OctreeNode* T
 }
 
 
-OctreeNode* OctreeGraph::FindGraphNode(const FVector& Location, OctreeNode* RootNode)
+TSharedPtr<OctreeNode> OctreeGraph::FindGraphNode(const FVector& Location, TSharedPtr<OctreeNode> RootNode)
 {
-	OctreeNode* CurrentNode = RootNode;
+	TSharedPtr<OctreeNode> CurrentNode = RootNode;
 
 	if (CurrentNode == nullptr)
 	{
 		return nullptr;
 	}
 
-	while (!CurrentNode->ChildrenOctreeNodes.IsEmpty())
+	while (CurrentNode != nullptr && !CurrentNode->ChildrenOctreeNodes.IsEmpty())
 	{
-		OctreeNode* Closest = CurrentNode->ChildrenOctreeNodes[0];
+		TSharedPtr<OctreeNode> Closest = CurrentNode->ChildrenOctreeNodes[0];
 		for (const auto Node : CurrentNode->ChildrenOctreeNodes)
 		{
 			if (Node->NodeBounds.IsInside(Location))
@@ -271,16 +280,16 @@ OctreeNode* OctreeGraph::FindGraphNode(const FVector& Location, OctreeNode* Root
 	return nullptr;
 }
 
-void OctreeGraph::ReconstructPointersForNodes(OctreeNode* RootNode)
+void OctreeGraph::ReconstructPointersForNodes(const TSharedPtr<OctreeNode>& RootNode)
 {
-	TArray<OctreeNode*> NodeList;
+	TArray<TSharedPtr<OctreeNode>> NodeList;
 	NodeList.Add(RootNode);
 
 	for (int i = 0; i < NodeList.Num(); i++)
 	{
 		for (const auto& ChildCenter : NodeList[i]->ChildCenters)
 		{
-			if (OctreeNode* FoundNode = FindGraphNode(ChildCenter, RootNode); FoundNode != nullptr)
+			if (TSharedPtr<OctreeNode> FoundNode = FindGraphNode(ChildCenter, RootNode); FoundNode != nullptr)
 			{
 				NodeList[i]->ChildrenOctreeNodes.Add(FoundNode);
 			}
@@ -288,13 +297,13 @@ void OctreeGraph::ReconstructPointersForNodes(OctreeNode* RootNode)
 
 		for (const auto& NeighborCenter : NodeList[i]->NeighborCenters)
 		{
-			if (OctreeNode* FoundNode = FindGraphNode(NeighborCenter, RootNode); FoundNode != nullptr)
+			if (TSharedPtr<OctreeNode> FoundNode = FindGraphNode(NeighborCenter, RootNode); FoundNode != nullptr)
 			{
 				NodeList[i]->Neighbors.Add(FoundNode);
 			}
 		}
 
-		for (auto Child : NodeList[i]->ChildrenOctreeNodes)
+		for (const auto Child : NodeList[i]->ChildrenOctreeNodes)
 		{
 			NodeList.Add(Child);
 		}
