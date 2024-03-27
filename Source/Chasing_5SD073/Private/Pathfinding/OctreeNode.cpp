@@ -4,7 +4,7 @@
 
 LLM_DEFINE_TAG(OctreeNode);
 
-OctreeNode::OctreeNode(const FBox& Bounds, OctreeNode* Parent)
+OctreeNode::OctreeNode(const FBox& Bounds, OctreeNode* Parent, const bool ObjectsCanFloat)
 {
 	LLM_SCOPE_BYTAG(OctreeNode);
 	NodeBounds = Bounds;
@@ -12,6 +12,7 @@ OctreeNode::OctreeNode(const FBox& Bounds, OctreeNode* Parent)
 	CameFrom = nullptr;
 	Occupied = false;
 	NavigationNode = false;
+	Floatable = ObjectsCanFloat;
 	F = FLT_MAX;
 	G = FLT_MAX;
 	H = FLT_MAX;
@@ -25,41 +26,61 @@ OctreeNode::OctreeNode()
 	CameFrom = nullptr;
 	Occupied = false;
 	NavigationNode = false;
+	Floatable = false;
 	F = FLT_MAX;
 	G = FLT_MAX;
 	H = FLT_MAX;
-	
 }
 
 OctreeNode::~OctreeNode()
 {
 	// Delete child nodes recursively
-	Parent = nullptr;
+	
+//Parent = nullptr;
 
-	for (const OctreeNode* Child : ChildrenOctreeNodes)
+	/*
+	for (TSharedPtr<OctreeNode>& Child : ChildrenOctreeNodes)
 	{
 		if (Child != nullptr)
 		{
-			delete Child;
 			Child = nullptr;
 		}
 	}
 
-	
-	for (const OctreeNode* Neighbor : Neighbors)
+
+	/*
+	for (TSharedPtr<OctreeNode>& Neighbor : Neighbors)
 	{
 		Neighbor = nullptr;
 	}
 
 	Neighbors.Empty();
+	*/
 	
 }
 
-void OctreeNode::DivideNode(const FBox& ActorBox, const float& MinSize, const UWorld* World, const bool& DivideUsingBounds)
+TSharedPtr<OctreeNode> OctreeNode::MakeNode(const FBox& Bounds, const TSharedPtr<OctreeNode>& Parent)
 {
-	TArray<OctreeNode*> NodeList;
-	NodeList.Add(this);
+	return MakeShareable(new OctreeNode(Bounds, Parent.Get(), false));
+}
 
+void OctreeNode::DivideNode(const FBox& ActorBox, const float& MinSize,const float FloatAboveGroundPreference, const UWorld* World, const bool& DivideUsingBounds)
+{
+	TArray<TSharedPtr<OctreeNode>> NodeList;
+
+	if (ChildrenNodeBounds.IsEmpty())
+	{
+		SetupChildrenBounds(FloatAboveGroundPreference);
+	}
+
+	if (!ChildrenOctreeNodes.IsEmpty())
+	{
+		for (const auto& Child : ChildrenOctreeNodes)
+		{
+			NodeList.Add(Child);
+		}
+	}
+	
 	for (int i = 0; i < NodeList.Num(); i++)
 	{
 		if (DivideUsingBounds)
@@ -94,16 +115,15 @@ void OctreeNode::DivideNode(const FBox& ActorBox, const float& MinSize, const UW
 
 		if (NodeList[i]->ChildrenNodeBounds.IsEmpty())
 		{
-			NodeList[i]->SetupChildrenBounds();
+			NodeList[i]->SetupChildrenBounds(FloatAboveGroundPreference);
 		}
-		
+
 		for (int j = 0; j < 8; j++)
 		{
 			if (DivideUsingBounds)
 			{
 				if (NodeList[i]->ChildrenNodeBounds[j].Intersect(ActorBox))
 				{
-					
 					NodeList.Add(NodeList[i]->ChildrenOctreeNodes[j]);
 				}
 			}
@@ -118,11 +138,12 @@ void OctreeNode::DivideNode(const FBox& ActorBox, const float& MinSize, const UW
 	}
 }
 
-void OctreeNode::SetupChildrenBounds()
+void OctreeNode::SetupChildrenBounds(const float FloatAboveGroundPreference)
 {
 	ChildrenNodeBounds.SetNum(8);
 
 	const FVector Center = NodeBounds.GetCenter();
+	const float ChildSize = NodeBounds.GetSize().Y / 2.0f;
 
 	ChildrenNodeBounds[0] = FBox(NodeBounds.Min, Center);
 	ChildrenNodeBounds[1] = FBox(FVector(Center.X, NodeBounds.Min.Y, NodeBounds.Min.Z), FVector(NodeBounds.Max.X, Center.Y, Center.Z));
@@ -138,7 +159,8 @@ void OctreeNode::SetupChildrenBounds()
 
 	for (int i = 0; i < 8; i++)
 	{
-		ChildrenOctreeNodes[i] = new OctreeNode(ChildrenNodeBounds[i], this);
+		const bool IsFloatable = i < 4 && 1.5f * ChildSize >= FloatAboveGroundPreference || i >= 4 && ChildSize / 2.0f >= FloatAboveGroundPreference;
+		ChildrenOctreeNodes[i] = MakeShareable(new OctreeNode(ChildrenNodeBounds[i], this, IsFloatable));
 	}
 }
 
@@ -146,7 +168,7 @@ bool OctreeNode::BoxOverlap(const UWorld* World, const FBox& Box)
 {
 	FCollisionObjectQueryParams ObjectQueryParams;
 	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldDynamic);
-	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic); 
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic);
 
 	FCollisionQueryParams QueryParams;
 	QueryParams.bTraceComplex = false;
@@ -154,10 +176,10 @@ bool OctreeNode::BoxOverlap(const UWorld* World, const FBox& Box)
 	TArray<FOverlapResult> OverlapResults;
 	return World->OverlapMultiByObjectType(
 		OverlapResults,
-		Box.GetCenter(), 
-		FQuat::Identity, 
+		Box.GetCenter(),
+		FQuat::Identity,
 		ObjectQueryParams,
-		FCollisionShape::MakeBox(Box.GetExtent()), 
+		FCollisionShape::MakeBox(Box.GetExtent()),
 		QueryParams
 	);
 }

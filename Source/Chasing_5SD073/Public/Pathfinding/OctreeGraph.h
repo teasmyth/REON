@@ -58,17 +58,17 @@ class CHASING_5SD073_API OctreeGraph
 public:
 	OctreeGraph();
 	~OctreeGraph();
-
-	void ConnectNodes(OctreeNode* RootNode);
-	bool OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, OctreeNode* RootNode, TArray<FVector>& OutPathList);
-	static void ReconstructPath(const OctreeNode* Start, const OctreeNode* End, TArray<FVector>& OutPathList);
-	static FVector DirectionTowardsSharedFaceFromSmallerNode(const OctreeNode* Node1, const OctreeNode* Node2);
-	static float ManhattanDistance(const OctreeNode* From, const OctreeNode* To);
-	static OctreeNode* FindGraphNode(const FVector& Location, OctreeNode* RootNode);
-	static void ReconstructPointersForNodes(OctreeNode* RootNode);
+		
+	static void ConnectNodes(const TSharedPtr<OctreeNode>& RootNode);
+	static bool OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, TSharedPtr<OctreeNode> RootNode, TArray<FVector>& OutPathList);
+	static void ReconstructPath(const TSharedPtr<OctreeNode>& Start, const TSharedPtr<OctreeNode>& End, TArray<FVector>& OutPathList);
+	static FVector DirectionTowardsSharedFaceFromSmallerNode(const TSharedPtr<OctreeNode>& Node1, const TSharedPtr<OctreeNode>& Node2);
+	static float ManhattanDistance(const TSharedPtr<OctreeNode>& From, const TSharedPtr<OctreeNode>& To);
+	static TSharedPtr<OctreeNode> FindGraphNode(const FVector& Location, TSharedPtr<OctreeNode> RootNode);
+	static void ReconstructPointersForNodes(const TSharedPtr<OctreeNode>& RootNode);
 
 private:
-	TArray<FVector> Directions
+	inline static TArray<FVector> Directions
 	{
 		FVector(1, 0, 0),
 		FVector(-1, 0, 0),
@@ -83,7 +83,7 @@ private:
 struct FOctreeNodeCompare
 {
 	//Will put the lowest FScore above all
-	bool operator()(const OctreeNode* Node1, const OctreeNode* Node2) const
+	bool operator()(const TSharedPtr<OctreeNode>& Node1, const TSharedPtr<OctreeNode>& Node2) const
 	{
 		return (Node1->F > Node2->F);
 	}
