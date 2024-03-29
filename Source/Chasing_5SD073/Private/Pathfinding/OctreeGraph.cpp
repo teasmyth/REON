@@ -53,10 +53,10 @@ void OctreeGraph::ConnectNodes(const TSharedPtr<OctreeNode>& RootNode)
 }
 
 
-//Can do weighted to increase performance * 2. Higher numbers should yield faster path finding but might sacrifice accuracy.
+//Can do weighted H to increase performance. Higher numbers should yield faster path finding but might sacrifice accuracy.
 static float ExtraHWeight = 3.0f;
 
-bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, TSharedPtr<OctreeNode> RootNode, TArray<FVector>& OutPathList)
+bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode, TArray<FVector>& OutPathList)
 {
 	TSharedPtr<OctreeNode> Start = FindGraphNode(StartLocation, RootNode);
 	const TSharedPtr<OctreeNode> End = FindGraphNode(EndLocation, RootNode);

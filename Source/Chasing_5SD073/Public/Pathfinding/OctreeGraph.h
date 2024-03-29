@@ -60,7 +60,7 @@ public:
 	~OctreeGraph();
 		
 	static void ConnectNodes(const TSharedPtr<OctreeNode>& RootNode);
-	static bool OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, TSharedPtr<OctreeNode> RootNode, TArray<FVector>& OutPathList);
+	static bool OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode, TArray<FVector>& OutPathList);
 	static void ReconstructPath(const TSharedPtr<OctreeNode>& Start, const TSharedPtr<OctreeNode>& End, TArray<FVector>& OutPathList);
 	static FVector DirectionTowardsSharedFaceFromSmallerNode(const TSharedPtr<OctreeNode>& Node1, const TSharedPtr<OctreeNode>& Node2);
 	static float ManhattanDistance(const TSharedPtr<OctreeNode>& From, const TSharedPtr<OctreeNode>& To);

@@ -57,12 +57,14 @@ inline FArchive& operator <<(FArchive& Ar, TSharedPtr<OctreeNode>& Node)
 	}
 
 	Ar << Node->NodeBounds;
-	Ar << Node->ChildCenters;
-	Ar << Node->NeighborCenters;
-	Ar << Node->NavigationNode;
+	Ar << Node->ChildCenters; 
+	Ar << Node->NeighborCenters; //What if I never save this? And just reconstruct neighbors every time after loading data.
+	//							   What if i only save center x y and z as float, size as float, construct FBOX from that?
+	//                             And also, just save the number of children , which will trigger a domino recursively.
+	Ar << Node->NavigationNode; //what if i remove this, and just check if it has a child or not? how will that affect performance? measure!
 	Ar << Node->Floatable;
 
-	int Size = Node->ChildrenOctreeNodes.Num();
+	int Size = Node->ChildrenOctreeNodes.Num(); //make this saving only
 	Ar << Size;
 	if (Ar.IsLoading())
 	{
