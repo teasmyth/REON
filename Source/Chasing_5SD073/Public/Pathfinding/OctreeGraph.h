@@ -13,7 +13,7 @@ public:
 		
 	static void ReconstructPointersForNodes(const TSharedPtr<OctreeNode>& RootNode);
 	static void ConnectNodes(const TSharedPtr<OctreeNode>& RootNode);
-	static bool OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode, TArray<FVector>& OutPathList);
+	static bool OctreeAStar(const bool& Debug, const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode, TArray<FVector>& OutPathList);
 	static TSharedPtr<OctreeNode> FindGraphNode(const FVector& Location, const TSharedPtr<OctreeNode>& RootNode);
 	
 	static void ReconstructPath(const TSharedPtr<OctreeNode>& Start, const TSharedPtr<OctreeNode>& End, TArray<FVector>& OutPathList);

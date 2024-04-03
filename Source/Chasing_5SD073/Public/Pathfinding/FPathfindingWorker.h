@@ -11,7 +11,7 @@
 class CHASING_5SD073_API FPathfindingWorker : public FRunnable
 {
 public:
-	FPathfindingWorker(const TWeakPtr<OctreeNode>& InOctreeRootNode) : OctreeRootNode(InOctreeRootNode)
+	FPathfindingWorker(const TWeakPtr<OctreeNode>& InOctreeRootNode, bool& InDebug) : OctreeRootNode(InOctreeRootNode), Debug(InDebug)
 	{
 		Thread = FRunnableThread::Create(this, TEXT("PathfindingThread"));
 	}
@@ -64,4 +64,5 @@ private:
 	//bool IsPathfindingInProgress = false;
 	bool PathFound = false;
 	bool FinishedWork = true;
+	bool& Debug;
 };

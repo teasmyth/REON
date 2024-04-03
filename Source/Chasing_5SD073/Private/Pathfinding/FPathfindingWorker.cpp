@@ -15,7 +15,7 @@ uint32 FPathfindingWorker::Run()
 		while (!FinishedWork && TaskQueue.Dequeue(Task))
 		{
 			//IsPathfindingInProgress = true;
-			PathFound = OctreeGraph::OctreeAStar(Task.Key, Task.Value, OctreeRootNode.Pin(), PathPoints);
+			PathFound = OctreeGraph::OctreeAStar(Debug, Task.Key, Task.Value, OctreeRootNode.Pin(), PathPoints);
 			FPlatformProcess::Sleep(0.01f);
 			FinishedWork = true;
 		}

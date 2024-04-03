@@ -72,7 +72,7 @@ void AOctree::BeginPlay()
 		UE_LOG(LogTemp, Warning, TEXT("Connect nodes time: %f"), FPlatformTime::Seconds() - StartTime);
 
 		const TWeakPtr<OctreeNode> RootNodeWeakPtr = RootNodeSharedPtr;
-		PathfindingWorker = new FPathfindingWorker(RootNodeWeakPtr);
+		PathfindingWorker = new FPathfindingWorker(RootNodeWeakPtr, Debug);
 		IsSetup = true;
 	});
 }

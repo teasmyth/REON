@@ -37,7 +37,8 @@ void OctreeGraph::ConnectNodes(const TSharedPtr<OctreeNode>& RootNode)
 				//const FBox NeighborBox = FBox(NeighborLocation - FVector(NodeList[i]->HalfSize), NeighborLocation + FVector(NodeList[i]->HalfSize));
 
 				//if (PotentialNeighbor != nullptr && NodeList[i]->NodeBounds.Intersect(PotentialNeighbor->NodeBounds) && !NodeList[i]->Neighbors.Contains(PotentialNeighbor))
-				if (PotentialNeighbor != nullptr && OctreeNode::DoNodesIntersect(NodeList[i], PotentialNeighbor) && !NodeList[i]->Neighbors.Contains(PotentialNeighbor))
+				if (PotentialNeighbor != nullptr && OctreeNode::DoNodesIntersect(NodeList[i], PotentialNeighbor) && !NodeList[i]->Neighbors.Contains(
+					PotentialNeighbor))
 				{
 					NodeList[i]->Neighbors.Add(PotentialNeighbor);
 					PotentialNeighbor->Neighbors.Add(NodeList[i]);
@@ -56,7 +57,7 @@ void OctreeGraph::ConnectNodes(const TSharedPtr<OctreeNode>& RootNode)
 //Can do weighted H to increase performance. Higher numbers should yield faster path finding but might sacrifice accuracy.
 static float ExtraHWeight = 3.0f;
 
-bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode,
+bool OctreeGraph::OctreeAStar(const bool& Debug, const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode,
                               TArray<FVector>& OutPathList)
 {
 	const TSharedPtr<OctreeNode> Start = FindGraphNode(StartLocation, RootNode); //check root node and make sure child parent relationship is correct.
@@ -64,7 +65,7 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 
 	if (Start == nullptr || End == nullptr)
 	{
-		//UE_LOG(LogTemp, Warning, TEXT("Start or End is nullptr."));
+		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Start or End is nullptr."));
 		return false;
 	}
 
@@ -180,15 +181,18 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 				Node->PathfindingData.Reset();
 			}
 
-			TimeTaken.Add(FPlatformTime::Seconds() - StartTime);
-
-			float Total = 0;
-			for (const auto Time : TimeTaken)
+			if (Debug)
 			{
-				Total += Time;
-			}
+				TimeTaken.Add(FPlatformTime::Seconds() - StartTime);
 
-			//UE_LOG(LogTemp, Warning, TEXT("Path found in avg. in %f seconds"), Total / (float)TimeTaken.Num());
+				float Total = 0;
+				for (const auto Time : TimeTaken)
+				{
+					Total += Time;
+				}
+
+				UE_LOG(LogTemp, Warning, TEXT("Path found in avg. in %f seconds"), Total / (float)TimeTaken.Num());
+			}
 			return true;
 		}
 
@@ -235,8 +239,7 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 		}
 	}
 
-
-	UE_LOG(LogTemp, Error, TEXT("Couldn't find path"));
+	if (Debug) UE_LOG(LogTemp, Error, TEXT("Couldn't find path"));
 	return false;
 }
 

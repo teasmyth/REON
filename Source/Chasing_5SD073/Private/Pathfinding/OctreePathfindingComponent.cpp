@@ -96,7 +96,7 @@ bool UOctreePathfindingComponent::GetAStarPathToLocation(const FVector& End, FVe
 {
 	TArray<FVector>Path;
 	const FVector Start = GetOwner()->GetActorLocation();
-	const bool PathFound = OctreeGraph::OctreeAStar(Start, End, OctreeWeakPtr->GetRootNode(), Path);
+	const bool PathFound = OctreeGraph::OctreeAStar(false, Start, End, OctreeWeakPtr->GetRootNode(), Path);
 
 	if (PathFound)
 	{
