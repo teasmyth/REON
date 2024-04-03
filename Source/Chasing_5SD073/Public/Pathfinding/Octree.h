@@ -72,7 +72,7 @@ private:
 	void ResizeOctree();
 
 	void CalculateBorders();
-	//UFUNCTION(CallInEditor)
+	UFUNCTION(CallInEditor)
 	void DrawGrid();
 	UFUNCTION(CallInEditor)
 	void DeleteGrid();
@@ -119,7 +119,7 @@ private:
 	void SetUpOctreesAsync(bool IsLoading);
 	TSharedPtr<OctreeNode> MakeOctree(const FVector& Origin, const int& Index);
 	void AddObjects(TArray<FBox> FoundObjects, const TSharedPtr<OctreeNode>& RootN) const;
-	static void GetEmptyNodes(const TSharedPtr<OctreeNode>& Node);
+	void GetEmptyNodes(const TSharedPtr<OctreeNode>& Node);
 	static void AdjustDanglingChildNodes(const TSharedPtr<OctreeNode>& Node);
 
 

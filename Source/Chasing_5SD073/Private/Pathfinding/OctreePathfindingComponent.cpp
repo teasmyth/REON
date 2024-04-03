@@ -129,7 +129,7 @@ FVector UOctreePathfindingComponent::CalculateNextPathLocation(const FVector& St
 	{
 		return Path[0];
 	}
-
+	
 	//Path smoothing. If the agent can skip a path point because it wouldn't collide, it should (skip). This ensures a more natural looking movement.
 	FHitResult Hit;
 	FCollisionShape ColShape = FCollisionShape::MakeSphere(AgentMeshHalfSize);
