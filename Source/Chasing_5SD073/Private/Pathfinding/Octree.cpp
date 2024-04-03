@@ -51,8 +51,9 @@ void AOctree::BeginPlay()
 	FString SpecificFileName = "OctreeFiles/" + GetWorld()->GetName() + "OctreeNodes.bin";
 	SaveFileName = FPaths::Combine(FPaths::ProjectSavedDir(), SpecificFileName);
 
-	auto LoadGame = Async(EAsyncExecution::Thread, [&]()
+	SetupOctreesFuture = Async(EAsyncExecution::Thread, [&]()
 	{
+		Loading = true;
 		double StartTime = FPlatformTime::Seconds();
 
 		if (const bool Loaded = LoadNodesFromFile(SaveFileName); !Loaded)
@@ -64,12 +65,14 @@ void AOctree::BeginPlay()
 
 			SaveNodesToFile(SaveFileName);
 		}
-		else UE_LOG(LogTemp, Warning, TEXT("Loading: %f"), FPlatformTime::Seconds() - StartTime);
-
+		else
+		{
+			if (Debug) UE_LOG(LogTemp, Warning, TEXT("Loading: %f"), FPlatformTime::Seconds() - StartTime);
+		}
 
 		StartTime = FPlatformTime::Seconds();
-		OctreeGraph::ConnectNodes(RootNodeSharedPtr);
-		UE_LOG(LogTemp, Warning, TEXT("Connect nodes time: %f"), FPlatformTime::Seconds() - StartTime);
+		OctreeGraph::ConnectNodes(Loading, RootNodeSharedPtr);
+		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Connect nodes time: %f"), FPlatformTime::Seconds() - StartTime);
 
 		const TWeakPtr<OctreeNode> RootNodeWeakPtr = RootNodeSharedPtr;
 		PathfindingWorker = new FPathfindingWorker(RootNodeWeakPtr, Debug);
@@ -82,27 +85,27 @@ void AOctree::BeginPlay()
 void AOctree::SaveNodesToFile(const FString& Filename)
 {
 	if (IsSetup) return; //If the game is running, don't save the nodes. Might lead to data corruption.
-	
+
 	FBufferArchive ToBinary;
 
 	//ToBinary << AllHitResults;
-	
+
 	ToBinary << RootNodeSharedPtr;
-	
+
 	TArray<uint8> CompressedData;
 
 	FArchiveSaveCompressedProxy Compressor = FArchiveSaveCompressedProxy(CompressedData, TEXT("ZLIB"));
-	
+
 	Compressor << ToBinary;
 	Compressor.Flush();
-	
+
 	if (Compressor.GetError())
 	{
 		UE_LOG(LogTemp, Error, TEXT("Failed to compress data."));
 		return;
 	}
-	
-	
+
+
 	if (FFileHelper::SaveArrayToFile(CompressedData, *Filename))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Saved octree successfully."));
@@ -132,9 +135,9 @@ bool AOctree::LoadNodesFromFile(const FString& Filename)
 			UE_LOG(LogTemp, Error, TEXT("Failed to deserialize octree nodes from file."));
 			return false;
 		}
-		
+
 		FArchiveLoadCompressedProxy Decompressor = FArchiveLoadCompressedProxy(CompressedData, TEXT("ZLIB"));
-		
+
 		if (Decompressor.GetError())
 		{
 			UE_LOG(LogTemp, Error, TEXT("Failed to decompress file."));
@@ -143,7 +146,7 @@ bool AOctree::LoadNodesFromFile(const FString& Filename)
 
 		FBufferArchive DecompressedBinaryArray;
 		Decompressor << DecompressedBinaryArray;
-		
+
 
 		FMemoryReader FromBinary = FMemoryReader(DecompressedBinaryArray, true); //true, free data after done
 		FromBinary.Seek(0);
@@ -156,10 +159,10 @@ bool AOctree::LoadNodesFromFile(const FString& Filename)
 		CompressedData.Empty();
 		Decompressor.FlushCache();
 		FromBinary.FlushCache();
-		
+
 		DecompressedBinaryArray.Empty();
 		DecompressedBinaryArray.Close();
-		
+
 		return true;
 	}
 
@@ -175,10 +178,16 @@ void AOctree::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 
 	IsSetup = false;
+	Loading = false;
+
+	SetupOctreesFuture.Wait();
 
 	// Clean up
-	PathfindingWorker->Stop();
-	delete PathfindingWorker;
+	if (PathfindingWorker != nullptr)
+	{
+		PathfindingWorker->Stop();
+		delete PathfindingWorker;
+	}
 
 	//RootNodeSharedPtr.Reset();
 	DeleteOctreeNode(RootNodeSharedPtr);
@@ -274,7 +283,6 @@ void AOctree::DrawGrid()
 			NodeList.Add(Child);
 		}
 	}
-	
 
 
 	// Unused variables that are required to be passed to CreateMeshSection
@@ -311,9 +319,9 @@ void AOctree::CalculateBorders()
 	ProceduralMesh->bHiddenInGame = true;
 	ProceduralMesh->ClearAllMeshSections();
 
-	for (int32 y = - GetOctreeSizeY() / 2.0f; y <= GetOctreeSizeY() / 2.0f; y += GetOctreeSizeY())
+	for (int32 y = -GetOctreeSizeY() / 2.0f; y <= GetOctreeSizeY() / 2.0f; y += GetOctreeSizeY())
 	{
-		for (int32 z = - GetOctreeSizeZ() / 2.0f; z <= GetOctreeSizeZ() / 2.0f; z += GetOctreeSizeZ())
+		for (int32 z = -GetOctreeSizeZ() / 2.0f; z <= GetOctreeSizeZ() / 2.0f; z += GetOctreeSizeZ())
 		{
 			Start = FVector(-GetOctreeSizeX() / 2.0f, y, z) + GetActorLocation();
 			End = FVector(GetOctreeSizeX() / 2.0f, y, z) + GetActorLocation();
@@ -321,9 +329,9 @@ void AOctree::CalculateBorders()
 		}
 	}
 
-	for (int32 x = - GetOctreeSizeX() / 2.0f; x <= GetOctreeSizeX() / 2.0f; x += GetOctreeSizeX())
+	for (int32 x = -GetOctreeSizeX() / 2.0f; x <= GetOctreeSizeX() / 2.0f; x += GetOctreeSizeX())
 	{
-		for (int32 z = - GetOctreeSizeZ() / 2.0f; z <= GetOctreeSizeZ() / 2.0f; z += GetOctreeSizeZ())
+		for (int32 z = -GetOctreeSizeZ() / 2.0f; z <= GetOctreeSizeZ() / 2.0f; z += GetOctreeSizeZ())
 		{
 			Start = FVector(x, -GetOctreeSizeY() / 2.0f, z) + GetActorLocation();
 			End = FVector(x, GetOctreeSizeY() / 2.0f, z) + GetActorLocation();
@@ -331,7 +339,7 @@ void AOctree::CalculateBorders()
 		}
 	}
 
-	for (int32 x = -GetOctreeSizeX() / 2.0f ; x <= GetOctreeSizeX() / 2.0f; x += GetOctreeSizeX())
+	for (int32 x = -GetOctreeSizeX() / 2.0f; x <= GetOctreeSizeX() / 2.0f; x += GetOctreeSizeX())
 	{
 		for (int32 y = -GetOctreeSizeY() / 2.0f; y <= GetOctreeSizeY() / 2.0f; y += GetOctreeSizeY())
 		{
@@ -487,7 +495,7 @@ void AOctree::SetUpOctreesAsync(const bool IsLoading)
 	RootNodeSharedPtr->Occupied = true;
 
 	RootNodeSharedPtr->ChildrenOctreeNodes.SetNum(ExpandVolumeXAxis * ExpandVolumeYAxis * ExpandVolumeZAxis);
-	
+
 	/*
 	if (!AllHitResults.IsEmpty() && AllHitResults.Num() != ExpandVolumeXAxis * ExpandVolumeYAxis * ExpandVolumeZAxis)
 	{
@@ -514,13 +522,13 @@ void AOctree::SetUpOctreesAsync(const bool IsLoading)
 		}
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("Octree setup time: %f"), FPlatformTime::Seconds() - StartTime);
+	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Octree setup time: %f"), FPlatformTime::Seconds() - StartTime);
 	StartTime = FPlatformTime::Seconds();
 	GetEmptyNodes(RootNodeSharedPtr);
-	UE_LOG(LogTemp, Warning, TEXT("Empty nodes time: %f"), FPlatformTime::Seconds() - StartTime);
+	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Empty nodes time: %f"), FPlatformTime::Seconds() - StartTime);
 	StartTime = FPlatformTime::Seconds();
 	AdjustDanglingChildNodes(RootNodeSharedPtr);
-	UE_LOG(LogTemp, Warning, TEXT("Dangling nodes time: %f"), FPlatformTime::Seconds() - StartTime);
+	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Dangling nodes time: %f"), FPlatformTime::Seconds() - StartTime);
 }
 
 TSharedPtr<OctreeNode> AOctree::MakeOctree(const FVector& Origin, const int& Index)
@@ -546,7 +554,8 @@ TSharedPtr<OctreeNode> AOctree::MakeOctree(const FVector& Origin, const int& Ind
 		}
 
 		//GetWorld()->OverlapMultiByChannel(Result, Bounds.GetCenter(), FQuat::Identity, CollisionChannel, FCollisionShape::MakeBox(Size / 2.0f), TraceParams);
-		GetWorld()->OverlapMultiByChannel(Result, NewRootNode->Position, FQuat::Identity, CollisionChannel, FCollisionShape::MakeBox(Size / 2.0f), TraceParams);
+		GetWorld()->OverlapMultiByChannel(Result, NewRootNode->Position, FQuat::Identity, CollisionChannel, FCollisionShape::MakeBox(Size / 2.0f),
+		                                  TraceParams);
 
 
 		TArray<FBox> BoxResults;

@@ -44,11 +44,12 @@ public:
 	                const bool& DivideUsingFBox = false);
 	void SetupChildrenBounds(const float FloatAboveGroundPreference);
 	void TestSetupChildrenBounds(const float FloatAboveGroundPreference);
+	bool IsInsideNode(const FVector& Location) const;
 
 	static bool BoxOverlap(const UWorld* World, const FBox& Box);
 
 	static bool DoNodesIntersect(const TSharedPtr<OctreeNode>& Node1, const TSharedPtr<OctreeNode>& Node2);
-	static bool IsInsideNode(const TSharedPtr<OctreeNode>& Node, const FVector& Location);
+	
 };
 
 

@@ -132,6 +132,10 @@ private:
 	void SaveNodesToFile(const FString& filename);
 	bool LoadNodesFromFile(const FString& Filename);
 
+	bool Loading = false;
+
+	TFuture<void> SetupOctreesFuture;
+	
 	FString SaveFileName;
 	TArray<TArray<FBox>> AllHitResults;
 

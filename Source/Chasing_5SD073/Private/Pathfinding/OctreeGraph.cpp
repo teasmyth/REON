@@ -19,27 +19,33 @@ OctreeGraph::~OctreeGraph()
 
 TArray<double> OctreeGraph::TimeTaken;
 
-void OctreeGraph::ConnectNodes(const TSharedPtr<OctreeNode>& RootNode)
+void OctreeGraph::ConnectNodes(const bool& Loading, const TSharedPtr<OctreeNode>& RootNode)
 {
 	TArray<TSharedPtr<OctreeNode>> NodeList;
 	NodeList.Add(RootNode);
+	int Count = 0;
+
 	for (int i = 0; i < NodeList.Num(); i++)
 	{
+		if (!Loading) break;
+
+
 		if (!NodeList[i]->Occupied)
 		{
+			const FVector Center = NodeList[i]->Position;
+			const float HalfSize = NodeList[i]->HalfSize * 1.01f; //little bit of padding to touch neighboring node.
+
 			for (const auto& Direction : Directions)
 			{
-				//const FVector NeighborLocation = NodeList[i]->NodeBounds.GetCenter() + Direction * NodeList[i]->NodeBounds.GetSize().X;
-				const FVector NeighborLocation = NodeList[i]->Position + Direction * NodeList[i]->HalfSize * 1.01f;
+				const FVector NeighborLocation = Center + Direction * HalfSize;
 				const TSharedPtr<OctreeNode> PotentialNeighbor = FindGraphNode(NeighborLocation, RootNode);
 				//This already checks whether it is occupied or not.
 
-				//const FBox NeighborBox = FBox(NeighborLocation - FVector(NodeList[i]->HalfSize), NeighborLocation + FVector(NodeList[i]->HalfSize));
-
-				//if (PotentialNeighbor != nullptr && NodeList[i]->NodeBounds.Intersect(PotentialNeighbor->NodeBounds) && !NodeList[i]->Neighbors.Contains(PotentialNeighbor))
-				if (PotentialNeighbor != nullptr && OctreeNode::DoNodesIntersect(NodeList[i], PotentialNeighbor) && !NodeList[i]->Neighbors.Contains(
-					PotentialNeighbor))
+				//Physically speaking, any node just outside the border of the current node is a neighbor. Not using DoNodeIntersect sacrifices minimal amount of accuracy.
+				//In exchange for faster neighbor building.
+				if (PotentialNeighbor != nullptr /* && OctreeNode::DoNodesIntersect(NodeList[i], PotentialNeighbor)*/ && !NodeList[i]->Neighbors.Contains(PotentialNeighbor))
 				{
+					Count++;
 					NodeList[i]->Neighbors.Add(PotentialNeighbor);
 					PotentialNeighbor->Neighbors.Add(NodeList[i]);
 				}
@@ -51,6 +57,8 @@ void OctreeGraph::ConnectNodes(const TSharedPtr<OctreeNode>& RootNode)
 			NodeList.Add(Child);
 		}
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Total Connections: %d"), Count);
 }
 
 
@@ -199,6 +207,8 @@ bool OctreeGraph::OctreeAStar(const bool& Debug, const FVector& StartLocation, c
 		TestOpenSet.pop();
 		ClosedList.Add(CurrentNode);
 
+		//if (!GetNeighbors(CurrentNode, RootNode)) continue;
+
 		if (CurrentNode->Neighbors.IsEmpty()) continue;
 
 		for (const auto& NeighborWeakPtr : CurrentNode->Neighbors)
@@ -320,6 +330,33 @@ void OctreeGraph::TestReconstructPath(const TSharedPtr<OctreeNode>& Start, const
 	}
 }
 
+bool OctreeGraph::GetNeighbors(const TSharedPtr<OctreeNode>& Node, const TSharedPtr<OctreeNode>& RootNode)
+{
+	if (!Node->Neighbors.IsEmpty())
+	{
+		return true;
+	}
+	const FVector Center = Node->Position;
+	const float HalfSize = Node->HalfSize * 1.01f; //little bit of padding to touch neighboring node.
+
+	for (const auto& Direction : Directions)
+	{
+		const FVector NeighborLocation = Center + Direction * HalfSize;
+		const TSharedPtr<OctreeNode> PotentialNeighbor = FindGraphNode(NeighborLocation, RootNode);
+		//This already checks whether it is occupied or not.
+
+		//Physically speaking, any node just outside the border of the current node is a neighbor. Not using DoNodeIntersect sacrifices minimal amount of accuracy.
+		//In exchange for faster neighbor building.
+		if (PotentialNeighbor != nullptr && OctreeNode::DoNodesIntersect(Node, PotentialNeighbor) && !Node->Neighbors.Contains(PotentialNeighbor))
+		{
+			Node->Neighbors.Add(PotentialNeighbor);
+			PotentialNeighbor->Neighbors.Add(Node);
+		}
+	}
+
+	return !Node->Neighbors.IsEmpty();
+}
+
 FVector OctreeGraph::DirectionTowardsSharedFaceFromSmallerNode(const TSharedPtr<OctreeNode>& Node1, const TSharedPtr<OctreeNode>& Node2)
 {
 	float SmallSize = 1;
@@ -385,7 +422,7 @@ TSharedPtr<OctreeNode> OctreeGraph::FindGraphNode(const FVector& Location, const
 {
 	TSharedPtr<OctreeNode> CurrentNode = RootNode;
 
-	if (CurrentNode == nullptr)
+	if (!CurrentNode.IsValid())
 	{
 		return nullptr;
 	}
@@ -393,12 +430,12 @@ TSharedPtr<OctreeNode> OctreeGraph::FindGraphNode(const FVector& Location, const
 	bool FoundNode = true;
 
 	//If the children empty triggers first than found node, then we actually found the node.
-	while (CurrentNode != nullptr && !CurrentNode->ChildrenOctreeNodes.IsEmpty() && FoundNode)
+	while (CurrentNode.IsValid() && !CurrentNode->ChildrenOctreeNodes.IsEmpty() && FoundNode)
 	{
 		for (const auto& Node : CurrentNode->ChildrenOctreeNodes)
 		{
 			//if (Node->NodeBounds.IsInside(Location))
-			if (OctreeNode::IsInsideNode(Node, Location))
+			if (Node.IsValid() && Node->IsInsideNode(Location))
 			{
 				CurrentNode = Node;
 				FoundNode = true;
@@ -416,7 +453,7 @@ TSharedPtr<OctreeNode> OctreeGraph::FindGraphNode(const FVector& Location, const
 	//Because of the parent-child relationship, sometimes there will be nodes that may have child but also occupied at the same.
 	//Occupied means that it intersects, but it will have children that may not intersect.
 	//They will be filtered out when adding them to NodeBounds but cannot delete them as it would delete their children who are useful.
-	if (CurrentNode != nullptr && !CurrentNode->Occupied && FoundNode)
+	if (CurrentNode.IsValid() && !CurrentNode->Occupied && FoundNode)
 	{
 		return CurrentNode;
 	}

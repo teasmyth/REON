@@ -40,14 +40,6 @@ OctreeNode::OctreeNode()
 
 OctreeNode::~OctreeNode()
 {
-	for (TSharedPtr<OctreeNode>& Child : ChildrenOctreeNodes)
-	{
-		if (Child != nullptr)
-		{
-			Child.Reset();
-		}
-	}
-
 	PathfindingData.Reset();
 }
 
@@ -231,20 +223,15 @@ bool OctreeNode::DoNodesIntersect(const TSharedPtr<OctreeNode>& Node1, const TSh
 	return Box1.Intersect(Box2);
 }
 
-bool OctreeNode::IsInsideNode(const TSharedPtr<OctreeNode>& Node, const FVector& Location)
+bool OctreeNode::IsInsideNode(const FVector& Location) const
 {
 	
-	const float HalfSize = Node->HalfSize;
-	const FVector MinPoint = Node->Position - FVector(HalfSize);
-	const FVector MaxPoint = Node->Position + FVector(HalfSize);
+	const FVector MinPoint = Position - HalfSize;
+	const FVector MaxPoint = Position + HalfSize;
 
 	return (Location.X >= MinPoint.X && Location.X <= MaxPoint.X) &&
-		   (Location.Y >= MinPoint.Y && Location.Y <= MaxPoint.Y) &&
-		   (Location.Z >= MinPoint.Z && Location.Z <= MaxPoint.Z);
-
+		(Location.Y >= MinPoint.Y && Location.Y <= MaxPoint.Y) &&
+		(Location.Z >= MinPoint.Z && Location.Z <= MaxPoint.Z);
 	
-
-	const FBox Box = FBox(Node->Position - FVector(Node->HalfSize), Node->Position + FVector(Node->HalfSize));
-	return Box.IsInside(Location);
 }
 
