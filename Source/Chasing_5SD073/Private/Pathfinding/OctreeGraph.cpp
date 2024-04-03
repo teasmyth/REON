@@ -188,7 +188,7 @@ bool OctreeGraph::OctreeAStar(const FVector& StartLocation, const FVector& EndLo
 				Total += Time;
 			}
 
-			UE_LOG(LogTemp, Warning, TEXT("Path found in avg. in %f seconds"), Total / (float)TimeTaken.Num());
+			//UE_LOG(LogTemp, Warning, TEXT("Path found in avg. in %f seconds"), Total / (float)TimeTaken.Num());
 			return true;
 		}
 
