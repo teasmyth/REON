@@ -78,12 +78,15 @@ private:
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ClampMin = 0))
 	float AboutToFallDetectionDistance = 0;
 
-	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "The duration of the capsule resize", ClampMin = 0))
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "The time it takes for the capsule grow back into it's original size", ClampMin = 0))
 	float CapsuleResizeDuration = 1.0f;
 
-	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "The duration of the capsule resize", ClampMin = 0))
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "The time it takes for the capsule shrink", ClampMin = 0))
 	float CapsuleShrinkDuration = 1.0f;
 
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (ToolTip = "The minimum height of the capsule during a slide", ClampMin = 0))
+	float CapsuleMinHeight = 55.0f;
+	
 	///Internal
 	float InternalTimer = 0;
 	float CameraFullHeight = 0;
@@ -95,8 +98,7 @@ private:
 
 	float ExpandTime = 0.0f;
 	float ShrinkTime = 0.0f;
-
-	float CapsuleMinHeight = 55.0f;
+	
 	float CapsuleMaxHeight = 96.0f;
 	float CapsuleCurrentHeight = 0;
 
