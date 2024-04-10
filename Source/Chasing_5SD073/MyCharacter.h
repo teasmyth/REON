@@ -89,7 +89,6 @@ protected:
 	void SetState(ECharacterState NewState) const;
 	void CameraJitter(float& WalkSpeed);
 	void TurnTimeBackAsync();
-	void ForwardMovementErrorCorrection();
 	void NoMovementInput();
 
 	//Jump event extension for blueprint.
@@ -124,7 +123,7 @@ public:
 	FORCEINLINE ECharacterMovementState GetCharacterMovementState() const { return CurrentMovementState; }
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE FVector GetCharacterMovementInput() const { return PreviousMovementVector;}
+	FORCEINLINE FVector GetCharacterMovementInput() const { return FVector(PreviousMovementVector.X, PreviousMovementVector.Y, 0);}
 
 	UFUNCTION(BlueprintPure)
 	FORCEINLINE UCameraComponent* GetFirstPersonCameraComponent() const { return FrontCam; }
@@ -149,9 +148,6 @@ public:
 private: //For mechanics
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings", DisplayName= "Current Movement State")
 	ECharacterMovementState CurrentMovementState = ECharacterMovementState::Idle;
-
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement")
-	float ForwardMovementErrorTime = 0.1;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
 	UCurveFloat* WalkingAccelerationTime;
@@ -182,6 +178,9 @@ private: //For mechanics
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Running", meta = (ClampMin = 0))
 	float MaxRunningSpeed;
+
+	UPROPERTY(EditAnywhere,  Category = "Movement Settings|Jump", meta = (ClampMin = 0, Tooltip = "Max time after a player can jump after platform"))
+	float CoyoteTime;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Jump", meta = (ClampMin = 0))
 	float JumpStrength;
@@ -227,9 +226,7 @@ private:
 	bool TouchedGroundOrWall;
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	bool Falling = false;
-	
-	FVector PreviousMovementVector;
-	
-	bool WasMoving = false;
-	float WasMovingTimer = 0.0f;
+
+	float InternalCoyoteTimer = 0;
+	FVector2d PreviousMovementVector;
 };
