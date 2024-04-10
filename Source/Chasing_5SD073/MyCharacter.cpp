@@ -68,11 +68,16 @@ void AMyCharacter::Tick(float DeltaTime)
 	if (GetCharacterMovement()->IsMovingOnGround())
 	{
 		TouchedGroundOrWall = true;
+		InternalCoyoteTimer = 0;
+	}
+	else if (InternalCoyoteTimer <= CoyoteTime)
+	{
+		InternalCoyoteTimer += DeltaTime;
+		GetCharacterMovement()->AddForce(FVector(0, 0, GetCharacterMovement()->Mass * 980));
 	}
 
 	if (StateMachine != nullptr) StateMachine->UpdateStateMachine();
 	if (DebugVelocity) DebugSpeed();
-	ForwardMovementErrorCorrection();
 }
 
 // Called to bind functionality to input
@@ -111,7 +116,7 @@ void AMyCharacter::JumpAndDash()
 	FVector JumpVector = GetActorUpVector() * JumpStrength;
 	StateMachine->OverrideJump(JumpVector);
 
-	if ((GetCharacterMovement()->IsMovingOnGround() || (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
+	if ((InternalCoyoteTimer <= CoyoteTime || (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
 			GetCurrentEnumState() == ECharacterState::WallClimbing)) &&	SetStateBool(ECharacterState::DefaultState))
 	{
 		GetCharacterMovement()->AddImpulse(JumpVector, true);
@@ -153,9 +158,8 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 
 void AMyCharacter::MovementStateCheck()
 {
-	if (WasMoving) return;
-
 	//TODO if a player doesnt move for a while, should it still stay in FELL or override it to walking? is that even possible? 
+
 	if (CurrentMovementState != ECharacterMovementState::Fell)
 	{
 		if (Falling && GetCharacterMovement()->IsMovingOnGround() && FallDistance > 0)
@@ -225,8 +229,16 @@ void AMyCharacter::MovementStateCheck()
 
 void AMyCharacter::Move(const FInputActionValue& Value)
 {
-	WasMoving = false;
 	FVector2D MovementVector = Value.Get<FVector2D>();
+
+	if (MovementVector != PreviousMovementVector)
+	{
+		AccelerationTimer = 0;
+	}
+
+	GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Yellow, MovementVector.ToString());
+	//Should this be below?
+	//PreviousMovementVector = MovementVector;
 
 	if (StateMachine != nullptr)
 	{
@@ -242,7 +254,7 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 		AddMovementInput(GetActorRightVector(), MovementVector.X);
 	}
 
-	PreviousMovementVector = FVector(MovementVector.X, MovementVector.Y, 0);
+	PreviousMovementVector = MovementVector;
 
 	StateMachine->DetectStates();
 }
@@ -253,25 +265,8 @@ void AMyCharacter::NoMovementInput()
 	{
 		StateMachine->OverrideNoMovementInputEvent();
 	}
-
-	if (GetCharacterMovement()->IsMovingOnGround() && PreviousMovementVector.Y > 0)
-	{
-		WasMoving = true;
-	}
-	PreviousMovementVector = FVector::ZeroVector;
-}
-
-void AMyCharacter::ForwardMovementErrorCorrection()
-{
-	if (Controller != nullptr && WasMoving && WasMovingTimer <= ForwardMovementErrorTime)
-	{
-		WasMovingTimer += GetWorld()->GetDeltaSeconds();
-	}
-	else
-	{
-		WasMovingTimer = 0.0f;
-		WasMoving = false;
-	}
+	
+	PreviousMovementVector = FVector2d::ZeroVector;
 }
 
 

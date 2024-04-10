@@ -1,9 +1,5 @@
 #pragma once
 
-#include <future>
-#include <mutex>
-#include <thread>
-
 #include "CoreMinimal.h"
 #include "FPathfindingWorker.h"
 #include "GameFramework/Actor.h"
@@ -78,7 +74,7 @@ private:
 	void DeleteGrid();
 	void DrawLine(const FVector& Start, const FVector& End, const FVector& Normal, TArray<FVector>& Vertices, TArray<int32>& Triangles) const;
 
-	void DeleteOctreeNode(TSharedPtr<OctreeNode>& Node);
+	static void DeleteOctreeNode(TSharedPtr<OctreeNode>& Node);
 
 
 #pragma endregion
@@ -122,22 +118,27 @@ private:
 	void SetUpOctreesAsync(bool IsLoading);
 	TSharedPtr<OctreeNode> MakeOctree(const FVector& Origin, const int& Index);
 	void AddObjects(TArray<FBox> FoundObjects, const TSharedPtr<OctreeNode>& RootN) const;
-	void GetEmptyNodes(const TSharedPtr<OctreeNode>& Node);
+	static void DeleteUnusedNodes(const TSharedPtr<OctreeNode>& Node);
 	static void AdjustDanglingChildNodes(const TSharedPtr<OctreeNode>& Node);
-
+	
 
 	UFUNCTION(CallInEditor, Category="Octree")
 	void BakeOctree();
+	UFUNCTION(CallInEditor, Category="Octree")
+	void Shit();
 
 	void SaveNodesToFile(const FString& filename);
 	bool LoadNodesFromFile(const FString& Filename);
 
 	bool Loading = false;
 
+	TArray<uint8> DecompressedBinaryArray;
+
 	TFuture<void> SetupOctreesFuture;
+
+	TSharedPtr<FLargeMemoryReader> OctreeData;
 	
 	FString SaveFileName;
-	TArray<TArray<FBox>> AllHitResults;
 
 	std::atomic<bool> IsSetup = false;
 

@@ -11,20 +11,18 @@ public:
 	OctreeGraph();
 	~OctreeGraph();
 		
-	static void ReconstructPointersForNodes(const TSharedPtr<OctreeNode>& RootNode);
 	static void ConnectNodes(const bool& Loading, const TSharedPtr<OctreeNode>& RootNode);
-	static bool OctreeAStar(const bool& Debug, const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode, TArray<FVector>& OutPathList);
+	static bool OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData, const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode, TArray<FVector>& OutPathList);
+
 	static TSharedPtr<OctreeNode> FindGraphNode(const FVector& Location, const TSharedPtr<OctreeNode>& RootNode);
+	static TSharedPtr<OctreeNode> FindAndLoadNode(FLargeMemoryReader& OctreeData, const FVector& Location, const TSharedPtr<OctreeNode>& RootNode);
+	static bool GetNeighbors(FLargeMemoryReader& OctreeData, const TSharedPtr<OctreeNode>& Node, const TSharedPtr<OctreeNode>& RootNode);
 	
-	static void ReconstructPath(const TSharedPtr<OctreeNode>& Start, const TSharedPtr<OctreeNode>& End, TArray<FVector>& OutPathList);
 	static FVector DirectionTowardsSharedFaceFromSmallerNode(const TSharedPtr<OctreeNode>& Node1, const TSharedPtr<OctreeNode>& Node2);
 	static float ManhattanDistance(const TSharedPtr<OctreeNode>& From, const TSharedPtr<OctreeNode>& To);
-
-	static void TestReconstructPath(const TSharedPtr<OctreeNode>& Start, const TSharedPtr<OctreeNode>& End, TArray<FVector>& OutPathList);
-
-	//return true if successful
-	static bool GetNeighbors(const TSharedPtr<OctreeNode>& Node, const TSharedPtr<OctreeNode>& RootNode);
-
+	static void ReconstructPath(const TSharedPtr<OctreeNode>& Start, const TSharedPtr<OctreeNode>& End, TArray<FVector>& OutPathList);
+	
+	static TArray<int64> RootNodeIndexData;
 	static TArray<double> TimeTaken;
 
 private:
@@ -38,17 +36,6 @@ private:
 		FVector(0, 0, -1)
 	};
 };
-
-/*
-struct FOctreeNodeCompare
-{
-	//Will put the lowest FScore above all
-	bool operator()(const TSharedPtr<OctreeNode>& Node1, const TSharedPtr<OctreeNode>& Node2) const
-	{
-		return (Node1->F > Node2->F);
-	}
-};
-*/
 
 struct FPathfindingNodeCompare
 {

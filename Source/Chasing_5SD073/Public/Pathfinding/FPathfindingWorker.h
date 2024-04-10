@@ -11,7 +11,8 @@
 class CHASING_5SD073_API FPathfindingWorker : public FRunnable
 {
 public:
-	FPathfindingWorker(const TWeakPtr<OctreeNode>& InOctreeRootNode, bool& InDebug) : OctreeRootNode(InOctreeRootNode), Debug(InDebug)
+	FPathfindingWorker(const TWeakPtr<OctreeNode>& InOctreeRootNode, bool& InDebug,
+	                   const TWeakPtr<FLargeMemoryReader>& InOctreeData) : OctreeData(InOctreeData), OctreeRootNode(InOctreeRootNode), Debug(InDebug)
 	{
 		Thread = FRunnableThread::Create(this, TEXT("PathfindingThread"));
 	}
@@ -19,7 +20,8 @@ public:
 	virtual ~FPathfindingWorker() override
 	{
 		bRunThread = false;
-		
+		OctreeData.Reset();
+
 		if (Thread)
 		{
 			// Kill() is a blocking call, it waits for the thread to finish.
@@ -30,12 +32,12 @@ public:
 	}
 
 	virtual uint32 Run() override;
-	
+
 	TArray<FVector> GetPathPoints() const
 	{
 		return PathPoints;
 	}
-	
+
 
 	bool GetFoundPath() const
 	{
@@ -44,7 +46,7 @@ public:
 
 	bool IsItWorking() const
 	{
-		return  !FinishedWork;
+		return !FinishedWork;
 	}
 
 	virtual void Stop() override;
@@ -56,6 +58,7 @@ public:
 	TArray<FVector> GetOutQueue();
 
 private:
+	TWeakPtr<FLargeMemoryReader> OctreeData;
 	FRunnableThread* Thread;
 	TWeakPtr<OctreeNode> OctreeRootNode;
 	TQueue<TPair<FVector, FVector>> TaskQueue;
