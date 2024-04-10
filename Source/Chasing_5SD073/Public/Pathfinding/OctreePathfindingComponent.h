@@ -28,7 +28,8 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
-
+	inline static FLargeMemoryReader* OctreeData = nullptr;
+	
 	UFUNCTION(BlueprintCallable, Category="Pathfinding")
 	bool GetAStarPathToLocation(const FVector& End, FVector& OutPath) ;
 
