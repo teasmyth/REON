@@ -132,7 +132,7 @@ private:
 
 	bool Loading = false;
 
-	TArray<uint8> DecompressedBinaryArray;
+	TArray64<uint8> DecompressedBinaryArray;
 
 	TFuture<void> SetupOctreesFuture;
 

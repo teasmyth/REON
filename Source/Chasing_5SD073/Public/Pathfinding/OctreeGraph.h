@@ -11,7 +11,7 @@ public:
 	OctreeGraph();
 	~OctreeGraph();
 		
-	static void ConnectNodes(const bool& Loading, const TSharedPtr<OctreeNode>& RootNode);
+	static void ConnectNodes(const bool& Loading, const TSharedPtr<OctreeNode>& RootNode, const TSharedPtr<OctreeNode>& Node);
 	static bool OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData, const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode, TArray<FVector>& OutPathList);
 
 	static TSharedPtr<OctreeNode> FindGraphNode(const FVector& Location, const TSharedPtr<OctreeNode>& RootNode);

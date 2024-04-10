@@ -30,7 +30,7 @@ bool OctreeGraph::OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData,
 {
 	const TSharedPtr<OctreeNode> Start = FindAndLoadNode(OctreeData, StartLocation, RootNode);
 	//check root node and make sure child parent relationship is correct.
-	const TSharedPtr<OctreeNode> End = FindAndLoadNode( OctreeData, EndLocation, RootNode);
+	const TSharedPtr<OctreeNode> End = FindAndLoadNode(OctreeData, EndLocation, RootNode);
 
 	if (Start == nullptr || End == nullptr)
 	{
@@ -191,15 +191,15 @@ void OctreeGraph::ReconstructPath(const TSharedPtr<OctreeNode>& Start, const TSh
 	}
 }
 
-void OctreeGraph::ConnectNodes(const bool& Loading, const TSharedPtr<OctreeNode>& RootNode)
+void OctreeGraph::ConnectNodes(const bool& Loading, const TSharedPtr<OctreeNode>& RootNode, const TSharedPtr<OctreeNode>& Node)
 {
+	/*
 	TArray<TSharedPtr<OctreeNode>> NodeList;
 	NodeList.Add(RootNode);
 
 	for (int i = 0; i < NodeList.Num(); i++)
 	{
 		if (!Loading) break;
-
 
 		if (!NodeList[i]->Occupied)
 		{
@@ -214,7 +214,7 @@ void OctreeGraph::ConnectNodes(const bool& Loading, const TSharedPtr<OctreeNode>
 
 				//Physically speaking, any node just outside the border of the current node is a neighbor. Not using DoNodeIntersect sacrifices minimal amount of accuracy.
 				//In exchange for faster neighbor building.
-				if (PotentialNeighbor != nullptr /* && OctreeNode::DoNodesIntersect(NodeList[i], PotentialNeighbor)*/ && !NodeList[i]->Neighbors.
+				if (PotentialNeighbor != nullptr  && OctreeNode::DoNodesIntersect(NodeList[i], PotentialNeighbor) && !NodeList[i]->Neighbors.
 					Contains(PotentialNeighbor))
 				{
 					NodeList[i]->Neighbors.Add(PotentialNeighbor);
@@ -229,6 +229,31 @@ void OctreeGraph::ConnectNodes(const bool& Loading, const TSharedPtr<OctreeNode>
 		{
 			NodeList.Add(Child);
 		}
+	}
+*/
+
+	if (!Loading) return;
+
+	if (!Node->Occupied)
+	{
+		const FVector Center = Node->Position;
+		const float HalfSize = Node->HalfSize * 1.01f; //little bit of padding to touch neighboring node.
+		for (const auto& Direction : Directions)
+		{
+			const TSharedPtr<OctreeNode> PotentialNeighbor = FindGraphNode(Center + Direction * HalfSize, RootNode);
+			if (PotentialNeighbor.IsValid() && !Node->Neighbors.Contains(PotentialNeighbor))
+			{
+				Node->Neighbors.Add(PotentialNeighbor.ToWeakPtr());
+				Node->NeighborPositions.Add(PotentialNeighbor->Position);
+				PotentialNeighbor->Neighbors.Add(Node.ToWeakPtr());
+				PotentialNeighbor->NeighborPositions.Add(Center);
+			}
+		}
+	}
+
+	for (const auto& Child : Node->ChildrenOctreeNodes)
+	{
+		ConnectNodes(Loading, RootNode, Child);
 	}
 }
 

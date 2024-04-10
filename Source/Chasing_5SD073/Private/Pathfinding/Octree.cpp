@@ -73,9 +73,9 @@ void AOctree::BeginPlay()
 			if (Debug) UE_LOG(LogTemp, Warning, TEXT("Loading: %f"), FPlatformTime::Seconds() - StartTime);
 		}
 
-		StartTime = FPlatformTime::Seconds();
+		//StartTime = FPlatformTime::Seconds();
 		//OctreeGraph::ConnectNodes(Loading, RootNodeSharedPtr);
-		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Connect nodes time: %f"), FPlatformTime::Seconds() - StartTime);
+		//if (Debug) UE_LOG(LogTemp, Warning, TEXT("Connect nodes time: %f"), FPlatformTime::Seconds() - StartTime);
 
 		const TWeakPtr<OctreeNode> RootNodeWeakPtr = RootNodeSharedPtr;
 		PathfindingWorker = new FPathfindingWorker(RootNodeWeakPtr, Debug, OctreeData.ToWeakPtr());
@@ -89,12 +89,97 @@ void AOctree::SaveNodesToFile(const FString& Filename)
 {
 	if (IsSetup) return; //If the game is running, don't save the nodes. Might lead to data corruption.
 
-	//TArray64<uint8> ToBinaryArray;
-
-	//FMemoryWriter64 ToBinary = FMemoryWriter64(ToBinaryArray);
-
 	FLargeMemoryWriter ToBinary = FLargeMemoryWriter(0, true);
+	FIndexData IndexData;
+	
+	double StartTime = FPlatformTime::Seconds();
+	OctreeNode::SaveNode(ToBinary, IndexData, RootNodeSharedPtr, false);
+	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Baking 1 Done. Time: %f"), FPlatformTime::Seconds() - StartTime);
+	
+	StartTime = FPlatformTime::Seconds();
+	ToBinary.FlushCache();
+	ToBinary.Seek(0);
+	
+	OctreeNode::SaveNode(ToBinary, IndexData, RootNodeSharedPtr, true);
+	if(Debug) UE_LOG(LogTemp, Warning, TEXT("Baking 2 Done. Time: %f"), FPlatformTime::Seconds() - StartTime);
 
+	DeleteOctreeNode(RootNodeSharedPtr);
+
+	// Calculate the number of chunks needed and then save it into the compressed data
+	TArray64<uint8> BinaryData;
+	int64 NumChunks = 0;
+	constexpr int32 MaxTArraySize = TNumericLimits<int32>::Max();
+	BinaryData.Append(ToBinary.GetData(), ToBinary.TotalSize());
+	NumChunks = BinaryData.Num() / MaxTArraySize;
+	if (BinaryData.Num() % MaxTArraySize != 0)
+	{
+		NumChunks++;
+	}
+	
+	TArray<TArray<uint8>> AllCompressedData;
+	AllCompressedData.SetNum(NumChunks);
+	//TArray<uint8> CompressedDataChunk;
+	TArray<uint8> DataToCompress;
+
+	for (int64 i = 0; i < NumChunks; i++)
+	{
+		const double ChunkStartTime = FPlatformTime::Seconds();
+		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Compressing chunk %lld/%lld."), i + 1, NumChunks);
+		FArchiveSaveCompressedProxy Compressor = FArchiveSaveCompressedProxy(AllCompressedData[i],TEXT("ZLIB"));
+
+		// Calculate the start and end indices for this chunk
+		const int64 StartIndex = i * MaxTArraySize + i;
+		const int64 EndIndex = FMath::Min((i + 1) * MaxTArraySize, BinaryData.Num());
+		
+		for (int64 j = StartIndex; j < EndIndex; j++)
+		{
+			DataToCompress.Add(BinaryData[j]);
+		}
+		
+		Compressor << DataToCompress;
+
+		if (Compressor.GetError())
+		{
+			if (Debug) UE_LOG(LogTemp, Error, TEXT("Failed to compress data."));
+			return;
+		}
+		
+		Compressor.Flush();
+		DataToCompress.Empty();
+
+		if(Debug) UE_LOG(LogTemp, Warning, TEXT("Compressed chunk %lld/%lld. Took %f seconds."), i + 1, NumChunks, FPlatformTime::Seconds() - ChunkStartTime);
+	}
+
+	// Write the compressed data to your output...
+	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Started Saving"));
+
+	//I cant save TArray<TArray<uint8>> directly to file, so I need to stitch them together. However, I can't use TArray<uint8> because it has a limit of 2GB.
+	//I also cannot use TArray64, as it will try to allocate all the memory at once, which will crash the editor.
+	TArray64<uint8> StitchedAllCompressedData;
+	for (const auto& CompressedData : AllCompressedData)
+	{
+		// Store the size of the chunk
+		int64 ChunkSize = CompressedData.Num();
+		for (int i = 0; i < sizeof(int64); ++i)
+		{
+			StitchedAllCompressedData.Add((ChunkSize >> (i * 8)) & 0xFF);
+		}
+
+		// Store the chunk data
+		StitchedAllCompressedData.Append(CompressedData);
+	}
+
+	if (FFileHelper::SaveArrayToFile(StitchedAllCompressedData, *Filename))
+	{
+		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Saved octree"));
+	}
+	else
+	{
+		if (Debug) UE_LOG(LogTemp, Error, TEXT("Couldn't save octree. Check the file path and/or permissions."));
+	}
+
+	/*
+	FLargeMemoryWriter ToBinary = FLargeMemoryWriter(0, true);
 	FIndexData IndexData;
 
 	double StartTime = FPlatformTime::Seconds();
@@ -103,7 +188,6 @@ void AOctree::SaveNodesToFile(const FString& Filename)
 
 	StartTime = FPlatformTime::Seconds();
 	ToBinary.FlushCache();
-	//ToBinaryArray.Empty();
 	ToBinary.Seek(0);
 	OctreeNode::SaveNode(ToBinary, IndexData, RootNodeSharedPtr, true);
 	UE_LOG(LogTemp, Warning, TEXT("Baking 2 Done. Time: %f"), FPlatformTime::Seconds() - StartTime);
@@ -111,9 +195,67 @@ void AOctree::SaveNodesToFile(const FString& Filename)
 
 	//ToBinary << RootNodeSharedPtr;
 
-	TArray<uint8> BinaryData;
+	TArray64<uint8> BinaryData;
 	BinaryData.Append(ToBinary.GetData(), ToBinary.TotalSize());
 
+	// Determine the maximum size of a TArray<uint8>
+	const int32 MaxTArraySize = TNumericLimits<int32>::Max();
+
+	// Calculate the number of chunks needed
+	int64 NumChunks = BinaryData.Num() / MaxTArraySize;
+	if (BinaryData.Num() % MaxTArraySize != 0)
+	{
+		NumChunks++;
+	}
+	
+	TArray<uint8> AllCompressedData;
+	// Save the number of chunks
+	TArray<uint8> CompressedNumChuck;
+	FArchiveSaveCompressedProxy NumChuckCompressor = FArchiveSaveCompressedProxy(CompressedNumChuck,TEXT("ZLIB"));
+	NumChuckCompressor << NumChunks;
+	AllCompressedData.Append(CompressedNumChuck);
+
+	for (int64 i = 0; i < NumChunks; i++)
+	{
+		const double ChunkStartTime = FPlatformTime::Seconds();
+		// Calculate the start and end indices for this chunk
+		const int64 StartIndex = i * MaxTArraySize;
+		const int64 EndIndex = FMath::Min((i + 1) * MaxTArraySize, BinaryData.Num());
+
+		// Create a TArray<uint8> from this chunk of the TArray64<uint8>
+		TArray<uint8> DataToCompress;
+		for (int64 j = StartIndex; j < EndIndex; j++)
+		{
+			DataToCompress.Add(BinaryData[j]);
+		}
+
+		// Compress the TArray<uint8>
+		TArray<uint8> CompressedData;
+		FArchiveSaveCompressedProxy Compressor = FArchiveSaveCompressedProxy(CompressedData,TEXT("ZLIB"));
+		Compressor << DataToCompress;
+		Compressor.Flush();
+
+		AllCompressedData.Append(CompressedData);
+		UE_LOG(LogTemp, Warning, TEXT("Compressed chunk %lld/%lld. Took %f seconds."), i + 1, NumChunks, FPlatformTime::Seconds() - ChunkStartTime);
+	}
+
+	// Write the compressed data to your output...
+	UE_LOG(LogTemp, Warning, TEXT("Started Saving"));
+
+	if (FFileHelper::SaveArrayToFile(AllCompressedData, *Filename))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Saved octree"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Couldn't save octree. Check the file path and/or permissions."));
+	}
+	*/
+
+	/*
+	TArray<uint8> BinaryData;
+	BinaryData.Append(ToBinary.GetData(), ToBinary.TotalSize());
+	
 	TArray<uint8> CompressedData;
 	StartTime = FPlatformTime::Seconds();
 	FArchiveSaveCompressedProxy Compressor = FArchiveSaveCompressedProxy(CompressedData, TEXT("ZLIB"));
@@ -141,17 +283,17 @@ void AOctree::SaveNodesToFile(const FString& Filename)
 	Compressor.FlushCache();
 	CompressedData.Empty();
 
+*/
 	ToBinary.FlushCache();
-	//ToBinaryArray.Empty();
-
 	ToBinary.Close();
 	BinaryData.Empty();
 
-	UE_LOG(LogTemp, Warning, TEXT("Saving exited."));
+	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Saving exited."));
 }
 
 bool AOctree::LoadNodesFromFile(const FString& Filename)
 {
+	/*
 	TArray<uint8> CompressedData;
 
 	if (FFileHelper::LoadFileToArray(CompressedData, *Filename))
@@ -169,34 +311,9 @@ bool AOctree::LoadNodesFromFile(const FString& Filename)
 			UE_LOG(LogTemp, Error, TEXT("Failed to decompress file."));
 			return false;
 		}
-
-		/*
-		FBufferArchive DecompressedBinaryArray;
-		Decompressor << DecompressedBinaryArray;
-		
-		//FMemoryReader FromBinary = FMemoryReader(DecompressedBinaryArray, true); //true, free data after done
-		//FromBinary.Seek(0);
-
-		//FromBinary << RootNodeSharedPtr;
-		TArray<int64> EmptyData;
-		OctreeData = new FMemoryReader(DecompressedBinaryArray, false);
-		RootNodeSharedPtr = OctreeNode::LoadSingleNode(*OctreeData, 0, EmptyData);
 		
 
-		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "Save File found. Loading nodes, skipping create");
-
-		CompressedData.Empty();
-		Decompressor.FlushCache();
-		//FromBinary.FlushCache();
-
-		DecompressedBinaryArray.Empty();
-		DecompressedBinaryArray.Close();
-		*/
-
-
-		//TArray<uint8> DecompressedBinaryArray;
 		Decompressor << DecompressedBinaryArray;
-		//FLargeMemoryReader FromBinary = FLargeMemoryReader(DecompressedBinaryArray.GetData(), DecompressedBinaryArray.Num(), ELargeMemoryReaderFlags::TakeOwnership);
 		OctreeData = MakeShareable(new FLargeMemoryReader(DecompressedBinaryArray.GetData(), DecompressedBinaryArray.Num(),
 		                                                  ELargeMemoryReaderFlags::None));
 		OctreeData->Seek(0);
@@ -210,14 +327,82 @@ bool AOctree::LoadNodesFromFile(const FString& Filename)
 		CompressedData.Empty();
 		Decompressor.FlushCache();
 
-		//DecompressedBinaryArray.Empty();
-		//FromBinary.FlushCache();
-		//FromBinary.Close();
+		return true;
+	}
+	*/
+
+	TArray64<uint8> StitchedAllCompressedData;
+
+	if (FFileHelper::LoadFileToArray(StitchedAllCompressedData, *Filename))
+	{
+		if (StitchedAllCompressedData.Num() <= 0)
+		{
+			if (Debug) UE_LOG(LogTemp, Error, TEXT("Failed to deserialize octree nodes from file."));
+			return false;
+		}
+		if (Debug) UE_LOG(LogTemp, Warning, TEXT("File loaded into array."))
+		
+		TArray<TArray<uint8>> AllCompressedData;
+		for (int64 i = 0; i < StitchedAllCompressedData.Num();)
+		{
+			// Retrieve the size of the chunk
+			int64 ChunkSize = 0;
+			for (int j = 0; j < sizeof(int64); ++j)
+			{
+				ChunkSize |= static_cast<int64>(StitchedAllCompressedData[i++]) << (j * 8);
+			}
+
+			// Retrieve the chunk data
+			TArray<uint8> CompressedData;
+			for (int64 j = 0; j < ChunkSize; ++j)
+			{
+				CompressedData.Add(StitchedAllCompressedData[i++]);
+			}
+			AllCompressedData.Add(CompressedData);
+		}
+		
+		
+		for (int64 i = 0; i < AllCompressedData.Num(); i++)
+		{
+			if (Debug) UE_LOG(LogTemp, Warning, TEXT("Decompressing chunk %lld/%i."), i + 1, AllCompressedData.Num());
+			const double ChunkStartTime = FPlatformTime::Seconds();
+			TArray<uint8> DecompressedChunk;
+			FArchiveLoadCompressedProxy Decompressor = FArchiveLoadCompressedProxy(AllCompressedData[i], TEXT("ZLIB"));
+
+			if (Decompressor.IsError())
+			{
+				if(Debug)UE_LOG(LogTemp, Error, TEXT("Failed to decompress file."));
+				return false;
+			}
+			
+			if (AllCompressedData[i].Num() >= TNumericLimits<int32>::Max())
+			{
+				if (Debug) UE_LOG(LogTemp, Error, TEXT("Failed to decompress chunk %lld. Chunk size is larger than the maximum capacity of a TArray<uint8>."), i + 1);
+				return false;
+			}
+			
+			DecompressedChunk.Reserve(AllCompressedData[i].Num());
+			Decompressor << DecompressedChunk;
+			DecompressedBinaryArray.Append(DecompressedChunk);
+			Decompressor.FlushCache();
+			DecompressedChunk.Empty();
+			if (Debug) UE_LOG(LogTemp, Warning, TEXT("Decompressed chunk %lld/%i. Took %f seconds."), i + 1, AllCompressedData.Num(), FPlatformTime::Seconds() - ChunkStartTime);
+		}
+		
+		OctreeData = MakeShareable(new FLargeMemoryReader(DecompressedBinaryArray.GetData(), DecompressedBinaryArray.Num(), ELargeMemoryReaderFlags::None));
+		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Loaded into memory reader."));
+		RootNodeSharedPtr = OctreeNode::LoadSingleNode(*OctreeData, 0);
+		OctreeGraph::RootNodeIndexData = OctreeNode::GetFIndexData(*OctreeData, 0);
+		UOctreePathfindingComponent::OctreeData = OctreeData.Get();
+
+		if (Debug && GEngine) GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "Save File found. Loading nodes, skipping create");
+
+		AllCompressedData.Empty();
 
 		return true;
 	}
 
-	UE_LOG(LogTemp, Error, TEXT("Failed to load file into array."));
+	if (Debug) UE_LOG(LogTemp, Error, TEXT("Failed to load file into array."));
 	return false;
 }
 
@@ -493,20 +678,17 @@ void AOctree::BakeOctree()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Baking Octree"));
 		SetUpOctreesAsync(false);
-		OctreeGraph::ConnectNodes(true, RootNodeSharedPtr);
+		const double StartTime = FPlatformTime::Seconds();
+		OctreeGraph::ConnectNodes(true, RootNodeSharedPtr, RootNodeSharedPtr);
+		UE_LOG(LogTemp, Warning, TEXT("Connect nodes time: %f"), FPlatformTime::Seconds() - StartTime);
 		SaveNodesToFile(SaveFileName);
-		DeleteOctreeNode(RootNodeSharedPtr);
 	}
 	else UE_LOG(LogTemp, Warning, TEXT("Game is running, cant bake Octree."));
 }
 
 void AOctree::Shit()
 {
-	TArray<int64> Empty;
-	int a = 2;
-	int b = OctreeData->TotalSize();
-	//TSharedPtr<OctreeNode> NewShit = OctreeNode::LoadSingleNode(*OctreeData, 37, Empty);
-	UE_LOG(LogTemp, Warning, TEXT("DONE: %i"), a + b);
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Green, "Andre is pooop.");
 }
 
 #pragma region Making Octree
@@ -645,11 +827,12 @@ void AOctree::AddObjects(TArray<FBox> FoundObjects, const TSharedPtr<OctreeNode>
 
 void AOctree::DeleteUnusedNodes(const TSharedPtr<OctreeNode>& Node)
 {
-	if (Node == nullptr)
+	if (!Node.IsValid())
 	{
 		return;
 	}
-
+	
+	/*
 	TArray<TSharedPtr<OctreeNode>> NodeList;
 	NodeList.Add(Node);
 
@@ -675,16 +858,33 @@ void AOctree::DeleteUnusedNodes(const TSharedPtr<OctreeNode>& Node)
 				NodeList.Add(Child);
 			}
 		}
+	}*/
+
+	for (auto& Child : Node->ChildrenOctreeNodes)
+	{
+		if (Child->ChildrenOctreeNodes.IsEmpty())
+		{
+			if (Child->Occupied)
+			{
+				Child.Reset();
+				//I adjust the null pointers in AdjustDanglingChildNodes(). Here I should not touch it while it is iterating through it.
+			}
+		}
+		else
+		{
+			DeleteUnusedNodes(Child);
+		}
 	}
 }
 
 void AOctree::AdjustDanglingChildNodes(const TSharedPtr<OctreeNode>& Node)
 {
-	if (Node == nullptr)
+	if (!Node.IsValid())
 	{
 		return;
 	}
 
+	/*
 	TArray<TSharedPtr<OctreeNode>> NodeList;
 	NodeList.Add(Node);
 
@@ -711,8 +911,18 @@ void AOctree::AdjustDanglingChildNodes(const TSharedPtr<OctreeNode>& Node)
 			NodeList.Add(Child);
 		}
 	}
+	*/
+	TArray<TSharedPtr<OctreeNode>> CleanedChildNodes;
+	for (const auto& Child : Node->ChildrenOctreeNodes)
+	{
+		if (Child.IsValid())
+		{
+			CleanedChildNodes.Add(Child);
+		}
 
-	UE_LOG(LogTemp, Warning, TEXT("Generated nodes in use: %i"), NodeList.Num());
+		AdjustDanglingChildNodes(Child);
+	}
+	Node->ChildrenOctreeNodes = CleanedChildNodes;
 }
 
 #pragma endregion

@@ -171,9 +171,9 @@ TArray<int64> OctreeNode::GetFIndexData(FLargeMemoryReader& OctreeData, const in
 
 	float x, y, z, HalfSize;
 	uint8 ChildCount;
-	int64 Index;
+	//int64 Index;
 
-	OctreeData << Index;
+	//OctreeData << Index;
 	OctreeData << x;
 	OctreeData << y;
 	OctreeData << z;
@@ -196,16 +196,15 @@ TSharedPtr<OctreeNode> OctreeNode::LoadSingleNode(FLargeMemoryReader& OctreeData
 	float x, y, z;
 	uint8 ChildCount;
 
-	OctreeData << Node->Index;
+	//OctreeData << Node->Index;
 	OctreeData << x;
 	OctreeData << y;
 	OctreeData << z;
 	OctreeData << Node->HalfSize;
 	Node->Position = FVector(x, y, z);
 
-	//OctreeData.SerializeBits(&ChildCount, 4);
-
-	OctreeData << ChildCount;
+	OctreeData.SerializeBits(&ChildCount, 4);
+	
 	/*
 	if (ChildCount < 9) //There is no "0" child as I overrode it in the saving. So if it is less than 9, it has a child/ren.
 	{
@@ -239,7 +238,8 @@ TSharedPtr<OctreeNode> OctreeNode::LoadSingleNode(FLargeMemoryReader& OctreeData
 		Node->ChildrenIndexes.Empty();
 		OctreeData << Node->NeighborPositions;
 		OctreeData << Node->Floatable;
-		OctreeData << Node->Occupied;
+		//OctreeData << Node->Occupied;
+		//Node->Occupied 
 	}
 
 	return Node;
@@ -258,7 +258,7 @@ void OctreeNode::SaveNode(FLargeMemoryWriter& Ar, FIndexData& IndexData, const T
 	uint8 ChildCount = Node->ChildrenOctreeNodes.Num();
 
 	Node->Index = Ar.Tell();
-	Ar << Node->Index;
+	//Ar << Node->Index;
 	Ar << x;
 	Ar << y;
 	Ar << z;
@@ -302,7 +302,7 @@ void OctreeNode::SaveNode(FLargeMemoryWriter& Ar, FIndexData& IndexData, const T
 	}
 	*/
 
-	Ar << ChildCount;
+	Ar.SerializeBits(&ChildCount, 4);
 
 	if (ChildCount > 0)
 	{
@@ -337,7 +337,7 @@ void OctreeNode::SaveNode(FLargeMemoryWriter& Ar, FIndexData& IndexData, const T
 	{
 		Ar << Node->NeighborPositions;
 		Ar << Node->Floatable;
-		Ar << Node->Occupied;
+		//Ar << Node->Occupied;
 	}
 }
 
@@ -351,14 +351,14 @@ void OctreeNode::LoadAllNodes(FLargeMemoryReader& OctreeData, TSharedPtr<OctreeN
 	float x, y, z;
 	uint8 ChildCount;
 
-	OctreeData << Node->Index;
+	//OctreeData << Node->Index;
 	OctreeData << x;
 	OctreeData << y;
 	OctreeData << z;
 	OctreeData << Node->HalfSize;
 	Node->Position = FVector(x, y, z);
 	
-	OctreeData << ChildCount;
+	OctreeData.SerializeBits(&ChildCount, 4);
 
 	if (ChildCount > 0)
 	{
@@ -374,7 +374,7 @@ void OctreeNode::LoadAllNodes(FLargeMemoryReader& OctreeData, TSharedPtr<OctreeN
 	{
 		OctreeData << Node->NeighborPositions;
 		OctreeData << Node->Floatable;
-		OctreeData << Node->Occupied;
+		//OctreeData << Node->Occupied;
 	}
 }
 
