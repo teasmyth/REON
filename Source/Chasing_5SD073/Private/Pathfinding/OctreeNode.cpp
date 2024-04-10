@@ -203,7 +203,7 @@ TSharedPtr<OctreeNode> OctreeNode::LoadSingleNode(FLargeMemoryReader& OctreeData
 	OctreeData << Node->HalfSize;
 	Node->Position = FVector(x, y, z);
 
-	OctreeData.SerializeBits(&ChildCount, 4);
+	//OctreeData.SerializeBits(&ChildCount, 4);
 	
 	/*
 	if (ChildCount < 9) //There is no "0" child as I overrode it in the saving. So if it is less than 9, it has a child/ren.
@@ -225,6 +225,8 @@ TSharedPtr<OctreeNode> OctreeNode::LoadSingleNode(FLargeMemoryReader& OctreeData
 
 	OutIndexData.Children.Empty();
 	*/
+
+	OctreeData << ChildCount;
 
 	if (ChildCount > 0)
 	{
@@ -302,7 +304,9 @@ void OctreeNode::SaveNode(FLargeMemoryWriter& Ar, FIndexData& IndexData, const T
 	}
 	*/
 
-	Ar.SerializeBits(&ChildCount, 4);
+	//Ar.SerializeBits(&ChildCount, 4);
+
+	Ar << ChildCount;
 
 	if (ChildCount > 0)
 	{
@@ -358,7 +362,9 @@ void OctreeNode::LoadAllNodes(FLargeMemoryReader& OctreeData, TSharedPtr<OctreeN
 	OctreeData << Node->HalfSize;
 	Node->Position = FVector(x, y, z);
 	
-	OctreeData.SerializeBits(&ChildCount, 4);
+	//OctreeData.SerializeBits(&ChildCount, 4);
+
+	OctreeData << ChildCount;
 
 	if (ChildCount > 0)
 	{
