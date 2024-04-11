@@ -99,7 +99,7 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 	//If we are here, then we are about to start a new  pathfinding thread. This means that we can smooth out the previous one.
 	if (OctreeWeakPtr->GetPathfindingRunnable()->GetFoundPath())
 	{
-		PreviousNextLocation = CalculateNextPathLocation(Start, OctreeWeakPtr->GetPathfindingRunnable()->GetOutQueue());
+		PreviousNextLocation = CalculateNextPathLocation(Start, TargetActor, OctreeWeakPtr->GetPathfindingRunnable()->GetOutQueue());
 	}
 	else
 	{
@@ -128,7 +128,7 @@ bool UOctreePathfindingComponent::GetAStarPathToLocation(const FVector& End, FVe
 
 	if (PathFound)
 	{
-		PreviousNextLocation = CalculateNextPathLocation(Start, Path);
+		//PreviousNextLocation = CalculateNextPathLocation(Start,  Path);
 	}
 
 	OutPath = (PreviousNextLocation - Start).GetSafeNormal();
