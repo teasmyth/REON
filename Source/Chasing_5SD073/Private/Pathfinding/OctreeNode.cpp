@@ -230,6 +230,7 @@ TSharedPtr<OctreeNode> OctreeNode::LoadSingleNode(FLargeMemoryReader& OctreeData
 
 	if (ChildCount > 0)
 	{
+		Node->ChildrenIndexes.SetNum(ChildCount);
 		OctreeData << Node->ChildrenIndexes;
 		Node->ChildrenOctreeNodes.SetNum(ChildCount);
 		Node->Occupied = true;
@@ -318,8 +319,14 @@ void OctreeNode::SaveNode(FLargeMemoryWriter& Ar, FIndexData& IndexData, const T
 		}
 
 		Node->ChildrenIndexes = IndexData.Children;
+
+		if (Node->ChildrenIndexes.Num() < 0)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("ChildrenIndexes is less than 0"));
+		}
 	
 		Ar << Node->ChildrenIndexes;
+		
 
 
 		for (int i = 0; i < Node->ChildrenOctreeNodes.Num(); i++)

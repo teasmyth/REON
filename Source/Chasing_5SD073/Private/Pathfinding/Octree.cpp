@@ -105,11 +105,13 @@ void AOctree::SaveNodesToFile(const FString& Filename)
 
 	DeleteOctreeNode(RootNodeSharedPtr);
 
+	
 	// Calculate the number of chunks needed and then save it into the compressed data
 	TArray64<uint8> BinaryData;
 	int64 NumChunks = 0;
 	constexpr int32 MaxTArraySize = TNumericLimits<int32>::Max();
 	BinaryData.Append(ToBinary.GetData(), ToBinary.TotalSize());
+	/*
 	NumChunks = BinaryData.Num() / MaxTArraySize;
 	if (BinaryData.Num() % MaxTArraySize != 0)
 	{
@@ -168,8 +170,10 @@ void AOctree::SaveNodesToFile(const FString& Filename)
 		// Store the chunk data
 		StitchedAllCompressedData.Append(CompressedData);
 	}
+	*/
 
-	if (FFileHelper::SaveArrayToFile(StitchedAllCompressedData, *Filename))
+	//if (FFileHelper::SaveArrayToFile(StitchedAllCompressedData, *Filename))
+	if (FFileHelper::SaveArrayToFile(BinaryData, *Filename))
 	{
 		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Saved octree"));
 	}
@@ -331,17 +335,20 @@ bool AOctree::LoadNodesFromFile(const FString& Filename)
 	}
 	*/
 
-	TArray64<uint8> StitchedAllCompressedData;
+	//TArray64<uint8> StitchedAllCompressedData;
 
-	if (FFileHelper::LoadFileToArray(StitchedAllCompressedData, *Filename))
+	//if (FFileHelper::LoadFileToArray(StitchedAllCompressedData, *Filename))
+	if (FFileHelper::LoadFileToArray(DecompressedBinaryArray, *Filename))
 	{
-		if (StitchedAllCompressedData.Num() <= 0)
+		//if (StitchedAllCompressedData.Num() <= 0)
+		if (DecompressedBinaryArray.Num() <= 0)
 		{
 			if (Debug) UE_LOG(LogTemp, Error, TEXT("Failed to deserialize octree nodes from file."));
 			return false;
 		}
 		if (Debug) UE_LOG(LogTemp, Warning, TEXT("File loaded into array."))
-		
+
+		/*
 		TArray<TArray<uint8>> AllCompressedData;
 		for (int64 i = 0; i < StitchedAllCompressedData.Num();)
 		{
@@ -388,6 +395,7 @@ bool AOctree::LoadNodesFromFile(const FString& Filename)
 			DecompressedChunk.Empty();
 			if (Debug) UE_LOG(LogTemp, Warning, TEXT("Decompressed chunk %lld/%i. Took %f seconds."), i + 1, AllCompressedData.Num(), FPlatformTime::Seconds() - ChunkStartTime);
 		}
+		*/
 		
 		OctreeData = MakeShareable(new FLargeMemoryReader(DecompressedBinaryArray.GetData(), DecompressedBinaryArray.Num(), ELargeMemoryReaderFlags::None));
 		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Loaded into memory reader."));
@@ -397,7 +405,8 @@ bool AOctree::LoadNodesFromFile(const FString& Filename)
 
 		if (Debug && GEngine) GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "Save File found. Loading nodes, skipping create");
 
-		AllCompressedData.Empty();
+		//Uncomment it.
+		//AllCompressedData.Empty();
 
 		return true;
 	}

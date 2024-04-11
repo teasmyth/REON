@@ -19,6 +19,8 @@ OctreeGraph::~OctreeGraph()
 
 TArray<double> OctreeGraph::TimeTaken;
 TArray<int64> OctreeGraph::RootNodeIndexData = {};
+TArray<int> OctreeGraph::PathLength = {};
+int OctreeGraph::AvgPathLength = INT_MAX;
 
 
 //Can do weighted H to increase performance. Higher numbers should yield faster path finding but might sacrifice accuracy.
@@ -55,7 +57,7 @@ bool OctreeGraph::OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData,
 	OpenQueue.push(Start);
 	OpenSet.Add(Start);
 
-	while (!OpenQueue.empty())
+	while (!OpenQueue.empty() && OpenQueue.size() < AvgPathLength * 50)
 	{
 		TSharedPtr<OctreeNode> CurrentNode = OpenQueue.top();
 
@@ -70,6 +72,14 @@ bool OctreeGraph::OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData,
 			{
 				Node->PathfindingData.Reset();
 			}
+
+			PathLength.Add(OpenQueue.size());
+			AvgPathLength = 0;
+			for (const auto Length : PathLength)
+			{
+				AvgPathLength += Length;
+			}
+			AvgPathLength /= PathLength.Num();
 
 			if (Debug)
 			{
