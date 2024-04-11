@@ -400,6 +400,7 @@ bool AOctree::LoadNodesFromFile(const FString& Filename)
 		OctreeData = MakeShareable(new FLargeMemoryReader(DecompressedBinaryArray.GetData(), DecompressedBinaryArray.Num(), ELargeMemoryReaderFlags::None));
 		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Loaded into memory reader."));
 		RootNodeSharedPtr = OctreeNode::LoadSingleNode(*OctreeData, 0);
+		//OctreeNode::LoadAllNodes(*OctreeData, RootNodeSharedPtr);
 		OctreeGraph::RootNodeIndexData = OctreeNode::GetFIndexData(*OctreeData, 0);
 		UOctreePathfindingComponent::OctreeData = OctreeData.Get();
 

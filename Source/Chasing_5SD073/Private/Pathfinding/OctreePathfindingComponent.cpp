@@ -47,7 +47,7 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 
 	FHitResult Hit;
 
-	FCollisionShape ColShape = FCollisionShape::MakeSphere(AgentMeshHalfSize);
+	FCollisionShape ColShape = FCollisionShape::MakeSphere(AgentMeshHalfSize * 0.9f);
 	FCollisionQueryParams TraceParams;
 	TraceParams.AddIgnoredActor(GetOwner());
 	TraceParams.AddIgnoredActor(TargetActor);
