@@ -103,7 +103,7 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 	}
 	else
 	{
-		PreviousNextLocation = (TargetLocation - Start).GetSafeNormal();
+		PreviousNextLocation =TargetLocation;
 	}
 	/*
 	else
