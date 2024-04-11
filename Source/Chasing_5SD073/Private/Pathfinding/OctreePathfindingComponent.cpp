@@ -31,7 +31,7 @@ void UOctreePathfindingComponent::BeginPlay()
 	// ...
 }
 
-void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const FVector& TargetLocation, FVector& OutNextDirection)
+void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* TargetActor, const FVector& TargetLocation, FVector& OutNextDirection)
 {
 	if (!OctreeWeakPtr.IsValid() || !OctreeWeakPtr->IsOctreeSetup())
 	//Worker gets deleted after Setup is set to false, so no need to check for nullptr
@@ -44,6 +44,19 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const FVector& Tar
 	const FVector Start = GetOwner()->GetActorLocation();
 	const float Distance = FVector::Dist(Start, TargetLocation);
 	constexpr float MinDistanceForPathfinding = 20.0f; //Not meaningful enough to be a public variable, what do I do.
+
+	FHitResult Hit;
+
+	FCollisionShape ColShape = FCollisionShape::MakeSphere(AgentMeshHalfSize);
+	FCollisionQueryParams TraceParams;
+	TraceParams.AddIgnoredActor(GetOwner());
+	TraceParams.AddIgnoredActor(TargetActor);
+
+
+	if (!GetWorld()->SweepSingleByChannel(Hit, Start, TargetLocation, FQuat::Identity, CollisionChannel, ColShape, TraceParams))
+	{
+		OutNextDirection = (TargetLocation - Start).GetSafeNormal();
+	}
 
 
 	if (Distance <= MinDistanceForPathfinding)
@@ -94,7 +107,7 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const FVector& Tar
 
 bool UOctreePathfindingComponent::GetAStarPathToLocation(const FVector& End, FVector& OutPath)
 {
-	TArray<FVector>Path;
+	TArray<FVector> Path;
 	const FVector Start = GetOwner()->GetActorLocation();
 	const bool PathFound = OctreeGraph::OctreeAStar(false, *OctreeData, Start, End, OctreeWeakPtr->GetRootNode(), Path);
 
@@ -102,8 +115,8 @@ bool UOctreePathfindingComponent::GetAStarPathToLocation(const FVector& End, FVe
 	{
 		PreviousNextLocation = CalculateNextPathLocation(Start, Path);
 	}
-	
-	OutPath = (PreviousNextLocation - Start).GetSafeNormal();	
+
+	OutPath = (PreviousNextLocation - Start).GetSafeNormal();
 
 	return PathFound;
 }
@@ -115,21 +128,21 @@ bool UOctreePathfindingComponent::GetAStarPathToTarget(const AActor* TargetActor
 
 void UOctreePathfindingComponent::GetAStarPathAsyncToTarget(const AActor* TargetActor, FVector& OutNextLocation)
 {
-	GetAStarPathAsyncToLocation(TargetActor->GetActorLocation(), OutNextLocation);
+	GetAStarPathAsyncToLocation(TargetActor, TargetActor->GetActorLocation(), OutNextLocation);
 }
 
 FVector UOctreePathfindingComponent::CalculateNextPathLocation(const FVector& Start, const TArray<FVector>& Path) const
 {
 	if (Path.IsEmpty())
 	{
-		return FVector::ZeroVector;	
+		return FVector::ZeroVector;
 	}
-	
+
 	if (Path.Num() < 3)
 	{
 		return Path[0];
 	}
-	
+
 	//Path smoothing. If the agent can skip a path point because it wouldn't collide, it should (skip). This ensures a more natural looking movement.
 	FHitResult Hit;
 	FCollisionShape ColShape = FCollisionShape::MakeSphere(AgentMeshHalfSize);

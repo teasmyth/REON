@@ -37,7 +37,7 @@ public:
 	bool GetAStarPathToTarget(const AActor* TargetActor, FVector& OutPath);
 
 	UFUNCTION(BlueprintCallable, Category="Pathfinding")
-	void GetAStarPathAsyncToLocation(const FVector& TargetLocation, FVector& OutNextDirection);
+	void GetAStarPathAsyncToLocation(const AActor* TargetActor, const FVector& TargetLocation, FVector& OutNextDirection);
 
 	UFUNCTION(BlueprintCallable, Category="Pathfinding")
 	void GetAStarPathAsyncToTarget(const AActor* TargetActor, FVector& OutNextLocation);
