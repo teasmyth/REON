@@ -233,7 +233,7 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 
 	if (MovementVector != PreviousMovementVector)
 	{
-		AccelerationTimer = 0;
+		//AccelerationTimer = 0;
 	}
 
 	GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Yellow, MovementVector.ToString());

@@ -120,7 +120,7 @@ bool OctreeGraph::OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData,
 
 			if (NeighborPtr->Floatable)
 			{
-				//GWeight = 10;
+				GWeight = 10;
 			}
 
 			const float TentativeG = CurrentNode->PathfindingData->G + ManhattanDistance(CurrentNode, NeighborPtr) * GWeight;
