@@ -20,7 +20,8 @@ OctreeGraph::~OctreeGraph()
 TArray<double> OctreeGraph::TimeTaken;
 TArray<int64> OctreeGraph::RootNodeIndexData = {};
 TArray<int> OctreeGraph::PathLength = {};
-int OctreeGraph::AvgPathLength = INT_MAX;
+float OctreeGraph::AvgPathLength = FLT_MAX;
+int OctreeGraph::NudgeCounter = 0;
 
 
 //Can do weighted H to increase performance. Higher numbers should yield faster path finding but might sacrifice accuracy.
@@ -37,6 +38,17 @@ bool OctreeGraph::OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData,
 	if (Start == nullptr || End == nullptr)
 	{
 		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Start or End is nullptr."));
+		//NudgeCounter++;
+		/*
+
+		if (NudgeCounter > 20)
+		{
+			NudgeCounter = 0;
+			OutPathList.Add()
+		}*/
+
+		OutPathList.Add(StartLocation + FVector::UpVector *10);
+		
 		return false;
 	}
 
@@ -144,7 +156,7 @@ bool OctreeGraph::OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData,
 	{
 		Node->PathfindingData.Reset();
 	}
-
+	AvgPathLength *= 1.01f;
 	//if (Debug)
 	UE_LOG(LogTemp, Error, TEXT("Couldn't find path"));
 	UE_LOG(LogTemp, Error, TEXT("Couldn't find path"));

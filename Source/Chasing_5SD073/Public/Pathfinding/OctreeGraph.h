@@ -25,7 +25,8 @@ public:
 	static TArray<int64> RootNodeIndexData;
 	static TArray<double> TimeTaken;
 	static TArray<int> PathLength;
-	static int AvgPathLength;
+	static float AvgPathLength;
+	static int NudgeCounter;
 
 private:
 	inline static TArray<FVector> Directions

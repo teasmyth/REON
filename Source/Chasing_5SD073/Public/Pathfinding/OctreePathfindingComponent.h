@@ -51,7 +51,7 @@ public:
 	}
 
 private:
-	FVector CalculateNextPathLocation(const FVector& Start, const TArray<FVector>& Path) const;
+	FVector CalculateNextPathLocation(const FVector& Start, const AActor* TargetActor, const TArray<FVector>& Path) const;
 
 	UPROPERTY()
 	UFloatingPawnMovement* MovementComponent = nullptr;

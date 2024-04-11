@@ -46,8 +46,7 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 	constexpr float MinDistanceForPathfinding = 20.0f; //Not meaningful enough to be a public variable, what do I do.
 
 	FHitResult Hit;
-
-	FCollisionShape ColShape = FCollisionShape::MakeSphere(AgentMeshHalfSize * 0.9f);
+	FCollisionShape ColShape = FCollisionShape::MakeSphere(AgentMeshHalfSize * 1.1f);
 	FCollisionQueryParams TraceParams;
 	TraceParams.AddIgnoredActor(GetOwner());
 	TraceParams.AddIgnoredActor(TargetActor);
@@ -58,6 +57,18 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 		OutNextDirection = (TargetLocation - Start).GetSafeNormal();
 	}
 
+	/*
+	const FVector Directions[] = {FVector(1, 0, 0), FVector(-1, 0, 0), FVector(0, 1, 0), FVector(0, -1, 0), FVector(0, 0, 1), FVector(0, 0, -1)};
+
+	for (const FVector& Direction : Directions)
+	{
+		if (GetWorld()->LineTraceSingleByChannel(Hit, Start, Start + Direction * AgentMeshHalfSize, CollisionChannel, TraceParams))
+		{
+			OutNextDirection = -Direction;
+			return;
+		}
+	}
+	*/
 
 	if (Distance <= MinDistanceForPathfinding)
 	{
@@ -89,6 +100,10 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 	if (OctreeWeakPtr->GetPathfindingRunnable()->GetFoundPath())
 	{
 		PreviousNextLocation = CalculateNextPathLocation(Start, OctreeWeakPtr->GetPathfindingRunnable()->GetOutQueue());
+	}
+	else
+	{
+		PreviousNextLocation = (TargetLocation - Start).GetSafeNormal();
 	}
 	/*
 	else
@@ -131,7 +146,7 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToTarget(const AActor* Target
 	GetAStarPathAsyncToLocation(TargetActor, TargetActor->GetActorLocation(), OutNextLocation);
 }
 
-FVector UOctreePathfindingComponent::CalculateNextPathLocation(const FVector& Start, const TArray<FVector>& Path) const
+FVector UOctreePathfindingComponent::CalculateNextPathLocation(const FVector& Start, const AActor* TargetActor, const TArray<FVector>& Path) const
 {
 	if (Path.IsEmpty())
 	{
@@ -148,6 +163,7 @@ FVector UOctreePathfindingComponent::CalculateNextPathLocation(const FVector& St
 	FCollisionShape ColShape = FCollisionShape::MakeSphere(AgentMeshHalfSize);
 	FCollisionQueryParams TraceParams;
 	TraceParams.AddIgnoredActor(GetOwner());
+	TraceParams.AddIgnoredActor(TargetActor);
 
 	for (int i = 1; i < Path.Num(); i++)
 	{
