@@ -184,7 +184,7 @@ void AMyCharacter::MovementStateCheck()
 		else if (CurrentMovementState != ECharacterMovementState::Idle && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing && GetHorizontalVelocity() <= 0.1f)
 		{
 			CurrentMovementState = ECharacterMovementState::Idle;
-			AccelerationTimer = 0;
+			//AccelerationTimer = 0;
 		}
 		/*
 		else if (CurrentMovementState != ECharacterMovementState::Walking && GetHorizontalVelocity() > 1.0f && GetHorizontalVelocity() <=
