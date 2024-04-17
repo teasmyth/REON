@@ -51,6 +51,11 @@ void AOctree::BeginPlay()
 {
 	Super::BeginPlay();
 
+	
+	SetUpOctreesAsync(true);
+	IsSetup = true;
+
+	/*
 	FString SpecificFileName = "OctreeFiles/" + GetWorld()->GetName() + "OctreeNodes.bin";
 	SaveFileName = FPaths::Combine(FPaths::ProjectSavedDir(), SpecificFileName);
 
@@ -81,6 +86,7 @@ void AOctree::BeginPlay()
 		PathfindingWorker = new FPathfindingWorker(RootNodeWeakPtr, Debug, OctreeData.ToWeakPtr());
 		IsSetup = true;
 	});
+	*/
 }
 
 #pragma region Saving/Loading Data
@@ -97,7 +103,9 @@ void AOctree::SaveNodesToFile(const FString& Filename)
 	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Baking 1 Done. Time: %f"), FPlatformTime::Seconds() - StartTime);
 	
 	StartTime = FPlatformTime::Seconds();
+	const int64 Size = ToBinary.TotalSize();
 	ToBinary.FlushCache();
+	ToBinary.Reserve(Size);
 	ToBinary.Seek(0);
 	
 	OctreeNode::SaveNode(ToBinary, IndexData, RootNodeSharedPtr, true);
@@ -749,13 +757,38 @@ void AOctree::SetUpOctreesAsync(const bool IsLoading)
 	//Add a little bit of padding, in case there is one single Octree underneath, which sometimes prevent FindNode to work properly.
 	Size *= 1.02f;
 
-	RootNodeSharedPtr = MakeShareable(new OctreeNode(GetActorLocation(), SingleVolumeSize, false));
+	RootNodeSharedPtr = MakeShareable(new OctreeNode(GetActorLocation(), SingleVolumeSize / 2, false));
 	RootNodeSharedPtr->Occupied = true;
 
-	RootNodeSharedPtr->ChildrenOctreeNodes.SetNum(ExpandVolumeXAxis * ExpandVolumeYAxis * ExpandVolumeZAxis);
+	//RootNodeSharedPtr->ChildrenOctreeNodes.SetNum(ExpandVolumeXAxis * ExpandVolumeYAxis * ExpandVolumeZAxis);
 
-	if (IsLoading) return;
+	if (IsLoading)
+	{
+		TArray<FOverlapResult> Result;
+		FCollisionQueryParams TraceParams;
+		TraceParams.AddIgnoredActor(this);
 
+		if (!ActorToIgnore.IsEmpty())
+		{
+			for (const auto Actors : ActorToIgnore)
+			{
+				TraceParams.AddIgnoredActor(Actors);
+			}
+		}
+
+
+		GetWorld()->OverlapMultiByChannel(Result, RootNodeSharedPtr->Position, FQuat::Identity, CollisionChannel, FCollisionShape::MakeBox(FVector(SingleVolumeSize / 2.0f)), TraceParams);
+
+
+		TArray<FBox> BoxResults;
+		for (const auto Overlap : Result)
+		{
+			BoxResults.Add(Overlap.GetActor()->GetComponentsBoundingBox());
+		}
+		
+		PathfindingWorker = new FPathfindingWorker(RootNodeSharedPtr, Debug, BoxResults, MinNodeSize, FloatAboveGroundPreference);
+		return;
+	}
 	double StartTime = FPlatformTime::Seconds();
 
 	int Index = 0;

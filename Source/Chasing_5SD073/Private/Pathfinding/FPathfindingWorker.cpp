@@ -14,9 +14,9 @@ uint32 FPathfindingWorker::Run()
 		//Dequeue will return false if the queue is empty.
 		while (!FinishedWork && TaskQueue.Dequeue(Task))
 		{
-			//IsPathfindingInProgress = true;
-			PathFound = OctreeGraph::OctreeAStar(Debug, *OctreeData.Pin(), Task.Key, Task.Value, OctreeRootNode.Pin(), PathPoints);
-			FPlatformProcess::Sleep(0.01f);
+			//PathFound = OctreeGraph::OctreeAStar(Debug, *OctreeData.Pin(), Task.Key, Task.Value, OctreeRootNode.Pin(), PathPoints);
+			PathFound = OctreeGraph::LazyOctreeAStar(bRunThread, Debug, ActorBoxes, MinSize, FloatAboveGroundPreference, Task.Key, Task.Value, OctreeRootNode.Pin(), PathPoints);
+			FPlatformProcess::Sleep(0.01f); //I lost the source but read somewhere that a small sleep can help with the flip-flopping of threads.
 			FinishedWork = true;
 		}
 	}

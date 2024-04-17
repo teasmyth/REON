@@ -14,6 +14,8 @@ public:
 	static void ConnectNodes(const bool& Loading, const TSharedPtr<OctreeNode>& RootNode, const TSharedPtr<OctreeNode>& Node);
 	static bool OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData, const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode, TArray<FVector>& OutPathList);
 
+	static bool LazyOctreeAStar(const bool& RunThread, const bool& Debug, const TArray<FBox>& ActorBoxes, const float& MinSize, const float FloatAboveGroundPreference, const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode, TArray<FVector>& OutPathList);
+	
 	static TSharedPtr<OctreeNode> FindGraphNode(const FVector& Location, const TSharedPtr<OctreeNode>& RootNode);
 	static TSharedPtr<OctreeNode> FindAndLoadNode(FLargeMemoryReader& OctreeData, const FVector& Location, const TSharedPtr<OctreeNode>& RootNode);
 	static bool GetNeighbors(FLargeMemoryReader& OctreeData, const TSharedPtr<OctreeNode>& Node, const TSharedPtr<OctreeNode>& RootNode);

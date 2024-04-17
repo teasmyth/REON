@@ -54,13 +54,14 @@ public:
 
 	int64 Index = 0;
 
+	bool IsDivisible = true;
+
 	TArray<int64> ChildrenIndexes;
 	TArray<FVector> NeighborPositions;
-
 	bool Occupied = false;
 	bool Floatable = false; //Meaning that it is big enough that the agent will look like it is floating in it, compared to a smaller node.
 	
-	TArray<TWeakPtr<OctreeNode>> Neighbors;
+	TSet<TWeakPtr<OctreeNode>> Neighbors;
 	TArray<TSharedPtr<OctreeNode>> ChildrenOctreeNodes;
 	TSharedPtr<FPathfindingNode> PathfindingData = nullptr;
 	
@@ -70,13 +71,31 @@ public:
 	bool IsInsideNode(const FVector& Location) const;
 	static bool BoxOverlap(const UWorld* World, const FVector& Center, const float& Extent);
 	static bool DoNodesIntersect(const TSharedPtr<OctreeNode>& Node1, const TSharedPtr<OctreeNode>& Node2);
+	static bool DoesNodeIntersectWithBox(const TSharedPtr<OctreeNode>& Node, const FBox& Box);
 
 	static TArray<int64> GetFIndexData (FLargeMemoryReader& OctreeData, const int64& DataIndex);
-	//static TArray<FVector> GetNeighborPositions(FLargeMemoryReader& OctreeData, )
+	static TArray<FVector> GetNeighborPositions(FLargeMemoryReader& OctreeData,  const int64& DataIndex);
+
+	TSharedPtr<OctreeNode> LazyDivideAndFindNode(const TArray<FBox>& ActorBoxes, const float& MinSize, const float FloatAboveGroundPreference, const FVector& Location, const bool LookingForNeighbor);
+	TSharedPtr<OctreeNode> MakeChild(const int& ChildIndex, const float& FloatAboveGroundPreference) const;
+
+	//Returns true if the Current Node's neighbors list is empty, false if it is not.
+	static bool GetNeighbors(const TSharedPtr<OctreeNode>& RootNode, const TSharedPtr<OctreeNode>& CurrentNode, const TArray<FBox>& ActorBoxes, const float& MinSize, const float FloatAboveGroundPreference);
+	
 	
 	static TSharedPtr<OctreeNode> LoadSingleNode(FLargeMemoryReader& OctreeData, const int64 DataIndex);
 	static void SaveNode(FLargeMemoryWriter& Ar, FIndexData& IndexData, const TSharedPtr<OctreeNode>& Node, const bool& WithSeekValues);
 	static void LoadAllNodes(FLargeMemoryReader& OctreeData, TSharedPtr<OctreeNode>& Node);
+
+	TArray<FVector> CalculatePositions(const int Face, const float& MinNodeSize) const;
+	const FIntVector DIRECTIONS[6] = {
+		FIntVector(-1, 0, 0),  // Left face
+		FIntVector(1, 0, 0),   // Right face
+		FIntVector(0, -1, 0),  // Front face
+		FIntVector(0, 1, 0),   // Back face
+		FIntVector(0, 0, -1),  // Bottom face
+		FIntVector(0, 0, 1)    // Top face
+	};
 };
 
 
@@ -86,17 +105,17 @@ struct CHASING_5SD073_API FPathfindingNode
 	float G;
 	float H;
 	TWeakPtr<OctreeNode> CameFrom;
-	TArray<TWeakPtr<OctreeNode>> Neighbors;
+	//TSet<TWeakPtr<OctreeNode>> Neighbors;
 
-	FPathfindingNode();
+	//FPathfindingNode();
 
-	explicit FPathfindingNode(const TSharedPtr<OctreeNode>& OctreeNode)
+	FPathfindingNode()//const TSharedPtr<OctreeNode>& OctreeNode)
 	{
 		F = FLT_MAX;
 		G = FLT_MAX;
 		H = FLT_MAX;
 		CameFrom = nullptr;
-		Neighbors = OctreeNode->Neighbors;
+		//Neighbors = OctreeNode->Neighbors;
 	}
 };
 

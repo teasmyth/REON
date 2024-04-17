@@ -17,6 +17,11 @@ public:
 		Thread = FRunnableThread::Create(this, TEXT("PathfindingThread"));
 	}
 
+	FPathfindingWorker(const TWeakPtr<OctreeNode>& InOctreeNode, bool& InDebug, const TArray<FBox>& InActorBoxes, const float InMinSize, const float InFloatAboveGroundPreference) : OctreeRootNode(InOctreeNode), ActorBoxes(InActorBoxes), MinSize(InMinSize), FloatAboveGroundPreference(InFloatAboveGroundPreference), Debug(InDebug)
+	{
+		Thread = FRunnableThread::Create(this, TEXT("PathfindingThread"));
+	}
+
 	virtual ~FPathfindingWorker() override
 	{
 		bRunThread = false;
@@ -63,6 +68,11 @@ private:
 	TWeakPtr<OctreeNode> OctreeRootNode;
 	TQueue<TPair<FVector, FVector>> TaskQueue;
 	TArray<FVector> PathPoints;
+	
+	TArray<FBox> ActorBoxes;
+	float MinSize;
+	float FloatAboveGroundPreference;
+	
 	bool bRunThread = true;
 	//bool IsPathfindingInProgress = false;
 	bool PathFound = false;
