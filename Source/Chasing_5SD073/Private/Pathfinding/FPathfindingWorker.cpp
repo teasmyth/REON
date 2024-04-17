@@ -20,6 +20,9 @@ uint32 FPathfindingWorker::Run()
 			FinishedWork = true;
 		}
 	}
+	FinishedWork = true;
+	TaskQueue.Empty();
+	PathPoints.Empty();
 	return 0;
 }
 
@@ -27,7 +30,27 @@ void FPathfindingWorker::Stop()
 {
 	FRunnable::Stop();
 
+	TaskQueue.Empty();
+	PathPoints.Empty();
+	FinishedWork = true;
 	bRunThread = false;
+}
+
+void FPathfindingWorker::Start()
+{
+	TaskQueue.Empty();
+	PathPoints.Empty();
+	FinishedWork = false;
+	bRunThread = true;
+}
+
+void FPathfindingWorker::ForceStop()
+{
+	bRunThread = false;
+	TaskQueue.Empty();
+	PathPoints.Empty();
+	FinishedWork = true;
+	
 }
 
 void FPathfindingWorker::AddToQueue(const TPair<FVector, FVector>& Task, const bool MoveOnToNextTask)

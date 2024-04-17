@@ -437,11 +437,11 @@ void AOctree::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	SetupOctreesFuture.Wait();
 
 	// Clean up
-	if (PathfindingWorker != nullptr)
+	if (PathfindingWorker.IsValid())
 	{
 		PathfindingWorker->Stop();
 		PathfindingWorker->Exit();
-		delete PathfindingWorker;
+		PathfindingWorker.Reset();
 	}
 
 	DeleteOctreeNode(RootNodeSharedPtr);
@@ -786,7 +786,7 @@ void AOctree::SetUpOctreesAsync(const bool IsLoading)
 			BoxResults.Add(Overlap.GetActor()->GetComponentsBoundingBox());
 		}
 		
-		PathfindingWorker = new FPathfindingWorker(RootNodeSharedPtr, Debug, BoxResults, MinNodeSize, FloatAboveGroundPreference);
+		PathfindingWorker = MakeShareable(new FPathfindingWorker(RootNodeSharedPtr, Debug, BoxResults, MinNodeSize, FloatAboveGroundPreference));
 		return;
 	}
 	double StartTime = FPlatformTime::Seconds();

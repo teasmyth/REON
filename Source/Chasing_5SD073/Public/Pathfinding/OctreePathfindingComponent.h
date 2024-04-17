@@ -42,12 +42,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Pathfinding")
 	void GetAStarPathAsyncToTarget(const AActor* TargetActor, FVector& OutNextLocation);
 
+	UFUNCTION(BlueprintCallable, Category="Pathfinding")
+	void ForceStopPathfinding();
+
+	UFUNCTION(BlueprintCallable, Category="Pathfinding")
+	void RestartPathfinding();
 
 	UFUNCTION(BlueprintCallable, Category="Pathfinding")
 	void SetOctree(AOctree* NewOctree)
 	{
 		OctreeWeakPtr = NewOctree;
 		CollisionChannel = NewOctree->GetCollisionChannel();
+		PathfindingRunnable = NewOctree->GetPathfindingRunnable();
 	}
 
 private:
@@ -73,6 +79,7 @@ private:
 
 	
 	TWeakObjectPtr<AOctree> OctreeWeakPtr;
+	TWeakPtr<FPathfindingWorker> PathfindingRunnable;
 	ECollisionChannel CollisionChannel = ECollisionChannel::ECC_Visibility;
 	
 	bool IsPathfindingInProgress = false;

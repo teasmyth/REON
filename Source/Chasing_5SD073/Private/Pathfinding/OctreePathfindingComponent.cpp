@@ -33,7 +33,7 @@ void UOctreePathfindingComponent::BeginPlay()
 
 void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* TargetActor, const FVector& TargetLocation, FVector& OutNextDirection)
 {
-	if (!OctreeWeakPtr.IsValid() || !OctreeWeakPtr->IsOctreeSetup())
+	if (!OctreeWeakPtr.IsValid() || !OctreeWeakPtr->IsOctreeSetup() || !PathfindingRunnable.IsValid())
 	//Worker gets deleted after Setup is set to false, so no need to check for nullptr
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Octree is not set up. Cannot do pathfinding."));
@@ -42,7 +42,8 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 	}
 
 	const FVector Start = GetOwner()->GetActorLocation();
-	const float Distance = FVector::Dist(Start, TargetLocation);
+	const FVector End = TargetActor->GetActorLocation();
+	const float Distance = FVector::Dist(Start, End);
 	constexpr float MinDistanceForPathfinding = 20.0f; //Not meaningful enough to be a public variable, what do I do.
 
 	/*
@@ -78,7 +79,7 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 	}
 
 	//Checking if it's already working. If so, no need to add a new task to the queue.
-	if (OctreeWeakPtr->GetPathfindingRunnable()->IsItWorking())
+	if (PathfindingRunnable.Pin()->IsItWorking())
 	{
 		//Technically we are always using a direction that is calculated in previous frame.
 		OutNextDirection = (PreviousNextLocation - Start).GetSafeNormal();
@@ -88,9 +89,9 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 	//While I did my best to ensure the Octree and its nodes are thread safe, I cannot ensure it with GetWorld as it is handled by the engine.
 	//That is why I need to do the path smoothing in the main thread, as it relies on objects that are not thread safe.
 	//If we are here, then we are about to start a new  pathfinding thread. This means that we can smooth out the previous one.
-	if (OctreeWeakPtr->GetPathfindingRunnable()->GetFoundPath())
+	if (PathfindingRunnable.Pin()->GetFoundPath())
 	{
-		PreviousNextLocation = CalculateNextPathLocation(Start, TargetActor, OctreeWeakPtr->GetPathfindingRunnable()->GetOutQueue());
+		PreviousNextLocation = CalculateNextPathLocation(Start, TargetActor, PathfindingRunnable.Pin()->GetOutQueue());
 	}
 	else
 	{
@@ -107,7 +108,7 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 	*/
 
 	OutNextDirection = (PreviousNextLocation - Start).GetSafeNormal();
-	OctreeWeakPtr->GetPathfindingRunnable()->AddToQueue(TPair<FVector, FVector>(Start, TargetLocation), true);
+	PathfindingRunnable.Pin()->AddToQueue(TPair<FVector, FVector>(Start, End), true);
 }
 
 
@@ -135,6 +136,16 @@ bool UOctreePathfindingComponent::GetAStarPathToTarget(const AActor* TargetActor
 void UOctreePathfindingComponent::GetAStarPathAsyncToTarget(const AActor* TargetActor, FVector& OutNextLocation)
 {
 	GetAStarPathAsyncToLocation(TargetActor, TargetActor->GetActorLocation(), OutNextLocation);
+}
+
+void UOctreePathfindingComponent::ForceStopPathfinding()
+{
+	PathfindingRunnable.Pin()->ForceStop();
+}
+
+void UOctreePathfindingComponent::RestartPathfinding()
+{
+	PathfindingRunnable.Pin()->Start();
 }
 
 FVector UOctreePathfindingComponent::CalculateNextPathLocation(const FVector& Start, const AActor* TargetActor, const TArray<FVector>& Path) const

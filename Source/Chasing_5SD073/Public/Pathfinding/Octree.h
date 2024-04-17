@@ -19,7 +19,7 @@ public:
 	ECollisionChannel GetCollisionChannel() const { return CollisionChannel; }
 	bool IsOctreeSetup() const { return IsSetup; }
 
-	FPathfindingWorker* GetPathfindingRunnable() const { return PathfindingWorker; }
+	TWeakPtr<FPathfindingWorker> GetPathfindingRunnable() const { return PathfindingWorker; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -146,5 +146,5 @@ private:
 
 	FVector PreviousNextLocation = FVector::ZeroVector;
 	
-	FPathfindingWorker* PathfindingWorker;
+	TSharedPtr<FPathfindingWorker> PathfindingWorker;
 };

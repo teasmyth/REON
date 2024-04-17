@@ -51,10 +51,13 @@ public:
 
 	bool IsItWorking() const
 	{
-		return !FinishedWork;
+		return !FinishedWork && bRunThread;
 	}
 
 	virtual void Stop() override;
+
+	void Start();
+	void ForceStop();
 
 
 	/// @param Task of FVector, FVector where the first FVector is the start location and the second is the end location.
