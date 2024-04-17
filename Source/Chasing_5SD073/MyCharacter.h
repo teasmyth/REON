@@ -60,6 +60,9 @@ private:
 	UInputAction* MoveAction;
 
 	UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
+	UInputAction* PreciseMoveAction;
+
+	UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* AirDashAction;
 
 	UPROPERTY(EditAnywhere, Category= "Input")
@@ -90,6 +93,8 @@ protected:
 	void CameraJitter(float& WalkSpeed);
 	void TurnTimeBackAsync();
 	void NoMovementInput();
+	void PreciseMovement();
+	void DisablePreciseMovement();
 
 	//Jump event extension for blueprint.
 	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")
