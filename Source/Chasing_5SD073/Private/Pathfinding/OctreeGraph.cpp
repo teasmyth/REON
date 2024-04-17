@@ -32,7 +32,7 @@ bool OctreeGraph::OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData,
                               TArray<FVector>& OutPathList)
 {
 	const double StartTime = FPlatformTime::Seconds();
-	
+
 	const TSharedPtr<OctreeNode> Start = FindAndLoadNode(OctreeData, StartLocation, RootNode);
 	//check root node and make sure child parent relationship is correct.
 	const TSharedPtr<OctreeNode> End = FindAndLoadNode(OctreeData, EndLocation, RootNode);
@@ -43,7 +43,6 @@ bool OctreeGraph::OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData,
 		return false;
 	}
 
-	
 
 	Start->PathfindingData = MakeShareable(new FPathfindingNode());
 	End->PathfindingData = MakeShareable(new FPathfindingNode());
@@ -154,14 +153,20 @@ bool OctreeGraph::OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData,
 	return false;
 }
 
-bool OctreeGraph::LazyOctreeAStar(const bool& RunThread, const bool& Debug, const TArray<FBox>& ActorBoxes, const float& MinSize, const float FloatAboveGroundPreference,
+bool OctreeGraph::LazyOctreeAStar(const bool& RunThread, const bool& Debug, const TArray<FBox>& ActorBoxes, const float& MinSize,
+                                  const float FloatAboveGroundPreference,
                                   const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode,
                                   TArray<FVector>& OutPathList)
 {
 	const double StartTime = FPlatformTime::Seconds();
 
-	const TSharedPtr<OctreeNode> Start = RootNode->LazyDivideAndFindNode(ActorBoxes, MinSize, FloatAboveGroundPreference, StartLocation, false);
-	const TSharedPtr<OctreeNode> End = RootNode->LazyDivideAndFindNode(ActorBoxes, MinSize, FloatAboveGroundPreference, EndLocation, false);
+	bool ResetStartOccupied = false;
+	bool ResetEndOccupied = false;
+
+	const TSharedPtr<OctreeNode> Start = RootNode->LazyDivideAndFindNode(ActorBoxes, MinSize, FloatAboveGroundPreference, StartLocation, false,
+	                                                                     ResetStartOccupied);
+	const TSharedPtr<OctreeNode> End = RootNode->LazyDivideAndFindNode(ActorBoxes, MinSize, FloatAboveGroundPreference, EndLocation, false,
+	                                                                   ResetEndOccupied);
 
 
 	if (Start == nullptr || End == nullptr)
@@ -219,8 +224,8 @@ bool OctreeGraph::LazyOctreeAStar(const bool& RunThread, const bool& Debug, cons
 		OpenQueue.pop();
 		ClosedSet.Add(CurrentNode);
 
-		if(OctreeNode::GetNeighbors(RootNode, CurrentNode, ActorBoxes, MinSize, FloatAboveGroundPreference)) continue;
-		
+		if (OctreeNode::GetNeighbors(RootNode, CurrentNode, ActorBoxes, MinSize, FloatAboveGroundPreference)) continue;
+
 
 		for (const auto& NeighborWeakPtr : CurrentNode->Neighbors)
 		{

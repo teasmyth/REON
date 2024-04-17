@@ -76,7 +76,7 @@ public:
 	static TArray<int64> GetFIndexData (FLargeMemoryReader& OctreeData, const int64& DataIndex);
 	static TArray<FVector> GetNeighborPositions(FLargeMemoryReader& OctreeData,  const int64& DataIndex);
 
-	TSharedPtr<OctreeNode> LazyDivideAndFindNode(const TArray<FBox>& ActorBoxes, const float& MinSize, const float FloatAboveGroundPreference, const FVector& Location, const bool LookingForNeighbor);
+	TSharedPtr<OctreeNode> LazyDivideAndFindNode(const TArray<FBox>& ActorBoxes, const float& MinSize, const float FloatAboveGroundPreference, const FVector& Location, const bool LookingForNeighbor, bool& OutResetOccupied);
 	TSharedPtr<OctreeNode> MakeChild(const int& ChildIndex, const float& FloatAboveGroundPreference) const;
 
 	//Returns true if the Current Node's neighbors list is empty, false if it is not.
