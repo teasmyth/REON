@@ -90,9 +90,13 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &AMyCharacter::JumpAndDash);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 
-		//Move & Look
+		//Move
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &AMyCharacter::NoMovementInput);
+		EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::PreciseMovement);
+		EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Completed, this, &AMyCharacter::DisablePreciseMovement);
+
+		//Look
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
 
 		//Sliding
@@ -133,7 +137,7 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 {
 	AccelerationTimer += DeltaTime; //This resets every time movement state is changed
 
-	if (CurrentMovementState == ECharacterMovementState::Idle || CurrentMovementState == ECharacterMovementState::Walking)
+	if (CurrentMovementState == ECharacterMovementState::Walking)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum * WalkingAccelerationTime->GetFloatValue(AccelerationTimer);
 	}
@@ -182,6 +186,7 @@ void AMyCharacter::MovementStateCheck()
 			CurrentMovementState = ECharacterMovementState::Idle;
 			AccelerationTimer = 0;
 		}
+		/*
 		else if (CurrentMovementState != ECharacterMovementState::Walking && GetHorizontalVelocity() > 1.0f && GetHorizontalVelocity() <=
 			RunningStateSpeedMinimum)
 		{
@@ -189,6 +194,7 @@ void AMyCharacter::MovementStateCheck()
 			AccelerationTimer = 0;
 			EnteredWalkingEvent();
 		}
+		*/
 	}
 
 	if (CurrentMovementState != ECharacterMovementState::Running && GetHorizontalVelocity() > RunningStateSpeedMinimum)
@@ -266,6 +272,20 @@ void AMyCharacter::NoMovementInput()
 	}
 	
 	PreviousMovementVector = FVector2d::ZeroVector;
+}
+
+void AMyCharacter::PreciseMovement()
+{
+	CurrentMovementState = ECharacterMovementState::Walking;
+	AccelerationTimer = 0;
+	EnteredWalkingEvent();
+}
+
+void AMyCharacter::DisablePreciseMovement()
+{
+	CurrentMovementState = ECharacterMovementState::Running;
+	AccelerationTimer = 0;
+	EnteredRunningEvent();
 }
 
 
