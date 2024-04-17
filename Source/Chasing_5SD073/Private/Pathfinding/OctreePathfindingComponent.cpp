@@ -31,8 +31,20 @@ void UOctreePathfindingComponent::BeginPlay()
 	// ...
 }
 
+void UOctreePathfindingComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+	ForceStopPathfinding();
+}
+
 void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* TargetActor, const FVector& TargetLocation, FVector& OutNextDirection)
 {
+	if (StopPathfinding)
+	{
+		OutNextDirection = FVector::ZeroVector;
+		return;
+	}
+
 	if (!OctreeWeakPtr.IsValid() || !OctreeWeakPtr->IsOctreeSetup() || !PathfindingRunnable.IsValid())
 	//Worker gets deleted after Setup is set to false, so no need to check for nullptr
 	{
@@ -42,25 +54,8 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 	}
 
 	const FVector Start = GetOwner()->GetActorLocation();
-	const FVector End = TargetActor->GetActorLocation();
-	const float Distance = FVector::Dist(Start, End);
+	const float Distance = FVector::Dist(Start, TargetLocation);
 	constexpr float MinDistanceForPathfinding = 20.0f; //Not meaningful enough to be a public variable, what do I do.
-
-	/*
-	
-	FHitResult Hit;
-	FCollisionShape ColShape = FCollisionShape::MakeSphere(AgentMeshHalfSize * 1.1f);
-	FCollisionQueryParams TraceParams;
-	TraceParams.AddIgnoredActor(GetOwner());
-	TraceParams.AddIgnoredActor(TargetActor);
-
-
-	if (!GetWorld()->SweepSingleByChannel(Hit, Start, TargetLocation, FQuat::Identity, CollisionChannel, ColShape, TraceParams))
-	{
-		OutNextDirection = (TargetLocation - Start).GetSafeNormal();
-	}
-
-	*/
 
 	if (Distance <= MinDistanceForPathfinding)
 	{
@@ -81,7 +76,7 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 	//Checking if it's already working. If so, no need to add a new task to the queue.
 	if (PathfindingRunnable.Pin()->IsItWorking())
 	{
-		//Technically we are always using a direction that is calculated in previous frame.
+		//Technically, we are always using a direction that is calculated in previous frame.
 		OutNextDirection = (PreviousNextLocation - Start).GetSafeNormal();
 		return;
 	}
@@ -93,10 +88,7 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 	{
 		PreviousNextLocation = CalculateNextPathLocation(Start, TargetActor, PathfindingRunnable.Pin()->GetOutQueue());
 	}
-	else
-	{
-		//PreviousNextLocation = TargetLocation;
-	}
+
 	/*
 	else
 	{
@@ -108,7 +100,7 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 	*/
 
 	OutNextDirection = (PreviousNextLocation - Start).GetSafeNormal();
-	PathfindingRunnable.Pin()->AddToQueue(TPair<FVector, FVector>(Start, End), true);
+	PathfindingRunnable.Pin()->AddToQueue(TPair<FVector, FVector>(Start, TargetLocation), true);
 }
 
 
@@ -120,7 +112,7 @@ bool UOctreePathfindingComponent::GetAStarPathToLocation(const FVector& End, FVe
 
 	if (PathFound)
 	{
-		//PreviousNextLocation = CalculateNextPathLocation(Start,  Path);
+		//PreviousNextLocation = CalculateNextPathLocation(ContinueThread,  Path);
 	}
 
 	OutPath = (PreviousNextLocation - Start).GetSafeNormal();
@@ -140,12 +132,20 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToTarget(const AActor* Target
 
 void UOctreePathfindingComponent::ForceStopPathfinding()
 {
-	PathfindingRunnable.Pin()->ForceStop();
+	StopPathfinding = true;
+	if (PathfindingRunnable.IsValid())
+	{
+		PathfindingRunnable.Pin()->PauseThread();
+	}
 }
 
 void UOctreePathfindingComponent::RestartPathfinding()
 {
-	PathfindingRunnable.Pin()->Start();
+	if (PathfindingRunnable.IsValid())
+	{
+		PathfindingRunnable.Pin()->ContinueThread();
+	}
+	StopPathfinding = false;
 }
 
 FVector UOctreePathfindingComponent::CalculateNextPathLocation(const FVector& Start, const AActor* TargetActor, const TArray<FVector>& Path) const

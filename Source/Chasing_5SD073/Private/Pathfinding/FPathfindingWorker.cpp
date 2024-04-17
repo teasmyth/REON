@@ -8,48 +8,44 @@ uint32 FPathfindingWorker::Run()
 {
 	while (bRunThread)
 	{
+		if (ThreadIsPaused) continue;
+		
 		TPair<FVector, FVector> Task;
-		//I used to check validity of OctreeRootNode here, but it's not necessary since it's a weak pointer.
-		//Under normal circumstances, the OctreeRootNode should always be valid.
 		//Dequeue will return false if the queue is empty.
-		while (!FinishedWork && TaskQueue.Dequeue(Task))
+		while (IsWorking && TaskQueue.Dequeue(Task))
 		{
-			//PathFound = OctreeGraph::OctreeAStar(Debug, *OctreeData.Pin(), Task.Key, Task.Value, OctreeRootNode.Pin(), PathPoints);
-			PathFound = OctreeGraph::LazyOctreeAStar(bRunThread, Debug, ActorBoxes, MinSize, FloatAboveGroundPreference, Task.Key, Task.Value, OctreeRootNode.Pin(), PathPoints);
+			PathFound = OctreeGraph::LazyOctreeAStar(ThreadIsPaused, Debug, ActorBoxes, MinSize, FloatAboveGroundPreference, Task.Key, Task.Value, OctreeRootNode.Pin(), PathPoints);
 			FPlatformProcess::Sleep(0.01f); //I lost the source but read somewhere that a small sleep can help with the flip-flopping of threads.
-			FinishedWork = true;
+			IsWorking = false;
 		}
 	}
-	FinishedWork = true;
-	TaskQueue.Empty();
-	PathPoints.Empty();
 	return 0;
 }
 
 void FPathfindingWorker::Stop()
 {
 	FRunnable::Stop();
+	bRunThread = false;
 
 	TaskQueue.Empty();
 	PathPoints.Empty();
-	FinishedWork = true;
-	bRunThread = false;
+	IsWorking = false;
 }
 
-void FPathfindingWorker::Start()
+void FPathfindingWorker::ContinueThread()
 {
 	TaskQueue.Empty();
 	PathPoints.Empty();
-	FinishedWork = false;
-	bRunThread = true;
+	IsWorking = false;
+	ThreadIsPaused = false;
 }
 
-void FPathfindingWorker::ForceStop()
+void FPathfindingWorker::PauseThread()
 {
-	bRunThread = false;
+	ThreadIsPaused = true;
 	TaskQueue.Empty();
 	PathPoints.Empty();
-	FinishedWork = true;
+	IsWorking = false;
 	
 }
 
@@ -60,7 +56,7 @@ void FPathfindingWorker::AddToQueue(const TPair<FVector, FVector>& Task, const b
 	if (MoveOnToNextTask)
 	{
 		//IsPathfindingInProgress = false;
-		FinishedWork = false;
+		IsWorking = true;
 	}
 }
 

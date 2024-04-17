@@ -27,6 +27,8 @@ protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 public:
 	inline static FLargeMemoryReader* OctreeData = nullptr;
 	
@@ -82,7 +84,7 @@ private:
 	TWeakPtr<FPathfindingWorker> PathfindingRunnable;
 	ECollisionChannel CollisionChannel = ECollisionChannel::ECC_Visibility;
 	
-	bool IsPathfindingInProgress = false;
+	bool StopPathfinding = false;
 	float OriginalSpeed = 0;
 	float AgentMeshHalfSize = 0;
 	FVector PreviousNextLocation = FVector::ZeroVector;

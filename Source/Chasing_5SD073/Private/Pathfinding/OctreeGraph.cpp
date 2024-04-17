@@ -153,7 +153,7 @@ bool OctreeGraph::OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData,
 	return false;
 }
 
-bool OctreeGraph::LazyOctreeAStar(const bool& RunThread, const bool& Debug, const TArray<FBox>& ActorBoxes, const float& MinSize,
+bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug, const TArray<FBox>& ActorBoxes, const float& MinSize,
                                   const float FloatAboveGroundPreference,
                                   const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode,
                                   TArray<FVector>& OutPathList)
@@ -190,7 +190,7 @@ bool OctreeGraph::LazyOctreeAStar(const bool& RunThread, const bool& Debug, cons
 	OpenQueue.push(Start);
 	OpenSet.Add(Start);
 
-	while (!OpenQueue.empty() && RunThread)
+	while (!OpenQueue.empty() && !ThreadIsPaused)
 	{
 		TSharedPtr<OctreeNode> CurrentNode = OpenQueue.top();
 

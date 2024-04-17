@@ -93,7 +93,7 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		//Move
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &AMyCharacter::NoMovementInput);
-		EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::PreciseMovement);
+		EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Started, this, &AMyCharacter::PreciseMovement);
 		EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Completed, this, &AMyCharacter::DisablePreciseMovement);
 
 		//Look
@@ -121,9 +121,9 @@ void AMyCharacter::JumpAndDash()
 	StateMachine->OverrideJump(JumpVector);
 
 	if ((InternalCoyoteTimer <= CoyoteTime || (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
-			GetCurrentEnumState() == ECharacterState::WallClimbing)) &&	SetStateBool(ECharacterState::DefaultState))
+		GetCurrentEnumState() == ECharacterState::WallClimbing)) && SetStateBool(ECharacterState::DefaultState))
 	{
-		GetCharacterMovement()->AddImpulse(JumpVector, true);
+		if (!DisableCoyoteGravityAssist) GetCharacterMovement()->AddImpulse(JumpVector, true);
 		HandleJumpEvent();
 	}
 	else if (TouchedGroundOrWall && SetStateBool(ECharacterState::AirDashing))
@@ -139,7 +139,7 @@ void AMyCharacter::Acceleration(const float& DeltaTime)
 
 	if (CurrentMovementState == ECharacterMovementState::Walking)
 	{
-		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum * WalkingAccelerationTime->GetFloatValue(AccelerationTimer);
+		GetCharacterMovement()->MaxWalkSpeed = PreciseWalkingSpeed * WalkingAccelerationTime->GetFloatValue(AccelerationTimer);
 	}
 	else if (CurrentMovementState == ECharacterMovementState::Fell)
 	{
@@ -181,7 +181,8 @@ void AMyCharacter::MovementStateCheck()
 			GetCharacterMovement()->Velocity = FVector::ZeroVector;
 			PlayerFellEvent();
 		}
-		else if (CurrentMovementState != ECharacterMovementState::Idle && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing && GetHorizontalVelocity() <= 0.1f)
+		else if (CurrentMovementState != ECharacterMovementState::Idle && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing &&
+			GetHorizontalVelocity() <= 0.1f)
 		{
 			CurrentMovementState = ECharacterMovementState::Idle;
 			//AccelerationTimer = 0;
@@ -195,14 +196,14 @@ void AMyCharacter::MovementStateCheck()
 			EnteredWalkingEvent();
 		}
 		*/
+		else if (CurrentMovementState != ECharacterMovementState::Running && CurrentMovementState != ECharacterMovementState::Walking )
+		{
+			CurrentMovementState = ECharacterMovementState::Running;
+			AccelerationTimer = 0;
+			EnteredRunningEvent();
+		}
 	}
 
-	if (CurrentMovementState != ECharacterMovementState::Running && GetHorizontalVelocity() > RunningStateSpeedMinimum)
-	{
-		CurrentMovementState = ECharacterMovementState::Running;
-		AccelerationTimer = 0;
-		EnteredRunningEvent();
-	}
 
 	//Falling calculation has to happen after acceleration mode setting otherwise, it will never detect falling as Z height is set every frame.
 	if (Falling && DebugFall && GEngine && FallDistance >= FallZDistanceUnit)
@@ -241,7 +242,7 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 	{
 		//AccelerationTimer = 0;
 	}
-	
+
 	//Should this be below?
 	//PreviousMovementVector = MovementVector;
 
@@ -270,14 +271,13 @@ void AMyCharacter::NoMovementInput()
 	{
 		StateMachine->OverrideNoMovementInputEvent();
 	}
-	
+
 	PreviousMovementVector = FVector2d::ZeroVector;
 }
 
 void AMyCharacter::PreciseMovement()
 {
 	CurrentMovementState = ECharacterMovementState::Walking;
-	AccelerationTimer = 0;
 	EnteredWalkingEvent();
 }
 

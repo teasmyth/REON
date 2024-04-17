@@ -156,7 +156,10 @@ private: //For mechanics
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
 	UCurveFloat* WalkingAccelerationTime;
-
+	
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
+	float PreciseWalkingSpeed;
+	
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling")
 	UCurveFloat* PostFallAccelerationTime;
 
@@ -186,6 +189,9 @@ private: //For mechanics
 
 	UPROPERTY(EditAnywhere,  Category = "Movement Settings|Jump", meta = (ClampMin = 0, Tooltip = "Max time after a player can jump after platform"))
 	float CoyoteTime;
+
+	UPROPERTY(EditAnywhere,  Category = "Movement Settings|Jump")
+	bool DisableCoyoteGravityAssist = false;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Jump", meta = (ClampMin = 0))
 	float JumpStrength;

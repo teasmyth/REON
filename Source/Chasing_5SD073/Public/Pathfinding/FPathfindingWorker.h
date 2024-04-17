@@ -51,13 +51,13 @@ public:
 
 	bool IsItWorking() const
 	{
-		return !FinishedWork && bRunThread;
+		return IsWorking && bRunThread;
 	}
 
 	virtual void Stop() override;
 
-	void Start();
-	void ForceStop();
+	void ContinueThread();
+	void PauseThread();
 
 
 	/// @param Task of FVector, FVector where the first FVector is the start location and the second is the end location.
@@ -66,6 +66,7 @@ public:
 	TArray<FVector> GetOutQueue();
 
 private:
+	bool ThreadIsPaused = false;
 	TWeakPtr<FLargeMemoryReader> OctreeData;
 	FRunnableThread* Thread;
 	TWeakPtr<OctreeNode> OctreeRootNode;
@@ -79,6 +80,6 @@ private:
 	bool bRunThread = true;
 	//bool IsPathfindingInProgress = false;
 	bool PathFound = false;
-	bool FinishedWork = true;
+	bool IsWorking = false;
 	bool& Debug;
 };
