@@ -27,7 +27,7 @@ OctreeNode::~OctreeNode()
 }
 
 TSharedPtr<OctreeNode> OctreeNode::LazyDivideAndFindNode(const TArray<FBox>& ActorBoxes, const float& MinSize, const float FloatAboveGroundPreference,
-                                                         const FVector& Location, const bool LookingForNeighbor)
+                                                         const FVector& Location, const bool LookingForNeighbor, bool& OutResetOccupied)
 {
 	if (!IsInsideNode(Location))
 	{
@@ -265,12 +265,13 @@ bool OctreeNode::GetNeighbors(const TSharedPtr<OctreeNode>& RootNode, const TSha
 		return false;
 	}
 
+	bool ResetOccupied = false;
 
 	for (int i = 0; i < 6; i++)
 	{
 		for (const auto& Pos : PotentialNeighborPositions[i])
 		{
-			const TWeakPtr<OctreeNode> Node = RootNode->LazyDivideAndFindNode(ActorBoxes, MinSize, FloatAboveGroundPreference, Pos, true).ToWeakPtr();
+			const TWeakPtr<OctreeNode> Node = RootNode->LazyDivideAndFindNode(ActorBoxes, MinSize, FloatAboveGroundPreference, Pos, true, ResetOccupied).ToWeakPtr();
 			if (Node.IsValid() && !CurrentNode->Neighbors.Contains(Node))
 			{
 				CurrentNode->Neighbors.Add(Node);
