@@ -79,7 +79,7 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	void Acceleration(const float& DeltaTime);
+	void Acceleration();
 	void MovementStateCheck();
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);

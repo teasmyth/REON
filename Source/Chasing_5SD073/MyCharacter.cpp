@@ -63,8 +63,9 @@ void AMyCharacter::BeginPlay()
 void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
 	MovementStateCheck();
-	Acceleration(DeltaTime);
+	Acceleration();
 	if (GetCharacterMovement()->IsMovingOnGround())
 	{
 		TouchedGroundOrWall = true;
@@ -93,7 +94,7 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		//Move
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &AMyCharacter::NoMovementInput);
-		EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Started, this, &AMyCharacter::PreciseMovement);
+		EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::PreciseMovement);
 		EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Completed, this, &AMyCharacter::DisablePreciseMovement);
 
 		//Look
@@ -133,13 +134,11 @@ void AMyCharacter::JumpAndDash()
 }
 
 
-void AMyCharacter::Acceleration(const float& DeltaTime)
+void AMyCharacter::Acceleration()
 {
-	AccelerationTimer += DeltaTime; //This resets every time movement state is changed
-
 	if (CurrentMovementState == ECharacterMovementState::Walking)
 	{
-		GetCharacterMovement()->MaxWalkSpeed = PreciseWalkingSpeed * WalkingAccelerationTime->GetFloatValue(AccelerationTimer);
+		GetCharacterMovement()->MaxWalkSpeed = PreciseWalkingSpeed;
 	}
 	else if (CurrentMovementState == ECharacterMovementState::Fell)
 	{
@@ -164,44 +163,36 @@ void AMyCharacter::MovementStateCheck()
 {
 	//TODO if a player doesnt move for a while, should it still stay in FELL or override it to walking? is that even possible? 
 
-	if (CurrentMovementState != ECharacterMovementState::Fell)
+	if (CurrentMovementState != ECharacterMovementState::Fell && Falling && GetCharacterMovement()->IsMovingOnGround() && FallDistance > 0)
 	{
-		if (Falling && GetCharacterMovement()->IsMovingOnGround() && FallDistance > 0)
+		if (DebugFall && GEngine)
 		{
-			if (DebugFall && GEngine)
-			{
-				const FString Text = FString::Printf(TEXT("Fall distance: %f. This is %f units."), FallDistance, FallDistance / FallZDistanceUnit);
-				GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Red, Text);
-			}
-			const float PotentialPenalty = FallDistance / FallZDistanceUnit * PenaltyMultiplierPerFallUnit;
-			CalculatedPostFallMultiplier = PotentialPenalty >= MaxPenaltyMultiplier ? MaxPenaltyMultiplier : PotentialPenalty;
-			AccelerationTimer = 0;
-			CurrentMovementState = ECharacterMovementState::Fell;
-			Falling = false;
-			GetCharacterMovement()->Velocity = FVector::ZeroVector;
-			PlayerFellEvent();
+			const FString Text = FString::Printf(TEXT("Fall distance: %f. This is %f units."), FallDistance, FallDistance / FallZDistanceUnit);
+			GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Red, Text);
 		}
-		else if (CurrentMovementState != ECharacterMovementState::Idle && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing &&
-			GetHorizontalVelocity() <= 0.1f)
-		{
-			CurrentMovementState = ECharacterMovementState::Idle;
-			//AccelerationTimer = 0;
-		}
-		/*
-		else if (CurrentMovementState != ECharacterMovementState::Walking && GetHorizontalVelocity() > 1.0f && GetHorizontalVelocity() <=
-			RunningStateSpeedMinimum)
-		{
-			CurrentMovementState = ECharacterMovementState::Walking;
-			AccelerationTimer = 0;
-			EnteredWalkingEvent();
-		}
-		*/
-		else if (CurrentMovementState != ECharacterMovementState::Running && CurrentMovementState != ECharacterMovementState::Walking )
-		{
-			CurrentMovementState = ECharacterMovementState::Running;
-			AccelerationTimer = 0;
-			EnteredRunningEvent();
-		}
+		const float PotentialPenalty = FallDistance / FallZDistanceUnit * PenaltyMultiplierPerFallUnit;
+		CalculatedPostFallMultiplier = PotentialPenalty >= MaxPenaltyMultiplier ? MaxPenaltyMultiplier : PotentialPenalty;
+		AccelerationTimer = 0;
+		CurrentMovementState = ECharacterMovementState::Fell;
+		Falling = false;
+		GetCharacterMovement()->Velocity = FVector::ZeroVector;
+		PlayerFellEvent();
+	}
+
+
+	if (CurrentMovementState != ECharacterMovementState::Fell && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing &&
+		GetHorizontalVelocity() <= 1)
+	{
+		CurrentMovementState = ECharacterMovementState::Idle;
+	}
+
+
+	if (CurrentMovementState == ECharacterMovementState::Idle || (CurrentMovementState == ECharacterMovementState::Fell && GetHorizontalVelocity() >=
+		RunningStateSpeedMinimum))
+	{
+		CurrentMovementState = ECharacterMovementState::Running;
+		AccelerationTimer = 0;
+		EnteredRunningEvent();
 	}
 
 
@@ -236,6 +227,7 @@ void AMyCharacter::MovementStateCheck()
 
 void AMyCharacter::Move(const FInputActionValue& Value)
 {
+	AccelerationTimer += GetWorld()->GetDeltaSeconds();
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
 	if (MovementVector != PreviousMovementVector)
@@ -273,19 +265,25 @@ void AMyCharacter::NoMovementInput()
 	}
 
 	PreviousMovementVector = FVector2d::ZeroVector;
+	AccelerationTimer = 0;
 }
 
 void AMyCharacter::PreciseMovement()
 {
-	CurrentMovementState = ECharacterMovementState::Walking;
-	EnteredWalkingEvent();
+	if (GetMovementComponent()->IsMovingOnGround() && GetHorizontalVelocity() >= PreciseWalkingSpeed)
+	{
+		CurrentMovementState = ECharacterMovementState::Walking;
+		EnteredWalkingEvent();
+	}
 }
 
 void AMyCharacter::DisablePreciseMovement()
 {
-	CurrentMovementState = ECharacterMovementState::Running;
-	AccelerationTimer = 0;
-	EnteredRunningEvent();
+	if (GetMovementComponent()->IsMovingOnGround() && CurrentMovementState == ECharacterMovementState::Walking)
+	{
+		CurrentMovementState = ECharacterMovementState::Idle;
+		//AccelerationTimer = 0;
+	}
 }
 
 
@@ -401,7 +399,7 @@ void AMyCharacter::CameraJitter(float& WalkSpeed)
 		if (AbsDifference > JitterSlowMinAngle)
 		{
 			WalkSpeed *= (1 - RoundedDifference * Step * JitterSlowPercentageStrength / 100);
-			CurrentMovementState = ECharacterMovementState::Walking;
+			//CurrentMovementState = ECharacterMovementState::Walking;
 		}
 	}
 	PreviousFrameYaw = GetActorRotation().Yaw;
