@@ -190,9 +190,6 @@ private: //For mechanics
 	UPROPERTY(EditAnywhere,  Category = "Movement Settings|Jump", meta = (ClampMin = 0, Tooltip = "Max time after a player can jump after platform"))
 	float CoyoteTime;
 
-	UPROPERTY(EditAnywhere,  Category = "Movement Settings|Jump")
-	bool DisableCoyoteGravityAssist = false;
-
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Jump", meta = (ClampMin = 0))
 	float JumpStrength;
 
@@ -237,6 +234,7 @@ private:
 	bool TouchedGroundOrWall;
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	bool Falling = false;
+	bool Jumped = false;
 
 	float InternalCoyoteTimer = 0;
 	FVector2d PreviousMovementVector;

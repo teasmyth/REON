@@ -69,12 +69,12 @@ void AMyCharacter::Tick(float DeltaTime)
 	if (GetCharacterMovement()->IsMovingOnGround())
 	{
 		TouchedGroundOrWall = true;
+		Jumped = false;
 		InternalCoyoteTimer = 0;
 	}
-	else if (InternalCoyoteTimer <= CoyoteTime)
+	else if (InternalCoyoteTimer <= CoyoteTime && !Jumped)// && GetCharacterMovement()->Velocity.Z < -1)
 	{
 		InternalCoyoteTimer += DeltaTime;
-		GetCharacterMovement()->AddForce(FVector(0, 0, GetCharacterMovement()->Mass * 980));
 	}
 
 	if (StateMachine != nullptr) StateMachine->UpdateStateMachine();
@@ -121,15 +121,22 @@ void AMyCharacter::JumpAndDash()
 	FVector JumpVector = GetActorUpVector() * JumpStrength;
 	StateMachine->OverrideJump(JumpVector);
 
-	if ((InternalCoyoteTimer <= CoyoteTime || (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
+	if ((InternalCoyoteTimer <= CoyoteTime && !Jumped|| (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
 		GetCurrentEnumState() == ECharacterState::WallClimbing)) && SetStateBool(ECharacterState::DefaultState))
 	{
-		if (!DisableCoyoteGravityAssist) GetCharacterMovement()->AddImpulse(JumpVector, true);
+		if (InternalCoyoteTimer > 0)
+		{
+			GetCharacterMovement()->Velocity.Z = 0;
+			GetCharacterMovement()->UpdateComponentVelocity();
+		}
+		GetCharacterMovement()->AddImpulse(JumpVector, true);
+		Jumped = true;
 		HandleJumpEvent();
 	}
 	else if (TouchedGroundOrWall && SetStateBool(ECharacterState::AirDashing))
 	{
 		TouchedGroundOrWall = false;
+		Jumped = true;
 	}
 }
 
