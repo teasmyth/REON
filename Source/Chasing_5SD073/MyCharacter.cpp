@@ -72,7 +72,7 @@ void AMyCharacter::Tick(float DeltaTime)
 		Jumped = false;
 		InternalCoyoteTimer = 0;
 	}
-	else if (InternalCoyoteTimer <= CoyoteTime && !Jumped)// && GetCharacterMovement()->Velocity.Z < -1)
+	else if (InternalCoyoteTimer <= CoyoteTime && !Jumped) // && GetCharacterMovement()->Velocity.Z < -1)
 	{
 		InternalCoyoteTimer += DeltaTime;
 	}
@@ -121,10 +121,11 @@ void AMyCharacter::JumpAndDash()
 	FVector JumpVector = GetActorUpVector() * JumpStrength;
 	StateMachine->OverrideJump(JumpVector);
 
-	if ((InternalCoyoteTimer <= CoyoteTime && !Jumped|| (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
+	if ((InternalCoyoteTimer <= CoyoteTime && !Jumped || (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
 		GetCurrentEnumState() == ECharacterState::WallClimbing)) && SetStateBool(ECharacterState::DefaultState))
 	{
-		if (InternalCoyoteTimer > 0)
+		if (InternalCoyoteTimer > 0 && (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
+			GetCurrentEnumState() == ECharacterState::WallClimbing))
 		{
 			GetCharacterMovement()->Velocity.Z = 0;
 			GetCharacterMovement()->UpdateComponentVelocity();
