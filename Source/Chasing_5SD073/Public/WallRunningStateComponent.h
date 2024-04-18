@@ -37,6 +37,7 @@ public:
 	virtual void OverrideDebug() override;
 	virtual void OverrideDetectState(UCharacterStateMachine& SM) override;
 	virtual void OverrideJump(UCharacterStateMachine& SM, FVector& JumpVector) override;
+	virtual void OverrideNoMovementInputEvent(UCharacterStateMachine& SM) override;
 
 
 	UFUNCTION(BlueprintPure)

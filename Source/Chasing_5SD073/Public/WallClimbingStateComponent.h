@@ -39,6 +39,9 @@ private:
 	void DetectWallClimb();
 	bool CheckLedge() const;
 	bool CheckLeg() const;
+
+	UPROPERTY(EditAnywhere, Category= "Settings")
+	UCurveFloat* WallClimbIntensityCurve;
 	
 	UPROPERTY(EditAnywhere, Category= "Settings",
 		meta = (Tooltip = "This stops Wall Climb sensors from being an insta trigger, preventing accidentals."))
@@ -77,4 +80,5 @@ private:
 	const FHitResult EmptyResult;
 	float InternalTimer = 0;
 	float TriggerTimer = 0;
+	bool DisableInput = false; //for coyote time.
 };

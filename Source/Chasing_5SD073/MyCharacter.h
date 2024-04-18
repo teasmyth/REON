@@ -149,6 +149,7 @@ public:
 
 	FORCEINLINE UCharacterStateMachine* GetCharacterStateMachine() const { return StateMachine; }
 	FORCEINLINE USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
+	FORCEINLINE float GetCoyoteTime() const { return CoyoteTime; }
 
 private: //For mechanics
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings", DisplayName= "Current Movement State")

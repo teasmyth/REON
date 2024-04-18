@@ -43,7 +43,7 @@ void UWallClimbingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
 	Super::OnEnterState(SM);
 	PlayerCharacter->bUseControllerRotationYaw = false;
-	InternalTimer = 0;
+	InternalTimer = 0.001f;
 	PlayerMovement->Velocity = FVector(0, 0, PlayerMovement->Velocity.Z / 4.0f);
 	PlayerMovement->UpdateComponentVelocity();
 	PlayerCharacter->SetActorRotation((-HitResult.Normal).Rotation());
@@ -53,10 +53,16 @@ void UWallClimbingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
 	Super::OnUpdateState(SM);
 
-	PlayerMovement->AddForce(FVector(0, 0, PlayerMovement->Mass * 980));
+	const FVector CounterGravityForce = FVector(0, 0, PlayerMovement->Mass * 980);
+	PlayerMovement->AddForce(CounterGravityForce);
 	InternalTimer += GetWorld()->GetDeltaSeconds();
 
-	if (InternalTimer >= MaxWallClimbDuration || CheckLedge() && CheckLeg())
+	if (InternalTimer >= MaxWallClimbDuration)
+	{
+		DisableInput = true;
+	}
+	
+	if (InternalTimer >= MaxWallClimbDuration + PlayerCharacter->GetCoyoteTime() || CheckLedge() && CheckLeg())
 	{
 		SM.ManualExitState();
 	}
@@ -67,19 +73,27 @@ void UWallClimbingStateComponent::OnExitState(UCharacterStateMachine& SM)
 	Super::OnExitState(SM);
 	PlayerCharacter->bUseControllerRotationYaw = true;
 	PrevResult = HitResult;
+	InternalTimer = 0.001f;
+	DisableInput = false;
 }
 
 void UWallClimbingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
 {
 	Super::OverrideMovementInput(SM, NewMovementVector);
 
+	if (DisableInput)
+	{
+		NewMovementVector = FVector2d::ZeroVector;
+		return;
+	}
+
 	if (NewMovementVector.Y < 0.01f)
 	{
 		SM.ManualExitState();
 	}
-
+	const float GravityMultiplier = WallClimbIntensityCurve->GetFloatValue(InternalTimer / MaxWallClimbDuration);
 	const float CurrentSpeed = WallClimbSpeed * GetWorld()->GetDeltaSeconds();
-	const float VerticalMovement = CurrentSpeed * (InternalTimer / MaxWallClimbDuration);
+	const float VerticalMovement = (CurrentSpeed  - CurrentSpeed * GravityMultiplier) * (InternalTimer / MaxWallClimbDuration);
 	PlayerCharacter->SetActorLocation(PlayerCharacter->GetActorLocation() + FVector(0.0f, 0.0f, VerticalMovement), true);
 	NewMovementVector = FVector2d::ZeroVector;
 }

@@ -225,3 +225,9 @@ void UWallRunningStateComponent::OverrideJump(UCharacterStateMachine& SM, FVecto
 		JumpVector = (NewJumpVector * TapJumpForceSideModifier + PlayerCharacter->GetActorUpVector() * TapJumpForceUpModifier) * JumpVector.Size();
 	}
 }
+
+void UWallRunningStateComponent::OverrideNoMovementInputEvent(UCharacterStateMachine& SM)
+{
+	Super::OverrideNoMovementInputEvent(SM);
+	SM.ManualExitState();
+}
