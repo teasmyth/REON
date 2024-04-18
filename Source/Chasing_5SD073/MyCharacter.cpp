@@ -130,6 +130,7 @@ void AMyCharacter::JumpAndDash()
 			GetCharacterMovement()->Velocity.Z = 0;
 			GetCharacterMovement()->UpdateComponentVelocity();
 		}
+		//JumpVector *= GetHorizontalVelocity() > MaxRunningSpeed ? 1.75f : 1; hehe
 		GetCharacterMovement()->AddImpulse(JumpVector, true);
 		Jumped = true;
 		HandleJumpEvent();
