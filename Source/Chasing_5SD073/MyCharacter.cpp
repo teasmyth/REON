@@ -124,7 +124,7 @@ void AMyCharacter::JumpAndDash()
 	if ((InternalCoyoteTimer <= CoyoteTime && !Jumped || (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
 		GetCurrentEnumState() == ECharacterState::WallClimbing)) && SetStateBool(ECharacterState::DefaultState))
 	{
-		if (InternalCoyoteTimer > 0 && (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
+		if (InternalCoyoteTimer > 0.01f && (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
 			GetCurrentEnumState() == ECharacterState::WallClimbing))
 		{
 			GetCharacterMovement()->Velocity.Z = 0;
