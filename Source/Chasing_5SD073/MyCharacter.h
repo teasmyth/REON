@@ -59,8 +59,8 @@ private:
 	UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* MoveAction;
 
-	UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
-	UInputAction* PreciseMoveAction;
+	//UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
+	//UInputAction* PreciseMoveAction;
 
 	UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* AirDashAction;
@@ -93,8 +93,8 @@ protected:
 	void CameraJitter(float& WalkSpeed);
 	void TurnTimeBackAsync();
 	void NoMovementInput();
-	void PreciseMovement();
-	void DisablePreciseMovement();
+	//void PreciseMovement();
+	//void DisablePreciseMovement();
 
 	//Jump event extension for blueprint.
 	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")
@@ -146,6 +146,7 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	FORCEINLINE float GetMaxRunningSpeed() const { return MaxRunningSpeed; }
+	FORCEINLINE float GetMinRunningSpeed() const { return RunningStateSpeedMinimum; }
 
 	FORCEINLINE UCharacterStateMachine* GetCharacterStateMachine() const { return StateMachine; }
 	FORCEINLINE USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
@@ -155,11 +156,11 @@ private: //For mechanics
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings", DisplayName= "Current Movement State")
 	ECharacterMovementState CurrentMovementState = ECharacterMovementState::Idle;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
-	UCurveFloat* WalkingAccelerationTime;
+	//UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
+	//UCurveFloat* WalkingAccelerationTime;
 	
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
-	float PreciseWalkingSpeed;
+	//UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
+	//float PreciseWalkingSpeed;
 	
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling")
 	UCurveFloat* PostFallAccelerationTime;

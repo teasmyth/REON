@@ -34,7 +34,7 @@ void UWallRunningStateComponent::TickComponent(float DeltaTime, ELevelTick TickT
 bool UWallRunningStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
 	if (!LineTraceSingle(GetOwner()->GetActorLocation(), GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * MinimumDistanceFromGround)
-		&& PrevResult.GetActor() != HitResult.GetActor())
+		&& PrevResult.GetActor() != HitResult.GetActor() && PlayerCharacter->GetCharacterMovementInput().X != 0)
 	{
 		return true;
 	}

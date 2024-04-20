@@ -91,6 +91,9 @@ void UWallClimbingStateComponent::OverrideMovementInput(UCharacterStateMachine& 
 	{
 		SM.ManualExitState();
 	}
+	
+	PlayerMovement->Velocity = FVector::ZeroVector;
+	PlayerMovement->UpdateComponentVelocity();
 	const float GravityMultiplier = WallClimbIntensityCurve->GetFloatValue(InternalTimer / MaxWallClimbDuration);
 	const float CurrentSpeed = WallClimbSpeed * GetWorld()->GetDeltaSeconds();
 	const float VerticalMovement = (CurrentSpeed  - CurrentSpeed * GravityMultiplier) * (InternalTimer / MaxWallClimbDuration);

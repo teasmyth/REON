@@ -55,6 +55,9 @@ private:
 	void StopTimer(FTimerHandle& Timer) const;
 
 private:
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "This number gets added to the velocity of the player at the moment and launches it forward", ClampMin = 0))
+	float SlideInitialBoost = 0;
+	
 	UPROPERTY(EditAnywhere, Category= "Settings",
 		meta = (Tooltip = "This does not represent the max time of the slide. The numbers represent the max speed of the player."))
 	UCurveFloat* SlideSpeedCurve;

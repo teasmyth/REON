@@ -94,8 +94,8 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		//Move
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &AMyCharacter::NoMovementInput);
-		EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::PreciseMovement);
-		EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Completed, this, &AMyCharacter::DisablePreciseMovement);
+		//EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::PreciseMovement);
+		//EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Completed, this, &AMyCharacter::DisablePreciseMovement);
 
 		//Look
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
@@ -105,8 +105,8 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Completed, this, &AMyCharacter::ResetSlide);
 
 		//Looking Back
-		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Triggered, this, &AMyCharacter::LookBack);
-		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Completed, this, &AMyCharacter::LookFront);
+		//EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Triggered, this, &AMyCharacter::LookBack);
+		//EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Completed, this, &AMyCharacter::LookFront);
 	}
 }
 
@@ -145,11 +145,13 @@ void AMyCharacter::JumpAndDash()
 
 void AMyCharacter::Acceleration()
 {
+	/*
 	if (CurrentMovementState == ECharacterMovementState::Walking)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = PreciseWalkingSpeed;
 	}
-	else if (CurrentMovementState == ECharacterMovementState::Fell)
+	*/
+	/*else*/ if (CurrentMovementState == ECharacterMovementState::Fell)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum * PostFallAccelerationTime->GetFloatValue(
 			AccelerationTimer * (1 - CalculatedPostFallMultiplier));
@@ -277,6 +279,7 @@ void AMyCharacter::NoMovementInput()
 	AccelerationTimer = 0;
 }
 
+/*
 void AMyCharacter::PreciseMovement()
 {
 	if (GetMovementComponent()->IsMovingOnGround() && GetHorizontalVelocity() >= PreciseWalkingSpeed)
@@ -294,6 +297,7 @@ void AMyCharacter::DisablePreciseMovement()
 		//AccelerationTimer = 0;
 	}
 }
+*/
 
 
 void AMyCharacter::Look(const FInputActionValue& Value)
