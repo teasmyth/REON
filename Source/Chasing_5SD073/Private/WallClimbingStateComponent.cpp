@@ -11,28 +11,14 @@ UWallClimbingStateComponent::UWallClimbingStateComponent()
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = false;
+	CanExitState = true;
 
 	// ...
-}
-
-
-// Called when the game starts
-void UWallClimbingStateComponent::BeginPlay()
-{
-	Super::BeginPlay();
-	// ...
-}
-
-
-// Called every frame
-void UWallClimbingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 }
 
 bool UWallClimbingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	if (PrevResult.GetActor() != HitResult.GetActor() && PlayerCharacter->GetCharacterMovementInput().Y > 0.01f)
+	if (PlayerCharacter->GetLastInteractedWall() != HitResult.GetActor() && PlayerCharacter->GetCharacterMovementInput().Y > 0.01f)
 	{
 		return true;
 	}
@@ -42,7 +28,9 @@ bool UWallClimbingStateComponent::OnSetStateConditionCheck(UCharacterStateMachin
 void UWallClimbingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
 	Super::OnEnterState(SM);
+	CanExitState = true;
 	PlayerCharacter->bUseControllerRotationYaw = false;
+	PlayerCharacter->SetLastInteractedWall(HitResult.GetActor());
 	InternalTimer = 0.001f;
 	PlayerMovement->Velocity = FVector(0, 0, PlayerMovement->Velocity.Z / 4.0f);
 	PlayerMovement->UpdateComponentVelocity();
@@ -72,8 +60,8 @@ void UWallClimbingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
 	Super::OnExitState(SM);
 	PlayerCharacter->bUseControllerRotationYaw = true;
-	PrevResult = HitResult;
-	InternalTimer = 0.001f;
+	//PrevResult = HitResult;
+	InternalTimer = 0;
 	DisableInput = false;
 }
 
@@ -191,7 +179,7 @@ void UWallClimbingStateComponent::OverrideDetectState(UCharacterStateMachine& SM
 {
 	Super::OverrideDetectState(SM);
 
-	if (PlayerMovement->IsMovingOnGround()) PrevResult = EmptyResult;
+	//if (PlayerMovement->IsMovingOnGround()) PrevResult = EmptyResult;
 
 	const FVector Start = GetOwner()->GetActorLocation();
 	const FVector End = Start + GetOwner()->GetActorRotation().Vector() * WallCheckDistance;
@@ -210,7 +198,7 @@ void UWallClimbingStateComponent::OverrideDetectState(UCharacterStateMachine& SM
 
 			if (TriggerTimer >= WallClimbTriggerDelay)
 			{
-				PlayerCharacter->GetCharacterStateMachine()->SetState(ECharacterState::WallClimbing);
+				SM.SetState(ECharacterState::WallClimbing);
 			}
 		}
 		else

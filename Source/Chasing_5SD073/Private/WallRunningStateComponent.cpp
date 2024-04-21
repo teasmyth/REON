@@ -34,7 +34,7 @@ void UWallRunningStateComponent::TickComponent(float DeltaTime, ELevelTick TickT
 bool UWallRunningStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
 	if (!LineTraceSingle(GetOwner()->GetActorLocation(), GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * MinimumDistanceFromGround)
-		&& PrevResult.GetActor() != HitResult.GetActor() && PlayerCharacter->GetCharacterMovementInput().X != 0)
+		&& PlayerCharacter->GetLastInteractedWall() != HitResult.GetActor() && PlayerCharacter->GetCharacterMovementInput().X != 0)
 	{
 		return true;
 	}
@@ -45,10 +45,10 @@ bool UWallRunningStateComponent::OnSetStateConditionCheck(UCharacterStateMachine
 void UWallRunningStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
 	Super::OnEnterState(SM);
+	NoLongerWallRunning = false;
 	PlayerCharacter->bUseControllerRotationYaw = false;
-	GravityTimer = 0;
+	PlayerCharacter->SetLastInteractedWall(HitResult.GetActor());
 	WallRunTimer = 0.0f;
-	InternalGravityScale = 0;
 	PlayerMovement->Velocity.Z = 0;
 	RotatePlayerAlongsideWall(HitResult);
 }
@@ -58,10 +58,14 @@ void UWallRunningStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 	Super::OnUpdateState(SM);
 
 	const FVector CounterGravityForce = FVector(0, 0, PlayerMovement->Mass * 980);
-	const FVector GravityForce = FVector(0, 0, -PlayerMovement->Mass * 980) * WallRunGravityCurve->GetFloatValue(GravityTimer);
+	const FVector GravityForce = FVector(0, 0, -PlayerMovement->Mass * 980) * WallRunGravityCurve->GetFloatValue(WallRunTimer);
 
 	PlayerMovement->AddForce(CounterGravityForce + GravityForce);
-	WallRunTimer += GetWorld()->GetDeltaSeconds();
+
+	if (!NoLongerWallRunning)
+	{
+		WallRunTimer += GetWorld()->GetDeltaSeconds();
+	}
 
 	if (WallRunTimer >= MaxWallRunDuration)
 	{
@@ -73,15 +77,34 @@ void UWallRunningStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
 	Super::OnExitState(SM);
 	PlayerCharacter->bUseControllerRotationYaw = true;
-	PrevResult = HitResult;
-	HitResult = EmptyResult;
 }
 
 void UWallRunningStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)
 {
 	Super::OverrideMovementInput(SM, NewMovementVector);
-	RotatePlayerAlongsideWall(HitResult);
-	if (!CheckWhetherStillWallRunning()) SM.ManualExitState();
+	
+	if (!CheckWhetherStillWallRunning())
+	{
+		if (!NoLongerWallRunning)
+		{
+			NoLongerWallRunning = true;
+			WallRunTimer = 0;
+		}
+
+		if (NoLongerWallRunning)
+		{
+			if (WallRunTimer <= PlayerCharacter->GetCoyoteTime())
+			{
+				WallRunTimer += GetWorld()->GetDeltaSeconds();
+			}
+			else
+			{
+				SM.ManualExitState();
+			}
+		}
+	}
+	else RotatePlayerAlongsideWall(HitResult);
+	
 	NewMovementVector.X = 0;
 }
 
@@ -153,11 +176,6 @@ void UWallRunningStateComponent::OverrideDetectState(UCharacterStateMachine& SM)
 {
 	Super::OverrideDetectState(SM);
 
-	if (PlayerMovement->IsMovingOnGround())
-	{
-		PrevResult = EmptyResult;
-	}
-
 	const FVector Start = GetOwner()->GetActorLocation();
 
 	FHitResult RightSide;
@@ -212,7 +230,7 @@ void UWallRunningStateComponent::OverrideJump(UCharacterStateMachine& SM, FVecto
 	if (!DisableTapJump && FMath::Abs(PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeRotation().Yaw) < WallRunTapAngle)
 	{
 		FVector NewJumpVector;
-		
+
 		if (WallOrientation == Right)
 		{
 			NewJumpVector = -PlayerCharacter->GetActorRightVector();
@@ -221,7 +239,7 @@ void UWallRunningStateComponent::OverrideJump(UCharacterStateMachine& SM, FVecto
 		{
 			NewJumpVector = PlayerCharacter->GetActorRightVector();
 		}
-		
+
 		JumpVector = (NewJumpVector * TapJumpForceSideModifier + PlayerCharacter->GetActorUpVector() * TapJumpForceUpModifier) * JumpVector.Size();
 	}
 }

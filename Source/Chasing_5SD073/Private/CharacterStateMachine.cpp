@@ -53,19 +53,16 @@ bool UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 
 	if (CurrentState != nullptr)
 	{
-		one = TranslatedState->GetTransitionList()[CurrentEnumState];
-		two = CurrentState->GetCanExitState();
-		if (one && two)
+		//If the current state does not allow the change to the new state, return.
+		if (TranslatedState->GetTransitionList()[CurrentEnumState] && CurrentState->GetCanExitState())
 		{
-
-			//If the current state does not allow the change to the new state, return.
-
 			RunUpdate = false;
 			//Green light! Setting new state is go!
 			CurrentState->OnExitState(*this);
 		}
 		else return false;
 	}
+
 	if (DebugStateMachine && GEngine && NewStateEnum != ECharacterState::DefaultState)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Red, "New State is: " + EnumToString(NewStateEnum));
@@ -104,8 +101,8 @@ void UCharacterStateMachine::SetupStateMachine()
 void UCharacterStateMachine::OverrideDebug() const
 {
 	if (MechanicsList.IsEmpty()) return;
-	
-	for (const auto& Mechanic : MechanicsList )
+
+	for (const auto& Mechanic : MechanicsList)
 	{
 		if (Mechanic.Component->GetDebugMechanic()) Mechanic.Component->OverrideDebug();
 	}
@@ -161,7 +158,7 @@ void UCharacterStateMachine::DetectStates()
 		DebugText("No current mechanical state. Automatic detection is off");
 		return;
 	}
-	
+
 	for (const auto Mechanic : MechanicsList)
 	{
 		if (CurrentState == Mechanic.Component || !CurrentState->GetTransitionList()[CurrentEnumState])
@@ -262,7 +259,7 @@ void UCharacterStateMachine::DebugText(const FString& Text, const float Lifetime
 {
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1,Lifetime, FColor::Red, Text);
+		GEngine->AddOnScreenDebugMessage(-1, Lifetime, FColor::Red, Text);
 	}
 }
 #pragma endregion

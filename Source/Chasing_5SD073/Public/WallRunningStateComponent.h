@@ -82,11 +82,9 @@ private:
 
 	//Internal
 	EWallOrientation WallOrientation = None;
-	FHitResult PrevResult;
 	FHitResult HitResult;
-	FHitResult EmptyResult;
-	float GravityTimer;
+	//This booleans lets us utilise coyote time after we have stopped wall running, while keeping gravity and direction as if we were wall running.
+	bool NoLongerWallRunning = false;
 	float TriggerTimer;
 	float WallRunTimer;
-	float InternalGravityScale;
 };
