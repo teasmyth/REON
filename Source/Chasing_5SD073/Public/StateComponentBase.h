@@ -44,6 +44,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category= "Settings|General Settings")
 	bool ResetsDash = false;
 
+	UPROPERTY(EditAnywhere, Category= "Settings|General Settings")
+	bool ResetsJump = true;
+
 	UPROPERTY(EditAnywhere, Category = "Settings|General Settings")
 	bool DebugMechanic = false;
 

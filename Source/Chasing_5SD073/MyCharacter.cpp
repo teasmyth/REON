@@ -66,13 +66,16 @@ void AMyCharacter::Tick(float DeltaTime)
 
 	MovementStateCheck();
 	Acceleration();
+
 	if (GetCharacterMovement()->IsMovingOnGround())
 	{
-		TouchedGroundOrWall = true;
-		Jumped = false;
+		if (StateMachine->GetCurrentEnumState() == ECharacterState::DefaultState) LastInteractedWall = nullptr;
+		CanJump = true;
 		InternalCoyoteTimer = 0;
 	}
-	else if (InternalCoyoteTimer <= CoyoteTime && !Jumped) // && GetCharacterMovement()->Velocity.Z < -1)
+	//This for coyote for normal jump from the ground, as every other ability have their internal timer
+	//But if i were to quit them, their function would break, eg I need to be in wall run to do coyote for wall run.
+	else if (CanJump && StateMachine->GetCurrentEnumState() == ECharacterState::DefaultState && InternalCoyoteTimer <= CoyoteTime)
 	{
 		InternalCoyoteTimer += DeltaTime;
 	}
@@ -94,8 +97,8 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		//Move
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &AMyCharacter::NoMovementInput);
-		EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::PreciseMovement);
-		EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Completed, this, &AMyCharacter::DisablePreciseMovement);
+		//EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::PreciseMovement);
+		//EnhancedInputComponent->BindAction(PreciseMoveAction, ETriggerEvent::Completed, this, &AMyCharacter::DisablePreciseMovement);
 
 		//Look
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
@@ -105,8 +108,8 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Completed, this, &AMyCharacter::ResetSlide);
 
 		//Looking Back
-		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Triggered, this, &AMyCharacter::LookBack);
-		EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Completed, this, &AMyCharacter::LookFront);
+		//EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Triggered, this, &AMyCharacter::LookBack);
+		//EnhancedInputComponent->BindAction(LookBackAction, ETriggerEvent::Completed, this, &AMyCharacter::LookFront);
 	}
 }
 
@@ -121,34 +124,35 @@ void AMyCharacter::JumpAndDash()
 	FVector JumpVector = GetActorUpVector() * JumpStrength;
 	StateMachine->OverrideJump(JumpVector);
 
-	if ((InternalCoyoteTimer <= CoyoteTime && !Jumped || (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
-		GetCurrentEnumState() == ECharacterState::WallClimbing)) && SetStateBool(ECharacterState::DefaultState))
+	//Internal coyote timer will be 0 for every other ability, as they have their own internal timer. They reset jump manually.
+	//SetStateBool will check automatically if we can exit the current state.
+	if (InternalCoyoteTimer <= CoyoteTime && CanJump && SetStateBool(ECharacterState::DefaultState))
 	{
-		if (InternalCoyoteTimer > 0.01f && (StateMachine->GetCurrentEnumState() == ECharacterState::WallRunning || StateMachine->
-			GetCurrentEnumState() == ECharacterState::WallClimbing))
-		{
-			GetCharacterMovement()->Velocity.Z = 0;
-			GetCharacterMovement()->UpdateComponentVelocity();
-		}
+		GetCharacterMovement()->Velocity = GetCharacterMovement()->Velocity.GetSafeNormal() * MaxRunningSpeed;
+		GetCharacterMovement()->Velocity.Z = 0;
+		GetCharacterMovement()->UpdateComponentVelocity();
 		GetCharacterMovement()->AddImpulse(JumpVector, true);
-		Jumped = true;
+		CanJump = false;
+		CanDash = true;
 		HandleJumpEvent();
 	}
-	else if (TouchedGroundOrWall && SetStateBool(ECharacterState::AirDashing))
+	else if (CanDash && !CanJump && SetStateBool(ECharacterState::AirDashing))
 	{
-		TouchedGroundOrWall = false;
-		Jumped = true;
+		CanDash = false;
 	}
 }
 
 
 void AMyCharacter::Acceleration()
 {
+	/*
 	if (CurrentMovementState == ECharacterMovementState::Walking)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = PreciseWalkingSpeed;
 	}
-	else if (CurrentMovementState == ECharacterMovementState::Fell)
+	*/
+	/*else*/
+	if (CurrentMovementState == ECharacterMovementState::Fell)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum * PostFallAccelerationTime->GetFloatValue(
 			AccelerationTimer * (1 - CalculatedPostFallMultiplier));
@@ -276,6 +280,7 @@ void AMyCharacter::NoMovementInput()
 	AccelerationTimer = 0;
 }
 
+/*
 void AMyCharacter::PreciseMovement()
 {
 	if (GetMovementComponent()->IsMovingOnGround() && GetHorizontalVelocity() >= PreciseWalkingSpeed)
@@ -293,6 +298,7 @@ void AMyCharacter::DisablePreciseMovement()
 		//AccelerationTimer = 0;
 	}
 }
+*/
 
 
 void AMyCharacter::Look(const FInputActionValue& Value)

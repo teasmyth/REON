@@ -59,8 +59,8 @@ private:
 	UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* MoveAction;
 
-	UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
-	UInputAction* PreciseMoveAction;
+	//UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
+	//UInputAction* PreciseMoveAction;
 
 	UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* AirDashAction;
@@ -93,8 +93,8 @@ protected:
 	void CameraJitter(float& WalkSpeed);
 	void TurnTimeBackAsync();
 	void NoMovementInput();
-	void PreciseMovement();
-	void DisablePreciseMovement();
+	//void PreciseMovement();
+	//void DisablePreciseMovement();
 
 	//Jump event extension for blueprint.
 	UFUNCTION(BlueprintImplementableEvent, Category = "Character Custom Events")
@@ -115,7 +115,8 @@ protected:
 	void PlayerFellEvent();
 
 public:
-	void ResetDash() { TouchedGroundOrWall = true; }
+	void ResetDash() { CanDash = true; }
+	void ResetJump() { CanJump = true; }
 
 	void ResetFalling()
 	{
@@ -139,26 +140,31 @@ public:
 		return FVector2d(GetCharacterMovement()->Velocity.X, GetCharacterMovement()->Velocity.Y).Size();
 	}
 
-	FORCEINLINE void SetWhetherTouchedGroundOrWall(const bool b) { TouchedGroundOrWall = b; }
+	FORCEINLINE void SetWhetherTouchedGroundOrWall(const bool b) { CanDash = b; }
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE bool GetWhetherTouchedGroundOrWall() const { return TouchedGroundOrWall; }
+	FORCEINLINE bool GetWhetherTouchedGroundOrWall() const { return CanDash; }
 
 	UFUNCTION(BlueprintPure)
 	FORCEINLINE float GetMaxRunningSpeed() const { return MaxRunningSpeed; }
+	FORCEINLINE float GetMinRunningSpeed() const { return RunningStateSpeedMinimum; }
 
 	FORCEINLINE UCharacterStateMachine* GetCharacterStateMachine() const { return StateMachine; }
 	FORCEINLINE USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
+	FORCEINLINE float GetCoyoteTime() const { return CoyoteTime; }
+
+	AActor* GetLastInteractedWall() const { return LastInteractedWall; }
+	void SetLastInteractedWall(AActor* HitResult) { LastInteractedWall = HitResult; }
 
 private: //For mechanics
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings", DisplayName= "Current Movement State")
 	ECharacterMovementState CurrentMovementState = ECharacterMovementState::Idle;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
-	UCurveFloat* WalkingAccelerationTime;
+	//UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
+	//UCurveFloat* WalkingAccelerationTime;
 	
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
-	float PreciseWalkingSpeed;
+	//UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
+	//float PreciseWalkingSpeed;
 	
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling")
 	UCurveFloat* PostFallAccelerationTime;
@@ -231,11 +237,15 @@ private:
 	float PreviousFrameYaw = 0;
 
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
-	bool TouchedGroundOrWall;
+	bool CanDash;
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	bool Falling = false;
-	bool Jumped = false;
+	bool CanJump = true;
 
 	float InternalCoyoteTimer = 0;
 	FVector2d PreviousMovementVector;
+
+	UPROPERTY()
+	AActor* LastInteractedWall = nullptr;
+	
 };

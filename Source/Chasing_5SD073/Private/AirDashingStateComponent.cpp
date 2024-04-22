@@ -58,9 +58,10 @@ void UAirDashingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 	
 	//Instead of relying on physics, (cause it is janky) I am manually calculating where the player is supposed to be.
 	InternalTimer += GetWorld()->GetDeltaSeconds();
-	const float Speed = PlayerCharacter->GetHorizontalVelocity() < PlayerCharacter->GetMaxRunningSpeed() ?  PlayerCharacter->GetMaxRunningSpeed() : PlayerCharacter->GetHorizontalVelocity();
-	FVector NextFrameLocation = PlayerCharacter->GetActorLocation() + InitialForwardVector * AirDashDistance * (InternalTimer / AirDashTime) *
-		(Speed / PlayerCharacter->GetMaxRunningSpeed()); //Last part provides boost on current speed
+	//Commenting it out in case we want to use it later.
+	//const float Speed = PlayerCharacter->GetHorizontalVelocity() < PlayerCharacter->GetMaxRunningSpeed() ?  PlayerCharacter->GetMaxRunningSpeed() : PlayerCharacter->GetHorizontalVelocity();
+	FVector NextFrameLocation = PlayerCharacter->GetActorLocation() + InitialForwardVector * AirDashDistance * (InternalTimer / AirDashTime);
+		//(Speed / PlayerCharacter->GetMaxRunningSpeed()); //Last part provides boost on current speed
 
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(PlayerCharacter);

@@ -47,8 +47,7 @@ void USlidingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 
 	if (FSurfaceInfo Info; !IsOnSlope(Info))
 	{
-		const float Ratio = PlayerCharacter->GetHorizontalVelocity() / PlayerCharacter->GetMaxRunningSpeed();
-		PlayerCharacter->LaunchCharacter(PlayerCharacter->GetActorForwardVector() * SlideSpeedCurve->GetFloatValue(0) * Ratio, false, false);
+		PlayerCharacter->LaunchCharacter(PlayerCharacter->GetActorForwardVector() * PlayerCharacter->GetMaxRunningSpeed()* SlideInitialBoost, false, false);
 	}
 	
 	CameraFullHeight = PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeLocation().Z;
@@ -143,13 +142,13 @@ void USlidingStateComponent::OverrideCameraInput(UCharacterStateMachine& SM, FVe
 void USlidingStateComponent::OverrideAcceleration(UCharacterStateMachine& SM, float& NewSpeed)
 {
 	Super::OverrideAcceleration(SM, NewSpeed);
-	NewSpeed = SlideSpeedCurve->GetFloatValue(InternalTimer);
+	NewSpeed = PlayerCharacter->GetMaxRunningSpeed() * SlideSpeedCurve->GetFloatValue(InternalTimer / MaxSlideDuration);
 }
 
 bool USlidingStateComponent::DetectGround() const
 {
 	const FVector Start = GetOwner()->GetActorLocation();
-	const float FallingMultiplier = PlayerMovement->Velocity.Z < -PlayerCharacter->GetMaxRunningSpeed() ? FMath::Abs(PlayerMovement->Velocity.Z) / PlayerCharacter->GetMaxRunningSpeed() : 1;
+	const float FallingMultiplier = PlayerMovement->Velocity.Z < -PlayerCharacter->GetMaxRunningSpeed() ? FMath::Abs(PlayerMovement->Velocity.Z) * 1.25f / PlayerCharacter->GetMinRunningSpeed() : 1;
 	return LineTraceSingle(Start, Start - GetOwner()->GetActorUpVector() * AboutToFallDetectionDistance * FallingMultiplier);
 }
 

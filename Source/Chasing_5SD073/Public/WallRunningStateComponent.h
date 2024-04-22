@@ -37,6 +37,7 @@ public:
 	virtual void OverrideDebug() override;
 	virtual void OverrideDetectState(UCharacterStateMachine& SM) override;
 	virtual void OverrideJump(UCharacterStateMachine& SM, FVector& JumpVector) override;
+	virtual void OverrideNoMovementInputEvent(UCharacterStateMachine& SM) override;
 
 
 	UFUNCTION(BlueprintPure)
@@ -81,11 +82,9 @@ private:
 
 	//Internal
 	EWallOrientation WallOrientation = None;
-	FHitResult PrevResult;
 	FHitResult HitResult;
-	FHitResult EmptyResult;
-	float GravityTimer;
+	//This booleans lets us utilise coyote time after we have stopped wall running, while keeping gravity and direction as if we were wall running.
+	bool NoLongerWallRunning = false;
 	float TriggerTimer;
 	float WallRunTimer;
-	float InternalGravityScale;
 };

@@ -62,6 +62,7 @@ void UStateComponentBase::OnEnterState(UCharacterStateMachine& SM)
 	OnEnterStateDelegate.Broadcast();
 	if (!CountTowardsFalling) PlayerCharacter->ResetFalling();
 	if (ResetsDash) PlayerCharacter->ResetDash();
+	if (ResetsJump) PlayerCharacter->ResetJump();
 }
 
 void UStateComponentBase::OnUpdateState(UCharacterStateMachine& SM)
