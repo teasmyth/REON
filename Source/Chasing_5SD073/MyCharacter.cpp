@@ -67,10 +67,13 @@ void AMyCharacter::Tick(float DeltaTime)
 	MovementStateCheck();
 	Acceleration();
 
-	if (GetCharacterMovement()->IsMovingOnGround())
+	if (GetCharacterMovement()->IsMovingOnGround() || StateMachine->GetCurrentEnumState() != ECharacterState::DefaultState)
 	{
-		if (StateMachine->GetCurrentEnumState() == ECharacterState::DefaultState) LastInteractedWall = nullptr;
-		CanJump = true;
+		if (StateMachine->GetCurrentEnumState() == ECharacterState::DefaultState)
+		{
+			LastInteractedWall = nullptr;
+			CanJump = true;
+		}
 		InternalCoyoteTimer = 0;
 	}
 	//This for coyote for normal jump from the ground, as every other ability have their internal timer
@@ -79,6 +82,7 @@ void AMyCharacter::Tick(float DeltaTime)
 	{
 		InternalCoyoteTimer += DeltaTime;
 	}
+	
 
 	if (StateMachine != nullptr) StateMachine->UpdateStateMachine();
 	if (DebugVelocity) DebugSpeed();
