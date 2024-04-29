@@ -11,13 +11,8 @@
 class CHASING_5SD073_API FPathfindingWorker : public FRunnable
 {
 public:
-	FPathfindingWorker(const TWeakPtr<OctreeNode>& InOctreeRootNode, bool& InDebug,
-	                   const TWeakPtr<FLargeMemoryReader>& InOctreeData) : OctreeData(InOctreeData), OctreeRootNode(InOctreeRootNode), Debug(InDebug)
-	{
-		Thread = FRunnableThread::Create(this, TEXT("PathfindingThread"));
-	}
 
-	FPathfindingWorker(const TWeakPtr<OctreeNode>& InOctreeNode, bool& InDebug, const TArray<FBox>& InActorBoxes, const float InMinSize, const float InFloatAboveGroundPreference) : OctreeRootNode(InOctreeNode), ActorBoxes(InActorBoxes), MinSize(InMinSize), FloatAboveGroundPreference(InFloatAboveGroundPreference), Debug(InDebug)
+	FPathfindingWorker(const TWeakPtr<OctreeNode>& InOctreeNode, bool& InDebug, const TArray<FBox>& InActorBoxes, const float InMinSize) : OctreeRootNode(InOctreeNode), ActorBoxes(InActorBoxes), MinSize(InMinSize), Debug(InDebug)
 	{
 		Thread = FRunnableThread::Create(this, TEXT("PathfindingThread"));
 	}
@@ -25,8 +20,7 @@ public:
 	virtual ~FPathfindingWorker() override
 	{
 		bRunThread = false;
-		OctreeData.Reset();
-
+		
 		if (Thread)
 		{
 			// Kill() is a blocking call, it waits for the thread to finish.
@@ -61,13 +55,13 @@ public:
 
 
 	/// @param Task of FVector, FVector where the first FVector is the start location and the second is the end location.
+	/// @param MoveOnToNextTask if true, the thread will start working on the task immediately.
 	void AddToQueue(const TPair<FVector, FVector>& Task, const bool MoveOnToNextTask = false);
 	//Returns the oldest task's results.
 	TArray<FVector> GetOutQueue();
 
 private:
 	bool ThreadIsPaused = false;
-	TWeakPtr<FLargeMemoryReader> OctreeData;
 	FRunnableThread* Thread;
 	TWeakPtr<OctreeNode> OctreeRootNode;
 	TQueue<TPair<FVector, FVector>> TaskQueue;
@@ -75,10 +69,8 @@ private:
 	
 	TArray<FBox> ActorBoxes;
 	float MinSize;
-	float FloatAboveGroundPreference;
 	
 	bool bRunThread = true;
-	//bool IsPathfindingInProgress = false;
 	bool PathFound = false;
 	bool IsWorking = false;
 	bool& Debug;

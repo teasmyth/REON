@@ -4,13 +4,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Materials/MaterialInstanceDynamic.h"
-#include "Serialization/BufferArchive.h"
-#include "Pathfinding/OctreeGraph.h"
 #include "Pathfinding/OctreePathfindingComponent.h"
-#include "Serialization/ArchiveLoadCompressedProxy.h"
-#include "Serialization/ArchiveSaveCompressedProxy.h"
-#include "Serialization/LargeMemoryReader.h"
-#include "Serialization/LargeMemoryWriter.h"
 
 
 AOctree::AOctree()
@@ -51,379 +45,10 @@ void AOctree::BeginPlay()
 {
 	Super::BeginPlay();
 
-	
-	SetUpOctreesAsync(true);
+
+	SetUpOctree();
 	IsSetup = true;
-
-	/*
-	FString SpecificFileName = "OctreeFiles/" + GetWorld()->GetName() + "OctreeNodes.bin";
-	SaveFileName = FPaths::Combine(FPaths::ProjectSavedDir(), SpecificFileName);
-
-	SetupOctreesFuture = Async(EAsyncExecution::Thread, [&]()
-	{
-		Loading = true;
-		double StartTime = FPlatformTime::Seconds();
-
-		if (const bool Loaded = LoadNodesFromFile(SaveFileName); !Loaded)
-		{
-			//GEngine call is not thread safe - just to note.
-			GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "No file found. Creating new nodes");
-
-			SetUpOctreesAsync(false);
-
-			SaveNodesToFile(SaveFileName);
-		}
-		else
-		{
-			if (Debug) UE_LOG(LogTemp, Warning, TEXT("Loading: %f"), FPlatformTime::Seconds() - StartTime);
-		}
-
-		//StartTime = FPlatformTime::Seconds();
-		//OctreeGraph::ConnectNodes(Loading, RootNodeSharedPtr);
-		//if (Debug) UE_LOG(LogTemp, Warning, TEXT("Connect nodes time: %f"), FPlatformTime::Seconds() - StartTime);
-
-		const TWeakPtr<OctreeNode> RootNodeWeakPtr = RootNodeSharedPtr;
-		PathfindingWorker = new FPathfindingWorker(RootNodeWeakPtr, Debug, OctreeData.ToWeakPtr());
-		IsSetup = true;
-	});
-	*/
 }
-
-#pragma region Saving/Loading Data
-
-void AOctree::SaveNodesToFile(const FString& Filename)
-{
-	if (IsSetup) return; //If the game is running, don't save the nodes. Might lead to data corruption.
-
-	FLargeMemoryWriter ToBinary = FLargeMemoryWriter(0, true);
-	FIndexData IndexData;
-	
-	double StartTime = FPlatformTime::Seconds();
-	OctreeNode::SaveNode(ToBinary, IndexData, RootNodeSharedPtr, false);
-	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Baking 1 Done. Time: %f"), FPlatformTime::Seconds() - StartTime);
-	
-	StartTime = FPlatformTime::Seconds();
-	const int64 Size = ToBinary.TotalSize();
-	ToBinary.FlushCache();
-	ToBinary.Reserve(Size);
-	ToBinary.Seek(0);
-	
-	OctreeNode::SaveNode(ToBinary, IndexData, RootNodeSharedPtr, true);
-	if(Debug) UE_LOG(LogTemp, Warning, TEXT("Baking 2 Done. Time: %f"), FPlatformTime::Seconds() - StartTime);
-
-	DeleteOctreeNode(RootNodeSharedPtr);
-
-	
-	// Calculate the number of chunks needed and then save it into the compressed data
-	TArray64<uint8> BinaryData;
-	int64 NumChunks = 0;
-	constexpr int32 MaxTArraySize = TNumericLimits<int32>::Max();
-	BinaryData.Append(ToBinary.GetData(), ToBinary.TotalSize());
-	/*
-	NumChunks = BinaryData.Num() / MaxTArraySize;
-	if (BinaryData.Num() % MaxTArraySize != 0)
-	{
-		NumChunks++;
-	}
-	
-	TArray<TArray<uint8>> AllCompressedData;
-	AllCompressedData.SetNum(NumChunks);
-	//TArray<uint8> CompressedDataChunk;
-	TArray<uint8> DataToCompress;
-
-	for (int64 i = 0; i < NumChunks; i++)
-	{
-		const double ChunkStartTime = FPlatformTime::Seconds();
-		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Compressing chunk %lld/%lld."), i + 1, NumChunks);
-		FArchiveSaveCompressedProxy Compressor = FArchiveSaveCompressedProxy(AllCompressedData[i],TEXT("ZLIB"));
-
-		// Calculate the start and end indices for this chunk
-		const int64 StartIndex = i * MaxTArraySize + i;
-		const int64 EndIndex = FMath::Min((i + 1) * MaxTArraySize, BinaryData.Num());
-		
-		for (int64 j = StartIndex; j < EndIndex; j++)
-		{
-			DataToCompress.Add(BinaryData[j]);
-		}
-		
-		Compressor << DataToCompress;
-
-		if (Compressor.GetError())
-		{
-			if (Debug) UE_LOG(LogTemp, Error, TEXT("Failed to compress data."));
-			return;
-		}
-		
-		Compressor.Flush();
-		DataToCompress.Empty();
-
-		if(Debug) UE_LOG(LogTemp, Warning, TEXT("Compressed chunk %lld/%lld. Took %f seconds."), i + 1, NumChunks, FPlatformTime::Seconds() - ChunkStartTime);
-	}
-
-	// Write the compressed data to your output...
-	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Started Saving"));
-
-	//I cant save TArray<TArray<uint8>> directly to file, so I need to stitch them together. However, I can't use TArray<uint8> because it has a limit of 2GB.
-	//I also cannot use TArray64, as it will try to allocate all the memory at once, which will crash the editor.
-	TArray64<uint8> StitchedAllCompressedData;
-	for (const auto& CompressedData : AllCompressedData)
-	{
-		// Store the size of the chunk
-		int64 ChunkSize = CompressedData.Num();
-		for (int i = 0; i < sizeof(int64); ++i)
-		{
-			StitchedAllCompressedData.Add((ChunkSize >> (i * 8)) & 0xFF);
-		}
-
-		// Store the chunk data
-		StitchedAllCompressedData.Append(CompressedData);
-	}
-	*/
-
-	//if (FFileHelper::SaveArrayToFile(StitchedAllCompressedData, *Filename))
-	if (FFileHelper::SaveArrayToFile(BinaryData, *Filename))
-	{
-		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Saved octree"));
-	}
-	else
-	{
-		if (Debug) UE_LOG(LogTemp, Error, TEXT("Couldn't save octree. Check the file path and/or permissions."));
-	}
-
-	/*
-	FLargeMemoryWriter ToBinary = FLargeMemoryWriter(0, true);
-	FIndexData IndexData;
-
-	double StartTime = FPlatformTime::Seconds();
-	OctreeNode::SaveNode(ToBinary, IndexData, RootNodeSharedPtr, false);
-	UE_LOG(LogTemp, Warning, TEXT("Baking 1 Done. Time: %f"), FPlatformTime::Seconds() - StartTime);
-
-	StartTime = FPlatformTime::Seconds();
-	ToBinary.FlushCache();
-	ToBinary.Seek(0);
-	OctreeNode::SaveNode(ToBinary, IndexData, RootNodeSharedPtr, true);
-	UE_LOG(LogTemp, Warning, TEXT("Baking 2 Done. Time: %f"), FPlatformTime::Seconds() - StartTime);
-
-
-	//ToBinary << RootNodeSharedPtr;
-
-	TArray64<uint8> BinaryData;
-	BinaryData.Append(ToBinary.GetData(), ToBinary.TotalSize());
-
-	// Determine the maximum size of a TArray<uint8>
-	const int32 MaxTArraySize = TNumericLimits<int32>::Max();
-
-	// Calculate the number of chunks needed
-	int64 NumChunks = BinaryData.Num() / MaxTArraySize;
-	if (BinaryData.Num() % MaxTArraySize != 0)
-	{
-		NumChunks++;
-	}
-	
-	TArray<uint8> AllCompressedData;
-	// Save the number of chunks
-	TArray<uint8> CompressedNumChuck;
-	FArchiveSaveCompressedProxy NumChuckCompressor = FArchiveSaveCompressedProxy(CompressedNumChuck,TEXT("ZLIB"));
-	NumChuckCompressor << NumChunks;
-	AllCompressedData.Append(CompressedNumChuck);
-
-	for (int64 i = 0; i < NumChunks; i++)
-	{
-		const double ChunkStartTime = FPlatformTime::Seconds();
-		// Calculate the start and end indices for this chunk
-		const int64 StartIndex = i * MaxTArraySize;
-		const int64 EndIndex = FMath::Min((i + 1) * MaxTArraySize, BinaryData.Num());
-
-		// Create a TArray<uint8> from this chunk of the TArray64<uint8>
-		TArray<uint8> DataToCompress;
-		for (int64 j = StartIndex; j < EndIndex; j++)
-		{
-			DataToCompress.Add(BinaryData[j]);
-		}
-
-		// Compress the TArray<uint8>
-		TArray<uint8> CompressedData;
-		FArchiveSaveCompressedProxy Compressor = FArchiveSaveCompressedProxy(CompressedData,TEXT("ZLIB"));
-		Compressor << DataToCompress;
-		Compressor.Flush();
-
-		AllCompressedData.Append(CompressedData);
-		UE_LOG(LogTemp, Warning, TEXT("Compressed chunk %lld/%lld. Took %f seconds."), i + 1, NumChunks, FPlatformTime::Seconds() - ChunkStartTime);
-	}
-
-	// Write the compressed data to your output...
-	UE_LOG(LogTemp, Warning, TEXT("Started Saving"));
-
-	if (FFileHelper::SaveArrayToFile(AllCompressedData, *Filename))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Saved octree"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("Couldn't save octree. Check the file path and/or permissions."));
-	}
-	*/
-
-	/*
-	TArray<uint8> BinaryData;
-	BinaryData.Append(ToBinary.GetData(), ToBinary.TotalSize());
-	
-	TArray<uint8> CompressedData;
-	StartTime = FPlatformTime::Seconds();
-	FArchiveSaveCompressedProxy Compressor = FArchiveSaveCompressedProxy(CompressedData, TEXT("ZLIB"));
-
-	Compressor << BinaryData;
-	Compressor.Flush();
-	UE_LOG(LogTemp, Warning, TEXT("Compressing done. Time: %f"), FPlatformTime::Seconds() - StartTime);
-
-	if (Compressor.GetError())
-	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to compress data."));
-		return;
-	}
-
-
-	if (FFileHelper::SaveArrayToFile(CompressedData, *Filename))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Saved octree successfully."));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("Couldn't save octree. Check the file path and/or permissions."));
-	}
-
-	Compressor.FlushCache();
-	CompressedData.Empty();
-
-*/
-	ToBinary.FlushCache();
-	ToBinary.Close();
-	BinaryData.Empty();
-
-	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Saving exited."));
-}
-
-bool AOctree::LoadNodesFromFile(const FString& Filename)
-{
-	/*
-	TArray<uint8> CompressedData;
-
-	if (FFileHelper::LoadFileToArray(CompressedData, *Filename))
-	{
-		if (CompressedData.Num() <= 0)
-		{
-			UE_LOG(LogTemp, Error, TEXT("Failed to deserialize octree nodes from file."));
-			return false;
-		}
-
-		FArchiveLoadCompressedProxy Decompressor = FArchiveLoadCompressedProxy(CompressedData, TEXT("ZLIB"));
-
-		if (Decompressor.GetError())
-		{
-			UE_LOG(LogTemp, Error, TEXT("Failed to decompress file."));
-			return false;
-		}
-		
-
-		Decompressor << DecompressedBinaryArray;
-		OctreeData = MakeShareable(new FLargeMemoryReader(DecompressedBinaryArray.GetData(), DecompressedBinaryArray.Num(),
-		                                                  ELargeMemoryReaderFlags::None));
-		OctreeData->Seek(0);
-		RootNodeSharedPtr = OctreeNode::LoadSingleNode(*OctreeData, 0);
-		//OctreeNode::LoadAllNodes( *OctreeData, RootNodeSharedPtr);
-		OctreeGraph::RootNodeIndexData = OctreeNode::GetFIndexData(*OctreeData, 0);
-		UOctreePathfindingComponent::OctreeData = OctreeData.Get();
-
-		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "Save File found. Loading nodes, skipping create");
-
-		CompressedData.Empty();
-		Decompressor.FlushCache();
-
-		return true;
-	}
-	*/
-
-	//TArray64<uint8> StitchedAllCompressedData;
-
-	//if (FFileHelper::LoadFileToArray(StitchedAllCompressedData, *Filename))
-	if (FFileHelper::LoadFileToArray(DecompressedBinaryArray, *Filename))
-	{
-		//if (StitchedAllCompressedData.Num() <= 0)
-		if (DecompressedBinaryArray.Num() <= 0)
-		{
-			if (Debug) UE_LOG(LogTemp, Error, TEXT("Failed to deserialize octree nodes from file."));
-			return false;
-		}
-		if (Debug) UE_LOG(LogTemp, Warning, TEXT("File loaded into array."))
-
-		/*
-		TArray<TArray<uint8>> AllCompressedData;
-		for (int64 i = 0; i < StitchedAllCompressedData.Num();)
-		{
-			// Retrieve the size of the chunk
-			int64 ChunkSize = 0;
-			for (int j = 0; j < sizeof(int64); ++j)
-			{
-				ChunkSize |= static_cast<int64>(StitchedAllCompressedData[i++]) << (j * 8);
-			}
-
-			// Retrieve the chunk data
-			TArray<uint8> CompressedData;
-			for (int64 j = 0; j < ChunkSize; ++j)
-			{
-				CompressedData.Add(StitchedAllCompressedData[i++]);
-			}
-			AllCompressedData.Add(CompressedData);
-		}
-		
-		
-		for (int64 i = 0; i < AllCompressedData.Num(); i++)
-		{
-			if (Debug) UE_LOG(LogTemp, Warning, TEXT("Decompressing chunk %lld/%i."), i + 1, AllCompressedData.Num());
-			const double ChunkStartTime = FPlatformTime::Seconds();
-			TArray<uint8> DecompressedChunk;
-			FArchiveLoadCompressedProxy Decompressor = FArchiveLoadCompressedProxy(AllCompressedData[i], TEXT("ZLIB"));
-
-			if (Decompressor.IsError())
-			{
-				if(Debug)UE_LOG(LogTemp, Error, TEXT("Failed to decompress file."));
-				return false;
-			}
-			
-			if (AllCompressedData[i].Num() >= TNumericLimits<int32>::Max())
-			{
-				if (Debug) UE_LOG(LogTemp, Error, TEXT("Failed to decompress chunk %lld. Chunk size is larger than the maximum capacity of a TArray<uint8>."), i + 1);
-				return false;
-			}
-			
-			DecompressedChunk.Reserve(AllCompressedData[i].Num());
-			Decompressor << DecompressedChunk;
-			DecompressedBinaryArray.Append(DecompressedChunk);
-			Decompressor.FlushCache();
-			DecompressedChunk.Empty();
-			if (Debug) UE_LOG(LogTemp, Warning, TEXT("Decompressed chunk %lld/%i. Took %f seconds."), i + 1, AllCompressedData.Num(), FPlatformTime::Seconds() - ChunkStartTime);
-		}
-		*/
-		
-		OctreeData = MakeShareable(new FLargeMemoryReader(DecompressedBinaryArray.GetData(), DecompressedBinaryArray.Num(), ELargeMemoryReaderFlags::None));
-		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Loaded into memory reader."));
-		RootNodeSharedPtr = OctreeNode::LoadSingleNode(*OctreeData, 0);
-		//OctreeNode::LoadAllNodes(*OctreeData, RootNodeSharedPtr);
-		OctreeGraph::RootNodeIndexData = OctreeNode::GetFIndexData(*OctreeData, 0);
-		UOctreePathfindingComponent::OctreeData = OctreeData.Get();
-
-		if (Debug && GEngine) GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "Save File found. Loading nodes, skipping create");
-
-		//Uncomment it.
-		//AllCompressedData.Empty();
-
-		return true;
-	}
-
-	if (Debug) UE_LOG(LogTemp, Error, TEXT("Failed to load file into array."));
-	return false;
-}
-
 
 #pragma endregion
 
@@ -434,8 +59,6 @@ void AOctree::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	IsSetup = false;
 	Loading = false;
 
-	SetupOctreesFuture.Wait();
-
 	// Clean up
 	if (PathfindingWorker.IsValid())
 	{
@@ -444,25 +67,12 @@ void AOctree::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		PathfindingWorker.Reset();
 	}
 
-	DeleteOctreeNode(RootNodeSharedPtr);
-
-
-	if (OctreeData.IsValid())
-	{
-		OctreeData->Close();
-		OctreeData.Reset();
-		DecompressedBinaryArray.Empty();
-	}
+	OctreeNode::DeleteOctreeNode(RootNodeSharedPtr);
 }
 
 void AOctree::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-
-	if (SaveFileName == "")
-	{
-		SaveFileName = FPaths::Combine(FPaths::ProjectSavedDir(), "OctreeFiles/" + GetWorld()->GetName() + "OctreeNodes.bin");
-	}
 
 	if (!GridDrawn)
 	{
@@ -674,40 +284,8 @@ void AOctree::DrawLine(const FVector& Start, const FVector& End, const FVector& 
 
 #pragma endregion
 
-void AOctree::DeleteOctreeNode(TSharedPtr<OctreeNode>& Node)
-{
-	// Traverse the octree from the root node to the leaf nodes
-	for (TSharedPtr<OctreeNode>& Child : Node->ChildrenOctreeNodes)
-	{
-		if (Child != nullptr)
-		{
-			// Recursively delete child nodes
-			DeleteOctreeNode(Child);
-		}
-	}
 
-	// Set the node's TSharedPtr to nullptr //Memory leak, doesnt seem to work.
-	Node.Reset();
-}
 
-void AOctree::BakeOctree()
-{
-	if (!IsSetup)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Baking Octree"));
-		SetUpOctreesAsync(false);
-		const double StartTime = FPlatformTime::Seconds();
-		OctreeGraph::ConnectNodes(true, RootNodeSharedPtr, RootNodeSharedPtr);
-		UE_LOG(LogTemp, Warning, TEXT("Connect nodes time: %f"), FPlatformTime::Seconds() - StartTime);
-		SaveNodesToFile(SaveFileName);
-	}
-	else UE_LOG(LogTemp, Warning, TEXT("Game is running, cant bake Octree."));
-}
-
-void AOctree::Shit()
-{
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Green, "Andre is pooop.");
-}
 
 #pragma region Making Octree
 
@@ -725,7 +303,7 @@ void AOctree::ResizeOctree()
 
 		for (const AActor* Actor : Actors)
 		{
-			if (!ActorToIgnore.Contains(Actor) && Actor->GetRootComponent() && Actor->GetRootComponent()->GetCollisionObjectType() ==
+			if (!ActorsToIgnore.Contains(Actor) && Actor->GetRootComponent() && Actor->GetRootComponent()->GetCollisionObjectType() ==
 				CollisionChannel && Actor->FindComponentByClass<UStaticMeshComponent>())
 			{
 				EnclosingBox += Actor->GetComponentsBoundingBox();
@@ -751,225 +329,78 @@ void AOctree::ResizeOctree()
 	}
 }
 
-void AOctree::SetUpOctreesAsync(const bool IsLoading)
+void AOctree::SetUpOctree()
 {
-	FVector Size = FVector(ExpandVolumeXAxis * SingleVolumeSize, ExpandVolumeYAxis * SingleVolumeSize, ExpandVolumeZAxis * SingleVolumeSize);
+	float MaxSize = FMath::Max3(ExpandVolumeXAxis, ExpandVolumeYAxis, ExpandVolumeZAxis) * SingleVolumeSize;
 	//Add a little bit of padding, in case there is one single Octree underneath, which sometimes prevent FindNode to work properly.
-	Size *= 1.02f;
+	MaxSize *= 1.02f;
 
-	RootNodeSharedPtr = MakeShareable(new OctreeNode(GetActorLocation(), SingleVolumeSize / 2, false));
+	RootNodeSharedPtr = MakeShareable(new OctreeNode(GetActorLocation(), MaxSize / 2));
 	RootNodeSharedPtr->Occupied = true;
 
-	//RootNodeSharedPtr->ChildrenOctreeNodes.SetNum(ExpandVolumeXAxis * ExpandVolumeYAxis * ExpandVolumeZAxis);
+	TArray<FOverlapResult> Result;
+	FCollisionQueryParams TraceParams;
+	TraceParams.AddIgnoredActor(this);
 
-	if (IsLoading)
+	if (!ActorsToIgnore.IsEmpty())
 	{
-		TArray<FOverlapResult> Result;
-		FCollisionQueryParams TraceParams;
-		TraceParams.AddIgnoredActor(this);
-
-		if (!ActorToIgnore.IsEmpty())
+		for (const auto Actors : ActorsToIgnore)
 		{
-			for (const auto Actors : ActorToIgnore)
-			{
-				TraceParams.AddIgnoredActor(Actors);
-			}
-		}
-
-
-		GetWorld()->OverlapMultiByChannel(Result, RootNodeSharedPtr->Position, FQuat::Identity, CollisionChannel, FCollisionShape::MakeBox(FVector(SingleVolumeSize / 2.0f)), TraceParams);
-
-
-		TArray<FBox> BoxResults;
-		for (const auto Overlap : Result)
-		{
-			BoxResults.Add(Overlap.GetActor()->GetComponentsBoundingBox());
-		}
-		
-		PathfindingWorker = MakeShareable(new FPathfindingWorker(RootNodeSharedPtr, Debug, BoxResults, MinNodeSize, FloatAboveGroundPreference));
-		return;
-	}
-	double StartTime = FPlatformTime::Seconds();
-
-	int Index = 0;
-	for (int X = 0; X < ExpandVolumeXAxis; X++)
-	{
-		for (int Y = 0; Y < ExpandVolumeYAxis; Y++)
-		{
-			for (int Z = 0; Z < ExpandVolumeZAxis; Z++)
-			{
-				const FVector Offset = FVector(X * SingleVolumeSize, Y * SingleVolumeSize, Z * SingleVolumeSize);
-				RootNodeSharedPtr->ChildrenOctreeNodes[Index] = MakeOctree(GetActorLocation() + Offset, Index);
-				Index++;
-			}
+			TraceParams.AddIgnoredActor(Actors);
 		}
 	}
 
-	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Octree setup time: %f"), FPlatformTime::Seconds() - StartTime);
-	StartTime = FPlatformTime::Seconds();
-	DeleteUnusedNodes(RootNodeSharedPtr);
-	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Empty nodes time: %f"), FPlatformTime::Seconds() - StartTime);
-	StartTime = FPlatformTime::Seconds();
-	AdjustDanglingChildNodes(RootNodeSharedPtr);
-	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Dangling nodes time: %f"), FPlatformTime::Seconds() - StartTime);
-}
+	TArray<FBox> BoxResults;
 
-TSharedPtr<OctreeNode> AOctree::MakeOctree(const FVector& Origin, const int& Index)
-{
-	TSharedPtr<OctreeNode> NewRootNode = MakeShareable(new OctreeNode(Origin, SingleVolumeSize / 2.0f, false));
-
-	if (!UseOverlap)
+	if (!AutoEncapsulateObjects)
 	{
-		TArray<FOverlapResult> Result;
-		FCollisionQueryParams TraceParams;
-		TraceParams.AddIgnoredActor(this);
+		int Index = 0;
+		RootNodeSharedPtr->ChildrenOctreeNodes.SetNum(ExpandVolumeXAxis * ExpandVolumeYAxis * ExpandVolumeZAxis);
 
-		if (!ActorToIgnore.IsEmpty())
+		for (int X = 0; X < ExpandVolumeXAxis; X++)
 		{
-			for (const auto Actors : ActorToIgnore)
+			for (int Y = 0; Y < ExpandVolumeYAxis; Y++)
 			{
-				TraceParams.AddIgnoredActor(Actors);
+				for (int Z = 0; Z < ExpandVolumeZAxis; Z++)
+				{
+					TArray<FOverlapResult> ChildOverlaps;
+					const FVector Offset = FVector(X * SingleVolumeSize, Y * SingleVolumeSize, Z * SingleVolumeSize);
+					RootNodeSharedPtr->ChildrenOctreeNodes[Index] = MakeShareable(new OctreeNode(GetActorLocation() + Offset, SingleVolumeSize / 2));
+					GetWorld()->OverlapMultiByChannel
+					(
+						ChildOverlaps,
+						RootNodeSharedPtr->ChildrenOctreeNodes[Index]->Position,
+						FQuat::Identity,
+						CollisionChannel,
+						FCollisionShape::MakeBox(FVector(SingleVolumeSize / 2)),
+						TraceParams
+					);
+					Index++;
+
+					//TODO make arrays of arrays instead of one big, then modify findandlode that looks at child rootnode specifically, saving time
+					//in the begininng it scopes down to a single child root node so we know the index of which box array we would look at.
+					Result.Append(ChildOverlaps);
+				}
 			}
 		}
-
-
-		GetWorld()->OverlapMultiByChannel(Result, NewRootNode->Position, FQuat::Identity, CollisionChannel,
-		                                  FCollisionShape::MakeBox(FVector(SingleVolumeSize / 2.0f)), TraceParams);
-
-
-		TArray<FBox> BoxResults;
-		for (const auto Overlap : Result)
-		{
-			BoxResults.Add(Overlap.GetActor()->GetComponentsBoundingBox());
-		}
-
-		AddObjects(BoxResults, NewRootNode);
 	}
 	else
 	{
-		NewRootNode->DivideNode(FBox(), MinNodeSize, FloatAboveGroundPreference, GetWorld(), false);
+		GetWorld()->OverlapMultiByChannel
+		(
+			Result,
+			RootNodeSharedPtr->Position,
+			FQuat::Identity, CollisionChannel,
+			FCollisionShape::MakeBox(FVector(SingleVolumeSize / 2)),
+			TraceParams
+		);
 	}
 
 
-	return NewRootNode;
+	for (const auto Overlap : Result)
+	{
+		BoxResults.Add(Overlap.GetActor()->GetComponentsBoundingBox());
+	}
+
+	PathfindingWorker = MakeShareable(new FPathfindingWorker(RootNodeSharedPtr, Debug, BoxResults, MinNodeSize));
 }
-
-
-void AOctree::AddObjects(TArray<FBox> FoundObjects, const TSharedPtr<OctreeNode>& RootN) const
-{
-	if (FoundObjects.IsEmpty())
-	{
-		return;
-	}
-
-	for (const auto& Box : FoundObjects)
-	{
-		RootN->DivideNode(Box, MinNodeSize, FloatAboveGroundPreference, GetWorld(), true);
-	}
-}
-
-void AOctree::DeleteUnusedNodes(const TSharedPtr<OctreeNode>& Node)
-{
-	if (!Node.IsValid())
-	{
-		return;
-	}
-	
-	/*
-	TArray<TSharedPtr<OctreeNode>> NodeList;
-	NodeList.Add(Node);
-
-	for (int i = 0; i < NodeList.Num(); i++)
-	{
-		if (NodeList[i] == nullptr)
-		{
-			continue;
-		}
-
-		for (auto& Child : NodeList[i]->ChildrenOctreeNodes)
-		{
-			if (Child->ChildrenOctreeNodes.IsEmpty())
-			{
-				if (Child->Occupied)
-				{
-					Child.Reset();
-					//I adjust the null pointers in AdjustDanglingChildNodes(). Here I should not touch it while it is iterating through it.
-				}
-			}
-			else
-			{
-				NodeList.Add(Child);
-			}
-		}
-	}*/
-
-	for (auto& Child : Node->ChildrenOctreeNodes)
-	{
-		if (Child->ChildrenOctreeNodes.IsEmpty())
-		{
-			if (Child->Occupied)
-			{
-				Child.Reset();
-				//I adjust the null pointers in AdjustDanglingChildNodes(). Here I should not touch it while it is iterating through it.
-			}
-		}
-		else
-		{
-			DeleteUnusedNodes(Child);
-		}
-	}
-}
-
-void AOctree::AdjustDanglingChildNodes(const TSharedPtr<OctreeNode>& Node)
-{
-	if (!Node.IsValid())
-	{
-		return;
-	}
-
-	/*
-	TArray<TSharedPtr<OctreeNode>> NodeList;
-	NodeList.Add(Node);
-
-	for (int i = 0; i < NodeList.Num(); i++)
-	{
-		if (NodeList[i] == nullptr) continue;
-
-		const TSharedPtr<OctreeNode> CurrentNode = NodeList[i];
-
-		TArray<TSharedPtr<OctreeNode>> CleanedChildNodes;
-		for (auto Child : CurrentNode->ChildrenOctreeNodes)
-		// todo it is not const auto &, maybe thats why there were child nodes with 0 child but occupied.
-		{
-			if (Child != nullptr)
-			{
-				CleanedChildNodes.Add(Child);
-			}
-		}
-
-		CurrentNode->ChildrenOctreeNodes = CleanedChildNodes;
-
-		for (const auto& Child : CurrentNode->ChildrenOctreeNodes)
-		{
-			NodeList.Add(Child);
-		}
-	}
-	*/
-	TArray<TSharedPtr<OctreeNode>> CleanedChildNodes;
-	for (const auto& Child : Node->ChildrenOctreeNodes)
-	{
-		if (Child.IsValid())
-		{
-			CleanedChildNodes.Add(Child);
-		}
-
-		AdjustDanglingChildNodes(Child);
-	}
-	Node->ChildrenOctreeNodes = CleanedChildNodes;
-}
-
-#pragma endregion
-
-#pragma region Pathfinding
-
-#pragma endregion

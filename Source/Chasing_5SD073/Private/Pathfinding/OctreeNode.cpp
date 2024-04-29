@@ -6,12 +6,11 @@
 
 LLM_DEFINE_TAG(OctreeNode);
 
-OctreeNode::OctreeNode(const FVector& Pos, const float HalfSize, const bool ObjectsCanFloat)
+OctreeNode::OctreeNode(const FVector& Pos, const float HalfSize)
 {
 	LLM_SCOPE_BYTAG(OctreeNode);
 	Position = Pos;
 	this->HalfSize = HalfSize;
-	Floatable = ObjectsCanFloat;
 }
 
 OctreeNode::OctreeNode()
@@ -26,24 +25,25 @@ OctreeNode::~OctreeNode()
 	PathfindingData.Reset();
 }
 
-TSharedPtr<OctreeNode> OctreeNode::LazyDivideAndFindNode(const TArray<FBox>& ActorBoxes, const float& MinSize, const float FloatAboveGroundPreference,
-                                                         const FVector& Location, const bool LookingForNeighbor, bool& OutResetOccupied)
+TSharedPtr<OctreeNode> OctreeNode::LazyDivideAndFindNode(const bool& ThreadIsPaused, const TArray<FBox>& ActorBoxes, const float& MinSize,
+                                                         const FVector& Location, const bool LookingForNeighbor)
 {
 	if (!IsInsideNode(Location))
 	{
 		return nullptr;
 	}
 
-	TArray<TSharedPtr<OctreeNode>> NodeList;
 
 	TSharedPtr<OctreeNode> ToReturn;
 	TSharedPtr<OctreeNode> InsideNode;
 
-	bool FindingClosest = false;
-
 	if (ChildrenOctreeNodes.IsEmpty())
 	{
-		SetupChildrenBounds(FloatAboveGroundPreference);
+		ChildrenOctreeNodes.SetNum(8);
+		for (int i = 0; i < 8; i++)
+		{
+			ChildrenOctreeNodes[i] = MakeChild(i);
+		}
 		Occupied = true;
 	}
 
@@ -60,7 +60,9 @@ TSharedPtr<OctreeNode> OctreeNode::LazyDivideAndFindNode(const TArray<FBox>& Act
 	}
 
 	//This code assumes that the children of root node are divisible and not completely inside an object.
-	while (ToReturn.IsValid())
+	//If auto encapsulate is on, this should never be the case.
+	//Otherwise it will return nullptr.
+	while (ToReturn.IsValid() && !ThreadIsPaused)
 	{
 		if (ToReturn->ChildrenOctreeNodes.IsEmpty())
 		{
@@ -69,9 +71,11 @@ TSharedPtr<OctreeNode> OctreeNode::LazyDivideAndFindNode(const TArray<FBox>& Act
 
 		for (int j = 0; j < 8; j++)
 		{
+			if (ThreadIsPaused) return nullptr;
+
 			if (!ToReturn->ChildrenOctreeNodes[j].IsValid())
 			{
-				ToReturn->ChildrenOctreeNodes[j] = ToReturn->MakeChild(j, FloatAboveGroundPreference);
+				ToReturn->ChildrenOctreeNodes[j] = ToReturn->MakeChild(j);
 				const FVector Center = ToReturn->ChildrenOctreeNodes[j]->Position;
 				const FVector Offset = FVector(ToReturn->ChildrenOctreeNodes[j]->HalfSize);
 				const FBox NodeBox = FBox(Center - Offset, Center + Offset);
@@ -103,20 +107,12 @@ TSharedPtr<OctreeNode> OctreeNode::LazyDivideAndFindNode(const TArray<FBox>& Act
 				}
 			}
 
-			if (!FindingClosest && ToReturn->ChildrenOctreeNodes[j]->IsInsideNode(Location))
+			if (ToReturn->ChildrenOctreeNodes[j]->IsInsideNode(Location))
 			{
 				InsideNode = ToReturn->ChildrenOctreeNodes[j];
 				//Not breaking on purpose because I need the other children to check if they are closer to the location.
-				//In case this is occupied.
+				//Because I am not breaking, I can't do ToReturn = ToReturn->ChildrenOctreeNodes[j]; here.
 			}
-			else if (InsideNode.IsValid())
-			{
-				if (FVector::DistSquared(ToReturn->ChildrenOctreeNodes[j]->Position, Location) < FVector::DistSquared(InsideNode->Position, Location))
-				{
-					InsideNode = ToReturn->ChildrenOctreeNodes[j];
-				}
-			}
-			else InsideNode = ToReturn->ChildrenOctreeNodes[0];
 		}
 
 		ToReturn = InsideNode;
@@ -137,7 +133,7 @@ TSharedPtr<OctreeNode> OctreeNode::LazyDivideAndFindNode(const TArray<FBox>& Act
 			return nullptr;
 		}
 
-		TSharedPtr<OctreeNode> ClosestUnoccupied; //Plan A: if we have a close unoccupied sibling node, pick that instead
+		TSharedPtr<OctreeNode> ClosestUnoccupied;
 		for (const auto& Child : ToReturn->ChildrenOctreeNodes)
 		{
 			if (Child->Occupied) continue;
@@ -151,426 +147,65 @@ TSharedPtr<OctreeNode> OctreeNode::LazyDivideAndFindNode(const TArray<FBox>& Act
 		}
 
 
+		ToReturn = ClosestUnoccupied;		
+
+		//if (ClosestUnoccupied.IsValid())
+		//{
+		//	ToReturn = ClosestUnoccupied;
+		//}
+
 		//In case happen to be in a very unlucky position where everything is occupied, then just use the original inside node.
-		//TODO what happens when every child is occupied? Closest will be invalid, but we need to return something. Otherwise 'out of bounds'
-		/*
-		if (ClosestUnoccupied.IsValid())
-		{
-			ToReturn = ClosestUnoccupied;
-		}
-		
-		else if (ClosestDivisible.IsValid())
-		{
-			ToReturn = ClosestDivisible;
-			continue;
-		}
+
+		/* TODO MAJOR TODO. TEMPORARILY I AM USING PREVIOUS VALID NODES TO GET OUT OF THIS SITUATION.
+		* IF we are here this is what happened:
+		* - We are NOT looking for a neighbor. AKA we are looking for a start or end node.
+		* - The node we found is OCCUPIED
+		* - All of the siblings are OCCUPIED
+		*
+		* The issue? Because we are moving imperfectly in a perfect structure, meaning
+		* We are using AddInput + Path smoothing in a rigid cubic environment, we naturally bleed into occupied spaces occasionally,
+		* which is due to the fact there is a strict occupancy check, if anything is inside a particular node, it is occupied.
+		* However, we must find a way to get out of this situation. Otherwise, we will be forever stuck in an infinite loop or a failed path.
+		*
+		* As a solution, I will let this node pass, as current node is not required to be unoccupied (in ASTAR FN!), only the neighbors.
+		* So it will end up looking up the neighbors and finding the closest unoccupied node. Which it should have, given if the situation
+		* described above happened (bled into an empty looking space but its 'actually' occupied) as they will for sure have neighbors.
+		*
+		* However, this should not be used for neighbors, as they must be unoccupied. So, in GetNeighbor where I clean invalid pointers,
+		* I also remove occupied nodes from the list.
 		*/
+		
 
-		ToReturn = ClosestUnoccupied;
-
-		//remove division, just closest, if all occupied, make the toreturn unoccpied but make sure to set it back aferwards
-
-		//Here comes the assumption I made earlier. Apart from the children of the root node, all other children are checked if they are occupied or not
-		//Thus, one of the children of NodeList[i] should be unoccupied.
-		//Naturally, if the root node that is found is not divisible, we will have a weird node
 		return ToReturn;
 	}
 	return nullptr;
 }
 
-TArray<FVector> OctreeNode::CalculatePositions(const int Face, const float& MinNodeSize) const
-{
-	TArray<FVector> PotentialNeighborPositions;
-
-	// Calculate the start position of the face
-	const FVector StartPosition = Position + FVector(DIRECTIONS[Face]) * HalfSize * 1.01f;
-
-	// Calculate the number of steps in each direction
-	const int Steps = FMath::RoundToInt(HalfSize * 2.0f / MinNodeSize);
-	//Because if it is 1.9999 due to float error, it would be rounded to 1 by default.
-
-	FVector Axis1, Axis2;
-	if (DIRECTIONS[Face] == FIntVector(1, 0, 0) || DIRECTIONS[Face] == FIntVector(-1, 0, 0))
-	{
-		Axis1 = FVector(0, 1, 0);
-		Axis2 = FVector(0, 0, 1);
-	}
-	else if (DIRECTIONS[Face] == FIntVector(0, 1, 0) || DIRECTIONS[Face] == FIntVector(0, -1, 0))
-	{
-		Axis1 = FVector(1, 0, 0);
-		Axis2 = FVector(0, 0, 1);
-	}
-	else //if (DIRECTIONS[Face].Equals(FVector(0, 0, 1)) || DIRECTIONS[Face].Equals(FVector(0, 0, -1)))
-	{
-		Axis1 = FVector(1, 0, 0);
-		Axis2 = FVector(0, 1, 0);
-	}
-
-	if (Steps == 1)
-	{
-		PotentialNeighborPositions.Add(StartPosition);
-		return PotentialNeighborPositions;
-	}
-
-	// Iterate over the face in steps of the size of the minimum node
-	for (int i = -Steps / 2; i <= Steps / 2; i++) //Because of the octree structure, steps will always be a multiple of 2. Int is safe.
-	{
-		if (i == 0) continue;
-
-		for (int j = -Steps / 2; j <= Steps / 2; j++)
-		{
-			if (j == 0) continue;
-
-			// Calculate the position
-			const FVector PotentialNeighborPosition = StartPosition + Axis1 * i * MinNodeSize + Axis2 * j * MinNodeSize;
-
-			// Add the position to the list
-			PotentialNeighborPositions.Add(PotentialNeighborPosition);
-		}
-	}
-
-	return PotentialNeighborPositions;
-}
-
-
-bool OctreeNode::GetNeighbors(const TSharedPtr<OctreeNode>& RootNode, const TSharedPtr<OctreeNode>& CurrentNode, const TArray<FBox>& ActorBoxes,
-                              const float& MinSize,
-                              const float FloatAboveGroundPreference)
-{
-	//Cleaning up the neighbors list from invalid pointers.
-	if (CurrentNode->Neighbors.Contains(nullptr))
-	{
-		TSet<TWeakPtr<OctreeNode>> ValidNeighbors;
-		for (const auto& Neighbor : CurrentNode->Neighbors)
-		{
-			if (Neighbor.IsValid())
-			{
-				ValidNeighbors.Add(Neighbor);
-			}
-		}
-		CurrentNode->Neighbors = ValidNeighbors;
-	}
-
-	int NeighborCount = 0;
-	TArray<TArray<FVector>> PotentialNeighborPositions;
-	for (int i = 0; i < 6; i++)
-	{
-		PotentialNeighborPositions.Add(CurrentNode->CalculatePositions(i, MinSize));
-		NeighborCount += PotentialNeighborPositions[i].Num();
-	}
-
-	//If we already have all the neighbors, no need to continue. Else, we still made useful calculation for the neighbors.
-	if (CurrentNode->Neighbors.Num() == NeighborCount)
-	{
-		return false;
-	}
-
-	bool ResetOccupied = false;
-
-	for (int i = 0; i < 6; i++)
-	{
-		for (const auto& Pos : PotentialNeighborPositions[i])
-		{
-			const TWeakPtr<OctreeNode> Node = RootNode->LazyDivideAndFindNode(ActorBoxes, MinSize, FloatAboveGroundPreference, Pos, true, ResetOccupied).ToWeakPtr();
-			if (Node.IsValid() && !CurrentNode->Neighbors.Contains(Node))
-			{
-				CurrentNode->Neighbors.Add(Node);
-				Node.Pin()->Neighbors.Add(CurrentNode.ToWeakPtr());
-			}
-		}
-	}
-
-	return CurrentNode->Neighbors.IsEmpty();
-}
-
-TSharedPtr<OctreeNode> OctreeNode::MakeChild(const int& ChildIndex, const float& FloatAboveGroundPreference) const
+TSharedPtr<OctreeNode> OctreeNode::MakeChild(const int& ChildIndex) const
 {
 	const float ChildHalfSize = HalfSize / 2.0f;
 	const FVector SizeVec = FVector(ChildHalfSize);
 
-	const bool IsFloatableBotttom = 1.5f * ChildHalfSize >= FloatAboveGroundPreference;
-	const bool IsFloatableTop = ChildHalfSize / 2.0f >= FloatAboveGroundPreference;
-
 	switch (ChildIndex)
 	{
-	case 0: return MakeShareable(new OctreeNode(Position - SizeVec, ChildHalfSize, IsFloatableBotttom));
+	case 0: return MakeShareable(new OctreeNode(Position - SizeVec, ChildHalfSize));
 	case 1: return MakeShareable(new OctreeNode(FVector(Position.X + SizeVec.X, Position.Y - SizeVec.Y, Position.Z - SizeVec.Z),
-	                                            ChildHalfSize, IsFloatableBotttom));
+	                                            ChildHalfSize));
 	case 2: return MakeShareable(new OctreeNode(FVector(Position.X + SizeVec.X, Position.Y + SizeVec.Y, Position.Z - SizeVec.Z),
-	                                            ChildHalfSize, IsFloatableBotttom));
+	                                            ChildHalfSize));
 	case 3: return MakeShareable(new OctreeNode(FVector(Position.X - SizeVec.X, Position.Y + SizeVec.Y, Position.Z - SizeVec.Z),
-	                                            ChildHalfSize, IsFloatableBotttom));
+	                                            ChildHalfSize));
 
 	case 4: return MakeShareable(new OctreeNode(FVector(Position.X - SizeVec.X, Position.Y - SizeVec.Y, Position.Z + SizeVec.Z),
-	                                            ChildHalfSize, IsFloatableTop));
+	                                            ChildHalfSize));
 	case 5: return MakeShareable(new OctreeNode(FVector(Position.X + SizeVec.X, Position.Y - SizeVec.Y, Position.Z + SizeVec.Z),
-	                                            ChildHalfSize, IsFloatableTop));
-	case 6: return MakeShareable(new OctreeNode(Position + SizeVec, ChildHalfSize, IsFloatableTop));
+	                                            ChildHalfSize));
+	case 6: return MakeShareable(new OctreeNode(Position + SizeVec, ChildHalfSize));
 	case 7: return MakeShareable(new OctreeNode(FVector(Position.X - SizeVec.X, Position.Y + SizeVec.Y, Position.Z + SizeVec.Z),
-	                                            ChildHalfSize, IsFloatableTop));
+	                                            ChildHalfSize));
 	default: return nullptr;
 	}
 }
-
-#pragma region OldStuff
-bool OctreeNode::DoesNodeIntersectWithBox(const TSharedPtr<OctreeNode>& Node, const FBox& Box)
-{
-	const FBox NodeBox = FBox(Node->Position - FVector(Node->HalfSize), Node->Position + FVector(Node->HalfSize));
-	return NodeBox.Intersect(Box);
-}
-
-
-TArray<int64> OctreeNode::GetFIndexData(FLargeMemoryReader& OctreeData, const int64& DataIndex)
-{
-	TArray<int64> ToReturn;
-
-	OctreeData.Seek(DataIndex);
-
-	float x, y, z, HalfSize;
-	uint8 ChildCount;
-	//int64 Index;
-
-	//OctreeData << Index;
-	OctreeData << x;
-	OctreeData << y;
-	OctreeData << z;
-	OctreeData << HalfSize;
-	OctreeData << ChildCount;
-
-	if (ChildCount > 0)
-	{
-		OctreeData << ToReturn;
-	}
-
-	return ToReturn;
-}
-
-TArray<FVector> OctreeNode::GetNeighborPositions(FLargeMemoryReader& OctreeData, const int64& DataIndex)
-{
-	TArray<FVector> ToReturn;
-
-	OctreeData.Seek(DataIndex);
-
-	float x, y, z, HalfSize;
-	uint8 ChildCount;
-	//int64 Index;
-
-	//OctreeData << Index;
-	OctreeData << x;
-	OctreeData << y;
-	OctreeData << z;
-	OctreeData << HalfSize;
-	OctreeData.SerializeBits(&ChildCount, 4);
-
-	if (ChildCount > 0)
-	{
-		OctreeData << ToReturn;
-	}
-
-	return ToReturn;
-}
-
-TSharedPtr<OctreeNode> OctreeNode::LoadSingleNode(FLargeMemoryReader& OctreeData, const int64 DataIndex) //, TArray<int64>& OutIndexData)
-{
-	OctreeData.Seek(DataIndex);
-	const TSharedPtr<OctreeNode> Node = MakeShareable(new OctreeNode());
-
-	float x, y, z;
-	uint8 ChildCount;
-
-	//OctreeData << Node->Index;
-	OctreeData << x;
-	OctreeData << y;
-	OctreeData << z;
-	OctreeData << Node->HalfSize;
-	Node->Position = FVector(x, y, z);
-
-	OctreeData.SerializeBits(&ChildCount, 4);
-
-	/*
-	if (ChildCount < 9) //There is no "0" child as I overrode it in the saving. So if it is less than 9, it has a child/ren.
-	{
-		OctreeData << OutIndexData;
-		Node->ChildrenOctreeNodes.SetNum(ChildCount);
-		Node->Occupied = true;
-		return Node;
-	}
-
-	if (ChildCount == 9)
-	{
-		Node->Occupied = true;
-	}
-	else if (ChildCount == 10)
-	{
-		Node->Floatable = true;
-	}
-
-	OutIndexData.Children.Empty();
-	*/
-
-	//OctreeData << ChildCount;
-
-	if (ChildCount > 0)
-	{
-		Node->ChildrenIndexes.SetNum(ChildCount);
-		OctreeData << Node->ChildrenIndexes;
-		Node->ChildrenOctreeNodes.SetNum(ChildCount);
-		Node->Occupied = true;
-	}
-	else
-	{
-		Node->ChildrenOctreeNodes.Empty();
-		Node->ChildrenIndexes.Empty();
-		OctreeData << Node->NeighborPositions;
-		OctreeData << Node->Floatable;
-		//OctreeData << Node->Occupied;
-		//Node->Occupied 
-	}
-
-	return Node;
-}
-
-void OctreeNode::SaveNode(FLargeMemoryWriter& Ar, FIndexData& IndexData, const TSharedPtr<OctreeNode>& Node, const bool& WithSeekValues)
-{
-	if (Node == nullptr)
-	{
-		return;
-	}
-
-	float x = Node->Position.X;
-	float y = Node->Position.Y;
-	float z = Node->Position.Z;
-	uint8 ChildCount = Node->ChildrenOctreeNodes.Num();
-
-	Node->Index = Ar.Tell();
-	//Ar << Node->Index;
-	Ar << x;
-	Ar << y;
-	Ar << z;
-	Ar << Node->HalfSize;
-
-	/*
-	if (ChildCount == 0)
-	{
-		if (Node->Occupied)
-		{
-			ChildCount = 9; //todo Look into this, how can it have 0 child and occupied? Should get pruned in GetEmptyNodes()
-		}
-		else if (Node->Floatable)
-		{
-			ChildCount = 10;
-		}
-		else ChildCount = 11;
-
-		Ar.SerializeBits(&ChildCount, 4);
-		return;
-	}
-
-	Ar.SerializeBits(&ChildCount, 4);
-
-	if (!WithSeekValues)
-	{
-		IndexData.Children.SetNum(ChildCount);
-		IndexData.LinkedChildren.SetNum(ChildCount);
-	}
-	
-	Ar << IndexData;
-
-	for (int i = 0; i < Node->ChildrenOctreeNodes.Num(); i++)
-	{
-		if (!WithSeekValues)
-		{
-			IndexData.Children[i] = Ar.Tell();
-			IndexData.LinkedChildren[i] = new FIndexData();
-		}
-		SaveNode(Ar, *IndexData.LinkedChildren[i], Node->ChildrenOctreeNodes[i], WithSeekValues);
-	}
-	*/
-
-	Ar.SerializeBits(&ChildCount, 4);
-
-	//Ar << ChildCount;
-
-	if (ChildCount > 0)
-	{
-		if (!WithSeekValues)
-		{
-			IndexData.Children.SetNum(ChildCount);
-			IndexData.LinkedChildren.SetNum(ChildCount);
-		}
-
-		Node->ChildrenIndexes = IndexData.Children;
-
-		if (Node->ChildrenIndexes.Num() < 0)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("ChildrenIndexes is less than 0"));
-		}
-
-		Ar << Node->ChildrenIndexes;
-
-
-		for (int i = 0; i < Node->ChildrenOctreeNodes.Num(); i++)
-		{
-			if (!WithSeekValues)
-			{
-				IndexData.LinkedChildren[i] = new FIndexData();
-			}
-
-			SaveNode(Ar, *IndexData.LinkedChildren[i], Node->ChildrenOctreeNodes[i], WithSeekValues);
-
-			if (!WithSeekValues)
-			{
-				IndexData.Children[i] = Node->ChildrenOctreeNodes[i]->Index;
-			}
-		}
-	}
-	else
-	{
-		Ar << Node->NeighborPositions;
-		Ar << Node->Floatable;
-		//Ar << Node->Occupied;
-	}
-}
-
-void OctreeNode::LoadAllNodes(FLargeMemoryReader& OctreeData, TSharedPtr<OctreeNode>& Node)
-{
-	if (!Node.IsValid())
-	{
-		Node = MakeShareable(new OctreeNode());
-	}
-
-	float x, y, z;
-	uint8 ChildCount;
-
-	//OctreeData << Node->Index;
-	OctreeData << x;
-	OctreeData << y;
-	OctreeData << z;
-	OctreeData << Node->HalfSize;
-	Node->Position = FVector(x, y, z);
-
-	OctreeData.SerializeBits(&ChildCount, 4);
-
-	//OctreeData << ChildCount;
-
-	if (ChildCount > 0)
-	{
-		OctreeData << Node->ChildrenIndexes;
-		Node->ChildrenOctreeNodes.SetNum(ChildCount);
-		for (auto& Child : Node->ChildrenOctreeNodes)
-		{
-			LoadAllNodes(OctreeData, Child);
-		}
-		Node->Occupied = true;
-	}
-	else
-	{
-		OctreeData << Node->NeighborPositions;
-		OctreeData << Node->Floatable;
-		//OctreeData << Node->Occupied;
-	}
-}
-
 
 bool OctreeNode::IsInsideNode(const FVector& Location) const
 {
@@ -582,197 +217,59 @@ bool OctreeNode::IsInsideNode(const FVector& Location) const
 		(Location.Z >= MinPoint.Z && Location.Z <= MaxPoint.Z);
 }
 
-void OctreeNode::DivideNode(const FBox& ActorBox, const float& MinSize, const float FloatAboveGroundPreference, const UWorld* World,
-                            const bool& DivideUsingFBox)
+void OctreeNode::DeleteOctreeNode(TSharedPtr<OctreeNode>& Node)
 {
-	/*
-	TArray<TSharedPtr<OctreeNode>> NodeList;
-
-	if (ChildrenOctreeNodes.IsEmpty())
+	// Traverse the octree from the root node to the leaf nodes
+	for (TSharedPtr<OctreeNode>& Child : Node->ChildrenOctreeNodes)
 	{
-		SetupChildrenBounds(FloatAboveGroundPreference);
-		Occupied = true;
-	}
-
-	if (!ChildrenOctreeNodes.IsEmpty())
-	{
-		for (const auto& Child : ChildrenOctreeNodes)
+		if (Child != nullptr)
 		{
-			NodeList.Add(Child);
+			// Recursively delete child nodes
+			DeleteOctreeNode(Child);
 		}
 	}
 
-	for (int i = 0; i < NodeList.Num(); i++)
+	//Is this redundant? Do I need to check for validity?
+	if (Node->PathfindingData.IsValid())
 	{
-		if (DivideUsingFBox)
+		Node->PathfindingData.Reset();
+	}
+
+	Node.Reset();
+}
+
+void OctreeNode::DeleteUnusedNodes(TSharedPtr<OctreeNode>& Node, const int& MemoryOptimizerTickThreshold)
+{
+	for (auto& Child : Node->ChildrenOctreeNodes)
+	{
+		if (!Child.IsValid()) continue;
+
+		if (Child->ChildrenOctreeNodes.IsEmpty())
 		{
-			//We only deem a node occupied if it needs no further division.
-			if (NodeList[i]->Occupied && NodeList[i]->ChildrenOctreeNodes.IsEmpty()) continue;
-
-			//Alongside checking size, if it doesn't intersect with Actor, or the complete opposite, fully contained within ActorBox, no need to divide
-			const FBox NodeBox = FBox(NodeList[i]->Position - FVector(NodeList[i]->HalfSize), NodeList[i]->Position + FVector(NodeList[i]->HalfSize));
-			const bool Intersects = NodeBox.Intersect(ActorBox);
-			const bool IsInside = ActorBox.IsInside(NodeBox);
-
-			if (NodeList[i]->HalfSize * 2 <= MinSize || !Intersects || IsInside)
+			if (Child->MemoryOptimizerTick < MemoryOptimizerTickThreshold)
 			{
-				if (Intersects || IsInside)
-				{
-					NodeList[i]->Occupied = true;
-				}
-				continue;
-			}
-		}
-		else
-		{
-			if (NodeList[i]->HalfSize * 2 <= MinSize)
-			{
-				if (BoxOverlap(World, NodeList[i]->Position, NodeList[i]->HalfSize))
-				{
-					NodeList[i]->Occupied = true;
-				}
-				continue;
-			}
-		}
-
-		if (NodeList[i]->ChildrenOctreeNodes.IsEmpty())
-		{
-			NodeList[i]->SetupChildrenBounds(FloatAboveGroundPreference);
-			NodeList[i]->Occupied = true; //If we have children, then we cannot use this node, therefore, it is "occupied".
-		}
-
-		const FVector Offset = FVector(NodeList[i]->ChildrenOctreeNodes[0]->HalfSize);
-		for (int j = 0; j < 8; j++)
-		{
-			if (DivideUsingFBox)
-			{
-				const FVector Center = NodeList[i]->ChildrenOctreeNodes[j]->Position;
-				if (FBox(Center - Offset, Center + Offset).Intersect(ActorBox))
-				{
-					NodeList.Add(NodeList[i]->ChildrenOctreeNodes[j]);
-				}
+				Child.Reset();
 			}
 			else
 			{
-				if (BoxOverlap(World, NodeList[i]->ChildrenOctreeNodes[j]->Position, NodeList[i]->ChildrenOctreeNodes[j]->HalfSize))
-				{
-					NodeList.Add(NodeList[i]->ChildrenOctreeNodes[j]);
-				}
-			}
-		}
-	}
-
-	*/
-
-	if (DivideUsingFBox)
-	{
-		if (Occupied && ChildrenOctreeNodes.IsEmpty()) return;
-
-		const FBox NodeBox = FBox(Position - FVector(HalfSize), Position + FVector(HalfSize));
-		const bool Intersects = NodeBox.Intersect(ActorBox);
-		const bool IsInside = ActorBox.IsInside(NodeBox);
-
-		if (HalfSize * 2 <= MinSize || !Intersects || IsInside)
-		{
-			if (Intersects || IsInside)
-			{
-				Occupied = true;
-			}
-			return;
-		}
-	}
-	else if (HalfSize * 2 <= MinSize)
-	{
-		if (BoxOverlap(World, Position, HalfSize))
-		{
-			Occupied = true;
-		}
-		return;
-	}
-
-	if (ChildrenOctreeNodes.IsEmpty())
-	{
-		SetupChildrenBounds(FloatAboveGroundPreference);
-		Occupied = true;
-	}
-
-	const FVector Offset = FVector(HalfSize / 2.0f);
-	for (int j = 0; j < 8; j++)
-	{
-		const FVector Center = ChildrenOctreeNodes[j]->Position;
-		if (DivideUsingFBox)
-		{
-			if (FBox(Center - Offset, Center + Offset).Intersect(ActorBox))
-			{
-				ChildrenOctreeNodes[j]->DivideNode(ActorBox, MinSize, FloatAboveGroundPreference, World, DivideUsingFBox);
+				Child->MemoryOptimizerTick = 0;
+				Node->NodeIsInUse = true;
 			}
 		}
 		else
 		{
-			if (BoxOverlap(World, Center, ChildrenOctreeNodes[j]->HalfSize))
-			{
-				ChildrenOctreeNodes[j]->DivideNode(ActorBox, MinSize, FloatAboveGroundPreference, World, DivideUsingFBox);
-			}
+			DeleteUnusedNodes(Child, MemoryOptimizerTickThreshold);
 		}
 	}
+
+	for (const auto& Child : Node->ChildrenOctreeNodes)
+	{
+		if (Child.IsValid())
+		{
+			Node->NodeIsInUse = true;
+			break;
+		}
+	}
+
+	if (!Node->NodeIsInUse) Node.Reset();
 }
-
-void OctreeNode::SetupChildrenBounds(const float FloatAboveGroundPreference)
-{
-	const float ChildHalfSize = HalfSize / 2.0f;
-	const FVector SizeVec = FVector(ChildHalfSize);
-
-	const bool IsFloatableBotttom = 1.5f * ChildHalfSize >= FloatAboveGroundPreference;
-	const bool IsFloatableTop = ChildHalfSize / 2.0f >= FloatAboveGroundPreference;
-
-	ChildrenOctreeNodes.SetNum(8);
-
-	ChildrenOctreeNodes[0] = MakeShareable(new OctreeNode(Position - SizeVec, ChildHalfSize, IsFloatableBotttom));
-	ChildrenOctreeNodes[1] = MakeShareable(new OctreeNode(FVector(Position.X + SizeVec.X, Position.Y - SizeVec.Y, Position.Z - SizeVec.Z),
-	                                                      ChildHalfSize, IsFloatableBotttom));
-	ChildrenOctreeNodes[2] = MakeShareable(new OctreeNode(FVector(Position.X + SizeVec.X, Position.Y + SizeVec.Y, Position.Z - SizeVec.Z),
-	                                                      ChildHalfSize, IsFloatableBotttom));
-	ChildrenOctreeNodes[3] = MakeShareable(new OctreeNode(FVector(Position.X - SizeVec.X, Position.Y + SizeVec.Y, Position.Z - SizeVec.Z),
-	                                                      ChildHalfSize, IsFloatableBotttom));
-
-	ChildrenOctreeNodes[4] = MakeShareable(new OctreeNode(FVector(Position.X - SizeVec.X, Position.Y - SizeVec.Y, Position.Z + SizeVec.Z),
-	                                                      ChildHalfSize, IsFloatableTop));
-	ChildrenOctreeNodes[5] = MakeShareable(new OctreeNode(FVector(Position.X + SizeVec.X, Position.Y - SizeVec.Y, Position.Z + SizeVec.Z),
-	                                                      ChildHalfSize, IsFloatableTop));
-	ChildrenOctreeNodes[6] = MakeShareable(new OctreeNode(Position + SizeVec, ChildHalfSize, IsFloatableTop));
-	ChildrenOctreeNodes[7] = MakeShareable(new OctreeNode(FVector(Position.X - SizeVec.X, Position.Y + SizeVec.Y, Position.Z + SizeVec.Z),
-	                                                      ChildHalfSize, IsFloatableTop));
-}
-
-bool OctreeNode::BoxOverlap(const UWorld* World, const FVector& Center, const float& Extent)
-{
-	FCollisionObjectQueryParams ObjectQueryParams;
-	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldDynamic);
-	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic);
-
-	FCollisionQueryParams QueryParams;
-	QueryParams.bTraceComplex = false;
-
-	TArray<FOverlapResult> OverlapResults;
-	return World->OverlapMultiByObjectType(
-		OverlapResults,
-		Center,
-		FQuat::Identity,
-		ObjectQueryParams,
-		FCollisionShape::MakeBox(FVector(Extent)),
-		QueryParams
-	);
-}
-
-bool OctreeNode::DoNodesIntersect(const TSharedPtr<OctreeNode>& Node1, const TSharedPtr<OctreeNode>& Node2)
-{
-	// Create bounding boxes for each node
-	const FBox Box1 = FBox(Node1->Position - FVector(Node1->HalfSize), Node1->Position + FVector(Node1->HalfSize));
-	const FBox Box2 = FBox(Node2->Position - FVector(Node2->HalfSize), Node2->Position + FVector(Node2->HalfSize));
-
-	// Check if the boxes intersect
-	return Box1.Intersect(Box2);
-}
-
-
-#pragma endregion

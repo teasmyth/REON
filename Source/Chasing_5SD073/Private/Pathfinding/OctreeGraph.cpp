@@ -18,163 +18,49 @@ OctreeGraph::~OctreeGraph()
 }
 
 TArray<double> OctreeGraph::TimeTaken;
-TArray<int64> OctreeGraph::RootNodeIndexData = {};
-TArray<int> OctreeGraph::PathLength = {};
-float OctreeGraph::AvgPathLength = FLT_MAX;
-int OctreeGraph::NudgeCounter = 0;
+
+//This will not work in multiple pathfinding agent situations. It is a quick fix for the current situation.
+TWeakPtr<OctreeNode> OctreeGraph::PreviousValidStart = nullptr;
+TWeakPtr<OctreeNode> OctreeGraph::PreviousValidEnd = nullptr;
 
 
 //Can do weighted H to increase performance. Higher numbers should yield faster path finding but might sacrifice accuracy.
 static float ExtraHWeight = 3.0f;
 
-bool OctreeGraph::OctreeAStar(const bool& Debug, FLargeMemoryReader& OctreeData, const FVector& StartLocation, const FVector& EndLocation,
-                              const TSharedPtr<OctreeNode>& RootNode,
-                              TArray<FVector>& OutPathList)
-{
-	const double StartTime = FPlatformTime::Seconds();
-
-	const TSharedPtr<OctreeNode> Start = FindAndLoadNode(OctreeData, StartLocation, RootNode);
-	//check root node and make sure child parent relationship is correct.
-	const TSharedPtr<OctreeNode> End = FindAndLoadNode(OctreeData, EndLocation, RootNode);
-
-	if (!Start.IsValid() || !End.IsValid())
-	{
-		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Start or End is nullptr."));
-		return false;
-	}
-
-
-	Start->PathfindingData = MakeShareable(new FPathfindingNode());
-	End->PathfindingData = MakeShareable(new FPathfindingNode());
-
-	std::priority_queue<TSharedPtr<OctreeNode>, std::vector<TSharedPtr<OctreeNode>>, FPathfindingNodeCompare> OpenQueue;
-
-	TSet<TSharedPtr<OctreeNode>> OpenSet; //I use it to keep track of all the nodes used to reset them and also check which ones I checked before.
-	TSet<TSharedPtr<OctreeNode>> ClosedSet;
-
-	Start->PathfindingData->G = 0;
-	Start->PathfindingData->H = ManhattanDistance(Start, End) * ExtraHWeight;
-	Start->PathfindingData->F = Start->PathfindingData->H;
-
-	OpenQueue.push(Start);
-	OpenSet.Add(Start);
-
-	while (!OpenQueue.empty()) // && OpenQueue.size() < AvgPathLength * 50)
-	{
-		TSharedPtr<OctreeNode> CurrentNode = OpenQueue.top();
-
-		if (CurrentNode == nullptr) return false;
-
-		if (CurrentNode == End)
-		{
-			ReconstructPath(Start, End, OutPathList);
-			OutPathList.Add(EndLocation);
-
-			for (const auto Node : OpenSet)
-			{
-				Node->PathfindingData.Reset();
-			}
-
-			PathLength.Add(OpenQueue.size());
-			AvgPathLength = 0;
-			for (const auto Length : PathLength)
-			{
-				AvgPathLength += Length;
-			}
-			AvgPathLength /= PathLength.Num();
-
-			if (Debug)
-			{
-				TimeTaken.Add(FPlatformTime::Seconds() - StartTime);
-
-				float Total = 0;
-				for (const auto Time : TimeTaken)
-				{
-					Total += Time;
-				}
-
-				UE_LOG(LogTemp, Warning, TEXT("Path found in avg. in %f seconds"), Total / (float)TimeTaken.Num());
-			}
-			return true;
-		}
-
-		OpenQueue.pop();
-		ClosedSet.Add(CurrentNode);
-
-		if (!GetNeighbors(OctreeData, CurrentNode, RootNode)) continue;
-
-		//if (CurrentNode->Neighbors.IsEmpty()) continue;
-
-		for (const auto& NeighborWeakPtr : CurrentNode->Neighbors)
-		{
-			TSharedPtr<OctreeNode> NeighborPtr = NeighborWeakPtr.Pin();
-
-			if (!NeighborPtr.IsValid() || ClosedSet.Contains(NeighborPtr)) continue;
-
-			TSharedPtr<FPathfindingNode>& NeighborData = NeighborPtr->PathfindingData;
-
-			if (!NeighborData.IsValid())
-			{
-				NeighborData = MakeShareable(new FPathfindingNode());
-			}
-
-			float GWeight = 1;
-
-			if (NeighborPtr->Floatable)
-			{
-				//GWeight = 10;
-			}
-
-			const float TentativeG = CurrentNode->PathfindingData->G + ManhattanDistance(CurrentNode, NeighborPtr) * GWeight;
-
-			if (NeighborData->G <= TentativeG) continue;
-
-			NeighborData->G = TentativeG;
-			NeighborData->H = ManhattanDistance(NeighborPtr, End) * ExtraHWeight; // Can do weighted to increase performance
-			NeighborData->F = NeighborData->G + NeighborData->H;
-
-			NeighborData->CameFrom = CurrentNode.ToWeakPtr();
-
-			if (!OpenSet.Contains(NeighborPtr))
-			{
-				OpenSet.Add(NeighborPtr);
-				OpenQueue.push(NeighborPtr);
-			}
-		}
-	}
-	for (const auto& Node : OpenSet)
-	{
-		Node->PathfindingData.Reset();
-	}
-	AvgPathLength *= 1.01f;
-	//if (Debug)
-	UE_LOG(LogTemp, Error, TEXT("Couldn't find path"));
-	UE_LOG(LogTemp, Error, TEXT("Couldn't find path"));
-	return false;
-}
 
 bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug, const TArray<FBox>& ActorBoxes, const float& MinSize,
-                                  const float FloatAboveGroundPreference,
                                   const FVector& StartLocation, const FVector& EndLocation, const TSharedPtr<OctreeNode>& RootNode,
                                   TArray<FVector>& OutPathList)
 {
 	const double StartTime = FPlatformTime::Seconds();
 
-	bool ResetStartOccupied = false;
-	bool ResetEndOccupied = false;
 
-	const TSharedPtr<OctreeNode> Start = RootNode->LazyDivideAndFindNode(ActorBoxes, MinSize, FloatAboveGroundPreference, StartLocation, false,
-	                                                                     ResetStartOccupied);
-	const TSharedPtr<OctreeNode> End = RootNode->LazyDivideAndFindNode(ActorBoxes, MinSize, FloatAboveGroundPreference, EndLocation, false,
-	                                                                   ResetEndOccupied);
+	TSharedPtr<OctreeNode> Start = RootNode->LazyDivideAndFindNode(ThreadIsPaused, ActorBoxes, MinSize, StartLocation, false);
+	TSharedPtr<OctreeNode> End = RootNode->LazyDivideAndFindNode(ThreadIsPaused, ActorBoxes, MinSize, EndLocation, false);
 
 
 	if (Start == nullptr || End == nullptr)
 	{
-		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Start or End is out of bounds."));
-		return false;
-	}
+		/*
+		if (Start == nullptr)
+		{
+			Start = PreviousValidStart.Pin();
+		}
+		else PreviousValidStart = Start.ToWeakPtr();
 
+		if (End == nullptr)
+		{
+			End = PreviousValidEnd.Pin();
+		}
+		else PreviousValidEnd = End.ToWeakPtr();
+		*/
+
+		if (Start == nullptr || End == nullptr)
+		{
+			//if (Debug) UE_LOG(LogTemp, Warning, TEXT("Start or End is out of bounds."));
+			return false;
+		}
+	}
 
 	Start->PathfindingData = MakeShareable(new FPathfindingNode());
 	End->PathfindingData = MakeShareable(new FPathfindingNode());
@@ -189,6 +75,8 @@ bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug,
 
 	OpenQueue.push(Start);
 	OpenSet.Add(Start);
+
+	//PathfindingMemoryTick++;
 
 	while (!OpenQueue.empty() && !ThreadIsPaused)
 	{
@@ -201,10 +89,30 @@ bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug,
 			ReconstructPath(Start, End, OutPathList);
 			OutPathList.Add(EndLocation);
 
-			for (const auto Node : OpenSet)
+			for (const auto& Node : OpenSet)
 			{
-				Node->PathfindingData.Reset();
+				if (Node.IsValid())
+				{
+					Node->PathfindingData->G = FLT_MAX;
+					Node->PathfindingData->H = FLT_MAX;
+					Node->PathfindingData->F = FLT_MAX;
+					Node->PathfindingData->CameFrom.Reset();
+				}
 			}
+
+			/*
+			if (PathfindingMemoryTick > MemoryCleanupFrequency)
+			{
+				//Given I use root node thousands of times, making it a non const reference is not a good idea.
+				//So I will just loop through its children to clean up
+				//Because I might reset the pointer of the passed node, I cant pass in a const reference to CleanupUnusedNodes.
+				for (auto& Child : RootNode->ChildrenOctreeNodes)
+				{
+					CleanupUnusedNodes(Child, OpenSet);
+				}
+				PathfindingMemoryTick = 0;
+			}
+			*/
 
 			if (Debug)
 			{
@@ -218,36 +126,31 @@ bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug,
 
 				UE_LOG(LogTemp, Warning, TEXT("Path found in avg. in %f seconds"), Total / (float)TimeTaken.Num());
 			}
+
+			
+
 			return true;
 		}
 
+		//CurrentNode->MemoryOptimizerTick++;
 		OpenQueue.pop();
 		ClosedSet.Add(CurrentNode);
 
-		if (OctreeNode::GetNeighbors(RootNode, CurrentNode, ActorBoxes, MinSize, FloatAboveGroundPreference)) continue;
+		//Return false there are no neighbors. 
+		if (!GetNeighbors(ThreadIsPaused, RootNode, CurrentNode, ActorBoxes, MinSize)) continue;
 
 
-		for (const auto& NeighborWeakPtr : CurrentNode->Neighbors)
+		for (const auto& NeighborWeakPtr : CurrentNode->PathfindingData->Neighbors)
 		{
+			if (ThreadIsPaused) return false;
+
 			TSharedPtr<OctreeNode> NeighborPtr = NeighborWeakPtr.Pin();
 
 			if (!NeighborPtr.IsValid() || ClosedSet.Contains(NeighborPtr)) continue;
 
-			TSharedPtr<FPathfindingNode>& NeighborData = NeighborPtr->PathfindingData;
+			const TSharedPtr<FPathfindingNode>& NeighborData = NeighborPtr->PathfindingData;
 
-			if (!NeighborData.IsValid())
-			{
-				NeighborData = MakeShareable(new FPathfindingNode());
-			}
-
-			float GWeight = 1;
-
-			if (NeighborPtr->Floatable)
-			{
-				//GWeight = 10;
-			}
-
-			const float TentativeG = CurrentNode->PathfindingData->G + ManhattanDistance(CurrentNode, NeighborPtr) * GWeight;
+			const float TentativeG = CurrentNode->PathfindingData->G + ManhattanDistance(CurrentNode, NeighborPtr);
 
 			if (NeighborData->G <= TentativeG) continue;
 
@@ -266,12 +169,75 @@ bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug,
 	}
 	for (const auto& Node : OpenSet)
 	{
-		if (Node.IsValid()) Node->PathfindingData.Reset();
+		if (Node.IsValid())
+		{
+			Node->PathfindingData->G = FLT_MAX;
+			Node->PathfindingData->H = FLT_MAX;
+			Node->PathfindingData->F = FLT_MAX;
+			Node->PathfindingData->CameFrom.Reset();
+		}
 	}
 
 	if (Debug) UE_LOG(LogTemp, Error, TEXT("Couldn't find path"));
 	return false;
 }
+
+bool OctreeGraph::GetNeighbors(const bool& ThreadIsPaused, const TSharedPtr<OctreeNode>& RootNode, const TSharedPtr<OctreeNode>& CurrentNode,
+                               const TArray<FBox>& ActorBoxes, const float& MinSize)
+{
+	//Cleaning up the neighbors list from invalid pointers.
+	TSet<TWeakPtr<OctreeNode>>& Neighbors = CurrentNode->PathfindingData->Neighbors;
+
+	if (Neighbors.Contains(nullptr))
+	{
+		TSet<TWeakPtr<OctreeNode>> ValidNeighbors;
+		for (const auto& Neighbor : Neighbors)
+		{
+			//!Occupied is explained at the bottom of LazyDivideAndFindNode() in OctreeNode.cpp.
+			if (Neighbor.IsValid() && !Neighbor.Pin()->Occupied)
+			{
+				ValidNeighbors.Add(Neighbor);
+			}
+		}
+		Neighbors = ValidNeighbors;
+	}
+
+	int NeighborCount = 0;
+	TArray<TArray<FVector>> PotentialNeighborPositions;
+	for (int i = 0; i < 6; i++)
+	{
+		PotentialNeighborPositions.Add(CalculatePositions(CurrentNode, i, MinSize));
+		NeighborCount += PotentialNeighborPositions[i].Num();
+	}
+
+	//If we already have all the neighbors, no need to continue. Else, we still made useful calculation for the neighbors.
+	if (Neighbors.Num() == NeighborCount)
+	{
+		return true;
+	}
+
+	for (int i = 0; i < 6; i++)
+	{
+		for (const auto& Pos : PotentialNeighborPositions[i])
+		{
+			if (ThreadIsPaused) return false;
+
+			const TSharedPtr<OctreeNode> Node = RootNode->LazyDivideAndFindNode(ThreadIsPaused, ActorBoxes, MinSize, Pos, true);
+			if (Node.IsValid() && !Neighbors.Contains(Node.ToWeakPtr()))
+			{
+				Neighbors.Add(Node.ToWeakPtr());
+				if (!Node->PathfindingData.IsValid())
+				{
+					Node->PathfindingData = MakeShareable(new FPathfindingNode());
+				}
+				Node->PathfindingData->Neighbors.Add(CurrentNode.ToWeakPtr());
+			}
+		}
+	}
+
+	return !Neighbors.IsEmpty();
+}
+
 
 void OctreeGraph::ReconstructPath(const TSharedPtr<OctreeNode>& Start, const TSharedPtr<OctreeNode>& End,
                                   TArray<FVector>& OutPathList)
@@ -323,95 +289,6 @@ void OctreeGraph::ReconstructPath(const TSharedPtr<OctreeNode>& Start, const TSh
 	}
 }
 
-void OctreeGraph::ConnectNodes(const bool& Loading, const TSharedPtr<OctreeNode>& RootNode, const TSharedPtr<OctreeNode>& Node)
-{
-	/*
-	TArray<TSharedPtr<OctreeNode>> NodeList;
-	NodeList.Add(RootNode);
-
-	for (int i = 0; i < NodeList.Num(); i++)
-	{
-		if (!Loading) break;
-
-		if (!NodeList[i]->Occupied)
-		{
-			const FVector Center = NodeList[i]->Position;
-			const float HalfSize = NodeList[i]->HalfSize * 1.01f; //little bit of padding to touch neighboring node.
-
-			for (const auto& Direction : Directions)
-			{
-				const FVector NeighborLocation = Center + Direction * HalfSize;
-				const TSharedPtr<OctreeNode> PotentialNeighbor = FindGraphNode(NeighborLocation, RootNode);
-				//This already checks whether it is occupied or not.
-
-				//Physically speaking, any node just outside the border of the current node is a neighbor. Not using DoNodeIntersect sacrifices minimal amount of accuracy.
-				//In exchange for faster neighbor building.
-				if (PotentialNeighbor != nullptr  && OctreeNode::DoNodesIntersect(NodeList[i], PotentialNeighbor) && !NodeList[i]->Neighbors.
-					Contains(PotentialNeighbor))
-				{
-					NodeList[i]->Neighbors.Add(PotentialNeighbor);
-					NodeList[i]->NeighborPositions.Add(PotentialNeighbor->Position);
-					PotentialNeighbor->Neighbors.Add(NodeList[i]);
-					PotentialNeighbor->NeighborPositions.Add(Center);
-				}
-			}
-		}
-
-		for (const auto& Child : NodeList[i]->ChildrenOctreeNodes)
-		{
-			NodeList.Add(Child);
-		}
-	}
-*/
-
-	if (!Loading) return;
-
-	//While in my tests, the loop is faster,it requires a TArray to keep track of the nodes, which is a waste of resource.
-	//It's not a problem for small octrees, but for large ones, it is a problem.
-	//In those cases, TArray has millions of elements, which requires extra memory, which forces the machine to allocate even more memory than needed.
-	//And if that exceeds the computers memory, it will make the process super slow as the computer needs to 'steal' memory from the drives temporarily.
-	if (!Node->Occupied)
-	{
-		const FVector Center = Node->Position;
-		const float HalfSize = Node->HalfSize * 1.01f; //little bit of padding to touch neighboring node.
-		for (const auto& Direction : Directions)
-		{
-			const TSharedPtr<OctreeNode> PotentialNeighbor = FindGraphNode(Center + Direction * HalfSize, RootNode);
-			if (PotentialNeighbor.IsValid() && !PotentialNeighbor->Occupied && !Node->Neighbors.Contains(PotentialNeighbor))
-			{
-				Node->Neighbors.Add(PotentialNeighbor.ToWeakPtr());
-				Node->NeighborPositions.Add(PotentialNeighbor->Position);
-				PotentialNeighbor->Neighbors.Add(Node.ToWeakPtr());
-				PotentialNeighbor->NeighborPositions.Add(Center);
-			}
-		}
-	}
-
-	for (const auto& Child : Node->ChildrenOctreeNodes)
-	{
-		ConnectNodes(Loading, RootNode, Child);
-	}
-}
-
-bool OctreeGraph::GetNeighbors(FLargeMemoryReader& OctreeData, const TSharedPtr<OctreeNode>& Node, const TSharedPtr<OctreeNode>& RootNode)
-{
-	if (Node->Neighbors.Num() == Node->NeighborPositions.Num())
-	{
-		return true;
-	}
-
-	for (const auto& NeighborCenter : Node->NeighborPositions)
-	{
-		const TWeakPtr<OctreeNode> PotentialNeighbor = FindAndLoadNode(OctreeData, NeighborCenter, RootNode).ToWeakPtr();
-		if (PotentialNeighbor.IsValid() && !Node->Neighbors.Contains(PotentialNeighbor))
-		{
-			Node->Neighbors.Add(PotentialNeighbor);
-			PotentialNeighbor.Pin()->Neighbors.Add(Node.ToWeakPtr());
-		}
-	}
-
-	return !Node->Neighbors.IsEmpty();
-}
 
 FVector OctreeGraph::DirectionTowardsSharedFaceFromSmallerNode(const TSharedPtr<OctreeNode>& Node1, const TSharedPtr<OctreeNode>& Node2)
 {
@@ -471,107 +348,85 @@ float OctreeGraph::ManhattanDistance(const TSharedPtr<OctreeNode>& From, const T
 	return Dx + Dy + Dz;
 }
 
-
-TSharedPtr<OctreeNode> OctreeGraph::FindGraphNode(const FVector& Location, const TSharedPtr<OctreeNode>& RootNode)
+TArray<FVector> OctreeGraph::CalculatePositions(const TSharedPtr<OctreeNode>& CurrentNode, const int& Face, const float& MinNodeSize)
 {
-	TSharedPtr<OctreeNode> CurrentNode = RootNode;
+	TArray<FVector> PotentialNeighborPositions;
 
-	if (!CurrentNode.IsValid())
+	// Calculate the start position of the face
+	const FVector StartPosition = CurrentNode->Position + FVector(DIRECTIONS[Face]) * CurrentNode->HalfSize * 1.01f;
+
+	// Calculate the number of steps in each direction
+	const int Steps = FMath::RoundToInt(CurrentNode->HalfSize * 2.0f / MinNodeSize);
+	//Because if it is 1.9999 due to float error, it would be rounded to 1 by default.
+
+	FVector Axis1, Axis2;
+	if (DIRECTIONS[Face] == FIntVector(1, 0, 0) || DIRECTIONS[Face] == FIntVector(-1, 0, 0))
 	{
-		return nullptr;
+		Axis1 = FVector(0, 1, 0);
+		Axis2 = FVector(0, 0, 1);
+	}
+	else if (DIRECTIONS[Face] == FIntVector(0, 1, 0) || DIRECTIONS[Face] == FIntVector(0, -1, 0))
+	{
+		Axis1 = FVector(1, 0, 0);
+		Axis2 = FVector(0, 0, 1);
+	}
+	else //if (DIRECTIONS[Face].Equals(FVector(0, 0, 1)) || DIRECTIONS[Face].Equals(FVector(0, 0, -1)))
+	{
+		Axis1 = FVector(1, 0, 0);
+		Axis2 = FVector(0, 1, 0);
 	}
 
-	bool FoundNode = true;
-
-	//If the children empty triggers first than found node, then we actually found the node.
-	while (CurrentNode.IsValid() && !CurrentNode->ChildrenOctreeNodes.IsEmpty() && FoundNode)
+	if (Steps == 1) //Meaning it is a minimum-sized node.
 	{
-		for (const auto& Node : CurrentNode->ChildrenOctreeNodes)
-		{
-			if (Node.IsValid() && Node->IsInsideNode(Location))
-			{
-				CurrentNode = Node;
-				FoundNode = true;
-				break;
-			}
+		PotentialNeighborPositions.Add(StartPosition);
+		return PotentialNeighborPositions;
+	}
 
-			FoundNode = false;
+	// Iterate over the face in steps of the size of the minimum node
+	for (int i = -Steps / 2; i <= Steps / 2; i++) //Because of the octree structure, steps will always be a multiple of 2. Int is safe.
+	{
+		if (i == 0) continue;
+
+		for (int j = -Steps / 2; j <= Steps / 2; j++)
+		{
+			if (j == 0) continue;
+
+			// Calculate the position
+			const FVector PotentialNeighborPosition = StartPosition + Axis1 * i * MinNodeSize + Axis2 * j * MinNodeSize;
+
+			// Add the position to the list
+			PotentialNeighborPositions.Add(PotentialNeighborPosition);
 		}
 	}
 
-	//Because of the parent-child relationship, sometimes there will be nodes that may have child but also occupied at the same.
-	//Occupied means that it intersects, but it will have children that may not intersect.
-	//They will be filtered out when adding them to NodeBounds but cannot delete them as it would delete their children who are useful.
-	if (CurrentNode.IsValid() && !CurrentNode->Occupied && FoundNode)
-	{
-		return CurrentNode;
-	}
-
-	return nullptr;
+	return PotentialNeighborPositions;
 }
 
-
-TSharedPtr<OctreeNode> OctreeGraph::FindAndLoadNode(FLargeMemoryReader& OctreeData, const FVector& Location, const TSharedPtr<OctreeNode>& RootNode)
+void OctreeGraph::CleanupUnusedNodes(TSharedPtr<OctreeNode>& Node, const TSet<TSharedPtr<OctreeNode>>& OpenSet)
 {
-	TSharedPtr<OctreeNode> CurrentNode = RootNode;
-	TArray<int64> ChildrenIndices = RootNodeIndexData;
+	bool NodeIsInUse = false;
 
-	bool FoundNode = true;
-
-	//TODO handle the case where the node is not found. Delete unused stuff. Tracker id.
-	//add a new variable, tick, add one tick to each node as i traverse down, every 60 ticks, delete nodes that are under a minimum like 20
-	//of course do it in a different function after every pathfinding is done.
-	//no need for tracking id, just delete the nodes that are not used.
-	while (CurrentNode.IsValid() && !CurrentNode->ChildrenOctreeNodes.IsEmpty() && FoundNode)
+	for (auto& Child : Node->ChildrenOctreeNodes)
 	{
-		for (int i = 0; i < CurrentNode->ChildrenOctreeNodes.Num(); i++)
+		if (!Child.IsValid()) continue;
+
+		if (Child->ChildrenOctreeNodes.IsEmpty())
 		{
-			if (!CurrentNode->ChildrenOctreeNodes[i].IsValid())
+			if (Child->MemoryOptimizerTick < MemoryOptimizerTickThreshold && !OpenSet.Contains(Child))
 			{
-				CurrentNode->ChildrenOctreeNodes[i] = OctreeNode::LoadSingleNode(OctreeData, ChildrenIndices[i]);
+				Child.Reset();
 			}
-
-			if (CurrentNode->ChildrenOctreeNodes[i]->IsInsideNode(Location))
+			else
 			{
-				ChildrenIndices = CurrentNode->ChildrenIndexes;
-				CurrentNode = CurrentNode->ChildrenOctreeNodes[i];
-				FoundNode = true;
-				break;
+				Child->MemoryOptimizerTick = 0;
+				NodeIsInUse = true;
 			}
-
-			//Resetting could be waste of resource, let them chill for the time being.
-			//CurrentNode->ChildrenOctreeNodes[i].Reset();
-			FoundNode = false;
 		}
-
-		//If we are here, then it is probably very close to a valid node.
-		//In some cases, we might happen to be inside a node that is occupied, but it's children are not and the location of where we are
-		//or there is no node, due to pruning. In that case, we should pick the closest node that is unoccupied.
-		//This happens due to path-smoothing, as we dont follow a perfect path produced by the pathfinding.
-		//In my opinion, it is better to be inside a node that is occupied than not being inside a node at all.
-		//So, in this case, It is better to pick the closest node that is unoccupied, rather than return a null as chances are, we are in a valid
-		//game world space, just not valid by Octree standards.
-		if (!FoundNode)
+		else
 		{
-			TSharedPtr<OctreeNode> ClosestNode = CurrentNode->ChildrenOctreeNodes[0];
-
-			for (int i = 0; i < CurrentNode->ChildrenOctreeNodes.Num(); i++)
-			{
-				if (FVector::DistSquared(ClosestNode->Position, Location) > FVector::DistSquared(
-					CurrentNode->ChildrenOctreeNodes[i]->Position, Location))
-				{
-					ClosestNode = CurrentNode->ChildrenOctreeNodes[i];
-				}
-			}
-
-			CurrentNode = ClosestNode;
+			CleanupUnusedNodes(Child, OpenSet);
 		}
 	}
 
-	if (CurrentNode.IsValid()) // && !CurrentNode->Occupied && FoundNode)
-	{
-		return CurrentNode;
-	}
-
-	return nullptr;
+	if (!NodeIsInUse) Node.Reset();
 }

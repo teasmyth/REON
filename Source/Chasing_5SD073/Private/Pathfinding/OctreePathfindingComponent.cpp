@@ -4,7 +4,6 @@
 #include "Pathfinding/OctreePathfindingComponent.h"
 
 #include "GameFramework/FloatingPawnMovement.h"
-#include "Pathfinding/OctreeGraph.h"
 
 // Sets default values for this component's properties
 UOctreePathfindingComponent::UOctreePathfindingComponent()
@@ -34,10 +33,76 @@ void UOctreePathfindingComponent::BeginPlay()
 void UOctreePathfindingComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
-	ForceStopPathfinding();
+	if (PathfindingRunnable.IsValid())
+	{
+		PathfindingRunnable.Pin()->Stop();
+	}
 }
 
-void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* TargetActor, const FVector& TargetLocation, FVector& OutNextDirection)
+void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(FVector& TargetLocation, FVector& OutNextDirection)
+{
+	GetAStarPathAsync(nullptr, TargetLocation, OutNextDirection);
+}
+
+
+void UOctreePathfindingComponent::GetAStarPathAsyncToTarget(const AActor* TargetActor, FVector& OutNextDirection)
+{
+	FVector TargetLocation = TargetActor->GetActorLocation();
+	GetAStarPathAsync(TargetActor, TargetLocation, OutNextDirection);
+}
+
+void UOctreePathfindingComponent::ForceStopPathfinding()
+{
+	StopPathfinding = true;
+	if (PathfindingRunnable.IsValid())
+	{
+		PathfindingRunnable.Pin()->PauseThread();
+	}
+}
+
+void UOctreePathfindingComponent::RestartPathfinding()
+{
+	if (PathfindingRunnable.IsValid())
+	{
+		PathfindingRunnable.Pin()->ContinueThread();
+	}
+	StopPathfinding = false;
+}
+
+FVector UOctreePathfindingComponent::PathSmoothing(const FVector& Start, const AActor* TargetActor, const TArray<FVector>& Path) const
+{
+	if (Path.IsEmpty())
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (Path.Num() < 3)
+	{
+		return Path[0];
+	}
+
+	//Path smoothing. If the agent can skip a path point because it wouldn't collide, it should (skip). This ensures a more natural looking movement.
+	FHitResult Hit;
+	FCollisionShape ColShape = FCollisionShape::MakeSphere(AgentMeshHalfSize);
+	FCollisionQueryParams TraceParams;
+	TraceParams.AddIgnoredActor(GetOwner());
+	if (TargetActor != nullptr) TraceParams.AddIgnoredActor(TargetActor);
+
+	for (int i = 1; i < Path.Num(); i++)
+	{
+		if (!GetWorld()->SweepSingleByChannel(Hit, Start, Path[i], FQuat::Identity, CollisionChannel, ColShape, TraceParams))
+		{
+			continue;
+		}
+
+		return Path[i - 1];
+	}
+
+	//If we are here then there was no path smoothing necessary.
+	return Path.Last();
+}
+
+void UOctreePathfindingComponent::GetAStarPathAsync(const AActor* TargetActor, FVector& TargetLocation, FVector& OutNextDirection)
 {
 	if (StopPathfinding)
 	{
@@ -53,7 +118,13 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 		return;
 	}
 
-	const FVector Start = GetOwner()->GetActorLocation();
+	const FVector Start = GetOwner()->GetActorLocation(); 
+
+	if (FVector::DistSquared(Start, TargetLocation) - FMath::Square(PlayerHeightAimOffset) > FMath::Square(StopFloatingAtDistance))
+	{
+		TargetLocation += FVector(0, 0, PlayerHeightAimOffset);
+	}
+
 	const float Distance = FVector::Dist(Start, TargetLocation);
 	constexpr float MinDistanceForPathfinding = 20.0f; //Not meaningful enough to be a public variable, what do I do.
 
@@ -64,6 +135,7 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 		return;
 	}
 
+	///Unrelated to pathfinding. It's a game feature where the entity speeds up when it's far from the target.
 	if (Distance > MaxDistanceToTarget)
 	{
 		MovementComponent->MaxSpeed = (1 + (Distance / MaxDistanceToTarget) * AdaptiveSpeedModifier) * OriginalSpeed;
@@ -86,7 +158,12 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 	//If we are here, then we are about to start a new  pathfinding thread. This means that we can smooth out the previous one.
 	if (PathfindingRunnable.Pin()->GetFoundPath())
 	{
-		PreviousNextLocation = CalculateNextPathLocation(Start, TargetActor, PathfindingRunnable.Pin()->GetOutQueue());
+		PreviousNextLocation = PathSmoothing(Start, TargetActor, PathfindingRunnable.Pin()->GetOutQueue());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No start or end position found. Using target - current position vector for direction"));
+		PreviousNextLocation = TargetLocation - Start;
 	}
 
 	/*
@@ -101,82 +178,4 @@ void UOctreePathfindingComponent::GetAStarPathAsyncToLocation(const AActor* Targ
 
 	OutNextDirection = (PreviousNextLocation - Start).GetSafeNormal();
 	PathfindingRunnable.Pin()->AddToQueue(TPair<FVector, FVector>(Start, TargetLocation), true);
-}
-
-
-bool UOctreePathfindingComponent::GetAStarPathToLocation(const FVector& End, FVector& OutPath)
-{
-	TArray<FVector> Path;
-	const FVector Start = GetOwner()->GetActorLocation();
-	const bool PathFound = OctreeGraph::OctreeAStar(false, *OctreeData, Start, End, OctreeWeakPtr->GetRootNode(), Path);
-
-	if (PathFound)
-	{
-		//PreviousNextLocation = CalculateNextPathLocation(ContinueThread,  Path);
-	}
-
-	OutPath = (PreviousNextLocation - Start).GetSafeNormal();
-
-	return PathFound;
-}
-
-bool UOctreePathfindingComponent::GetAStarPathToTarget(const AActor* TargetActor, FVector& OutPath)
-{
-	return GetAStarPathToLocation(TargetActor->GetActorLocation(), OutPath);
-}
-
-void UOctreePathfindingComponent::GetAStarPathAsyncToTarget(const AActor* TargetActor, FVector& OutNextLocation)
-{
-	GetAStarPathAsyncToLocation(TargetActor, TargetActor->GetActorLocation(), OutNextLocation);
-}
-
-void UOctreePathfindingComponent::ForceStopPathfinding()
-{
-	StopPathfinding = true;
-	if (PathfindingRunnable.IsValid())
-	{
-		PathfindingRunnable.Pin()->PauseThread();
-	}
-}
-
-void UOctreePathfindingComponent::RestartPathfinding()
-{
-	if (PathfindingRunnable.IsValid())
-	{
-		PathfindingRunnable.Pin()->ContinueThread();
-	}
-	StopPathfinding = false;
-}
-
-FVector UOctreePathfindingComponent::CalculateNextPathLocation(const FVector& Start, const AActor* TargetActor, const TArray<FVector>& Path) const
-{
-	if (Path.IsEmpty())
-	{
-		return FVector::ZeroVector;
-	}
-
-	if (Path.Num() < 3)
-	{
-		return Path[0];
-	}
-
-	//Path smoothing. If the agent can skip a path point because it wouldn't collide, it should (skip). This ensures a more natural looking movement.
-	FHitResult Hit;
-	FCollisionShape ColShape = FCollisionShape::MakeSphere(AgentMeshHalfSize);
-	FCollisionQueryParams TraceParams;
-	TraceParams.AddIgnoredActor(GetOwner());
-	TraceParams.AddIgnoredActor(TargetActor);
-
-	for (int i = 1; i < Path.Num(); i++)
-	{
-		if (!GetWorld()->SweepSingleByChannel(Hit, Start, Path[i], FQuat::Identity, CollisionChannel, ColShape, TraceParams))
-		{
-			continue;
-		}
-
-		return Path[i - 1];
-	}
-
-	//If we are here then there was no path smoothing necessary.
-	return Path.Last();
 }
