@@ -24,10 +24,10 @@ public:
 
 	static TArray<FVector> CalculatePositions(const TSharedPtr<OctreeNode>& CurrentNode, const int& Face, const float& MinNodeSize);
 
-	static void CleanupUnusedNodes(TSharedPtr<OctreeNode>& Node, const TSet<TSharedPtr<OctreeNode>>& OpenSet);
+	static void CleanupUnusedNodes(TSharedPtr<OctreeNode>& Node, const TSet<TSharedPtr<OctreeNode>>& OpenSet, int& DeletedChildrenCount);
 
-	inline static constexpr int MemoryOptimizerTickThreshold = 1000;
-	inline static constexpr int MemoryCleanupFrequency = 5000;
+	inline static constexpr int MemoryOptimizerTickThreshold = 50;
+	inline static constexpr int MemoryCleanupFrequency = 1000;
 	inline static int PathfindingMemoryTick = 0;
 
 private: 	
