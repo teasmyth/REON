@@ -158,8 +158,8 @@ TSharedPtr<OctreeNode> OctreeNode::LazyDivideAndFindNode(const bool& ThreadIsPau
 
 		//In case happen to be in a very unlucky position where everything is occupied, then just use the original inside node.
 
-		/* TODO MAJOR TODO. TEMPORARILY I AM USING PREVIOUS VALID NODES TO GET OUT OF THIS SITUATION.
-		* IF we are here this is what happened:
+		
+		/* IF we are here this is what happened:
 		* - We are NOT looking for a neighbor. AKA we are looking for a start or end node.
 		* - The node we found is OCCUPIED
 		* - All of the siblings are OCCUPIED
@@ -172,9 +172,6 @@ TSharedPtr<OctreeNode> OctreeNode::LazyDivideAndFindNode(const bool& ThreadIsPau
 		* As a solution, I will let this node pass, as current node is not required to be unoccupied (in ASTAR FN!), only the neighbors.
 		* So it will end up looking up the neighbors and finding the closest unoccupied node. Which it should have, given if the situation
 		* described above happened (bled into an empty looking space but its 'actually' occupied) as they will for sure have neighbors.
-		*
-		* However, this should not be used for neighbors, as they must be unoccupied. So, in GetNeighbor where I clean invalid pointers,
-		* I also remove occupied nodes from the list.
 		*/
 		
 
