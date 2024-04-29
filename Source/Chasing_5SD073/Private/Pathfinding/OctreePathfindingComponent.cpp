@@ -162,8 +162,8 @@ void UOctreePathfindingComponent::GetAStarPathAsync(const AActor* TargetActor, F
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("No start or end position found. Using target - current position vector for direction"));
-		PreviousNextLocation = TargetLocation - Start;
+		//UE_LOG(LogTemp, Warning, TEXT("No start or end position found. Using target - current position vector for direction"));
+		//PreviousNextLocation = TargetLocation - Start;
 	}
 
 	/*

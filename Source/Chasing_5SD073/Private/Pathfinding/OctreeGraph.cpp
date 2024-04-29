@@ -57,13 +57,26 @@ bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug,
 
 		if (Start == nullptr || End == nullptr)
 		{
-			//if (Debug) UE_LOG(LogTemp, Warning, TEXT("Start or End is out of bounds."));
+			if (Debug) UE_LOG(LogTemp, Warning, TEXT("Start or End is out of bounds."));
 			return false;
 		}
 	}
 
 	Start->PathfindingData = MakeShareable(new FPathfindingNode());
 	End->PathfindingData = MakeShareable(new FPathfindingNode());
+
+	//In case we are using an occupied node as an end, we force finding neighbors here,
+	//As the start will get their neighbor called anyway due to how Current Node works
+	//But the End will never be neighbor of any if it is occupied.
+	//Hence, forcing it here to have neighbors.
+	if (End->Occupied)
+	{
+		if (!GetNeighbors(ThreadIsPaused, RootNode, End, ActorBoxes, MinSize))
+		{
+			if (Debug) UE_LOG(LogTemp, Warning, TEXT("End node is inaccessible."));
+			return false; //End node is inaccessible.
+		}
+	}
 
 	std::priority_queue<TSharedPtr<OctreeNode>, std::vector<TSharedPtr<OctreeNode>>, FPathfindingNodeCompare> OpenQueue;
 	TSet<TSharedPtr<OctreeNode>> OpenSet; //I use it to keep track of all the nodes used to reset them and also check which ones I checked before.
@@ -76,7 +89,7 @@ bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug,
 	OpenQueue.push(Start);
 	OpenSet.Add(Start);
 
-	//PathfindingMemoryTick++;
+	PathfindingMemoryTick++;
 
 	while (!OpenQueue.empty() && !ThreadIsPaused)
 	{
@@ -100,19 +113,27 @@ bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug,
 				}
 			}
 
-			/*
+			ClosedSet.Empty();
+
 			if (PathfindingMemoryTick > MemoryCleanupFrequency)
 			{
 				//Given I use root node thousands of times, making it a non const reference is not a good idea.
 				//So I will just loop through its children to clean up
 				//Because I might reset the pointer of the passed node, I cant pass in a const reference to CleanupUnusedNodes.
-				for (auto& Child : RootNode->ChildrenOctreeNodes)
+				//The reason I do it for grandchild, is because I should not reset the children of the root node.
+				//Because, if we don't use auto encapsulation, we have 'custom' first children, which cannot be remade via MakeChild().
+				int DeletedChildren = 0;
+				for (const auto& Child : RootNode->ChildrenOctreeNodes)
 				{
-					CleanupUnusedNodes(Child, OpenSet);
+					for (auto& GrandChild : Child->ChildrenOctreeNodes)
+					{
+						if (GrandChild.IsValid()) CleanupUnusedNodes(GrandChild, OpenSet, DeletedChildren);
+					}
 				}
 				PathfindingMemoryTick = 0;
+				if (Debug) UE_LOG(LogTemp, Warning, TEXT("Octree memory cleanup. Deleted %i nodes."), DeletedChildren);
 			}
-			*/
+
 
 			if (Debug)
 			{
@@ -127,12 +148,11 @@ bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug,
 				UE_LOG(LogTemp, Warning, TEXT("Path found in avg. in %f seconds"), Total / (float)TimeTaken.Num());
 			}
 
-			
 
 			return true;
 		}
 
-		//CurrentNode->MemoryOptimizerTick++;
+		CurrentNode->MemoryOptimizerTick++;
 		OpenQueue.pop();
 		ClosedSet.Add(CurrentNode);
 
@@ -402,31 +422,39 @@ TArray<FVector> OctreeGraph::CalculatePositions(const TSharedPtr<OctreeNode>& Cu
 	return PotentialNeighborPositions;
 }
 
-void OctreeGraph::CleanupUnusedNodes(TSharedPtr<OctreeNode>& Node, const TSet<TSharedPtr<OctreeNode>>& OpenSet)
+void OctreeGraph::CleanupUnusedNodes(TSharedPtr<OctreeNode>& Node, const TSet<TSharedPtr<OctreeNode>>& OpenSet, int& DeletedChildrenCount)
 {
-	bool NodeIsInUse = false;
-
 	for (auto& Child : Node->ChildrenOctreeNodes)
 	{
 		if (!Child.IsValid()) continue;
 
-		if (Child->ChildrenOctreeNodes.IsEmpty())
+		if (!Child->ChildrenOctreeNodes.IsEmpty())
 		{
-			if (Child->MemoryOptimizerTick < MemoryOptimizerTickThreshold && !OpenSet.Contains(Child))
-			{
-				Child.Reset();
-			}
-			else
-			{
-				Child->MemoryOptimizerTick = 0;
-				NodeIsInUse = true;
-			}
+			CleanupUnusedNodes(Child, OpenSet, DeletedChildrenCount);
+			continue;
+		}
+
+
+		//We want to keep the nodes that were just used in case they were just created.
+		if (Child->MemoryOptimizerTick < MemoryOptimizerTickThreshold && !OpenSet.Contains(Child))
+		{
+			Child.Reset();
+			DeletedChildrenCount++;
 		}
 		else
 		{
-			CleanupUnusedNodes(Child, OpenSet);
+			Child->MemoryOptimizerTick = 0;
+			Node->NodeIsInUse = true;
+			if (Child->PathfindingData.IsValid())
+			{
+				for (auto& Neighbor : Child->PathfindingData->Neighbors)
+				{
+					if (Neighbor.IsValid() && !Neighbor.Pin()->Occupied) continue;
+					Neighbor.Reset(); //Resetting the neighbor if it is occupied.
+				}
+			}
 		}
 	}
 
-	if (!NodeIsInUse) Node.Reset();
+	if (!Node->NodeIsInUse) Node.Reset();
 }

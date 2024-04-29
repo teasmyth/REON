@@ -2,8 +2,6 @@
 
 #include "Pathfinding/OctreeNode.h"
 
-#include "Serialization/StaticMemoryReader.h"
-
 LLM_DEFINE_TAG(OctreeNode);
 
 OctreeNode::OctreeNode(const FVector& Pos, const float HalfSize)
@@ -147,12 +145,16 @@ TSharedPtr<OctreeNode> OctreeNode::LazyDivideAndFindNode(const bool& ThreadIsPau
 		}
 
 
-		ToReturn = ClosestUnoccupied;		
+		//ToReturn = ClosestUnoccupied;		
 
-		//if (ClosestUnoccupied.IsValid())
-		//{
-		//	ToReturn = ClosestUnoccupied;
-		//}
+		if (ClosestUnoccupied.IsValid())
+		{
+			ToReturn = ClosestUnoccupied;
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Could not find a valid node to move to. Using the original node."));
+		}
 
 		//In case happen to be in a very unlucky position where everything is occupied, then just use the original inside node.
 
@@ -236,40 +238,4 @@ void OctreeNode::DeleteOctreeNode(TSharedPtr<OctreeNode>& Node)
 	}
 
 	Node.Reset();
-}
-
-void OctreeNode::DeleteUnusedNodes(TSharedPtr<OctreeNode>& Node, const int& MemoryOptimizerTickThreshold)
-{
-	for (auto& Child : Node->ChildrenOctreeNodes)
-	{
-		if (!Child.IsValid()) continue;
-
-		if (Child->ChildrenOctreeNodes.IsEmpty())
-		{
-			if (Child->MemoryOptimizerTick < MemoryOptimizerTickThreshold)
-			{
-				Child.Reset();
-			}
-			else
-			{
-				Child->MemoryOptimizerTick = 0;
-				Node->NodeIsInUse = true;
-			}
-		}
-		else
-		{
-			DeleteUnusedNodes(Child, MemoryOptimizerTickThreshold);
-		}
-	}
-
-	for (const auto& Child : Node->ChildrenOctreeNodes)
-	{
-		if (Child.IsValid())
-		{
-			Node->NodeIsInUse = true;
-			break;
-		}
-	}
-
-	if (!Node->NodeIsInUse) Node.Reset();
 }

@@ -4,9 +4,6 @@
 
 
 #include "CoreMinimal.h"
-#include "Serialization/Archive.h"
-#include "Serialization/LargeMemoryReader.h"
-#include "Serialization/LargeMemoryWriter.h"
 
 struct FPathfindingNode;
 
@@ -36,7 +33,6 @@ public:
 	TSharedPtr<OctreeNode> LazyDivideAndFindNode(const bool& ThreadIsPaused, const TArray<FBox>& ActorBoxes, const float& MinSize, const FVector& Location, const bool LookingForNeighbor);
 	TSharedPtr<OctreeNode> MakeChild(const int& ChildIndex) const;
 	static void DeleteOctreeNode(TSharedPtr<OctreeNode>& Node);
-	static void DeleteUnusedNodes(TSharedPtr<OctreeNode>& Node, const int& MemoryOptimizerTickThreshold);
 };
 
 
