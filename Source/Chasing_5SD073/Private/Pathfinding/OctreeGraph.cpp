@@ -41,6 +41,7 @@ bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug,
 
 	if (Start == nullptr || End == nullptr)
 	{
+		/*
 		if (Start == nullptr)
 		{
 			Start = PreviousValidStart.Pin();
@@ -52,10 +53,11 @@ bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug,
 			End = PreviousValidEnd.Pin();
 		}
 		else PreviousValidEnd = End.ToWeakPtr();
+		*/
 
 		if (Start == nullptr || End == nullptr)
 		{
-			if (Debug) UE_LOG(LogTemp, Warning, TEXT("Start or End is out of bounds."));
+			//if (Debug) UE_LOG(LogTemp, Warning, TEXT("Start or End is out of bounds."));
 			return false;
 		}
 	}

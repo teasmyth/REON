@@ -160,6 +160,11 @@ void UOctreePathfindingComponent::GetAStarPathAsync(const AActor* TargetActor, F
 	{
 		PreviousNextLocation = PathSmoothing(Start, TargetActor, PathfindingRunnable.Pin()->GetOutQueue());
 	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No start or end position found. Using target - current position vector for direction"));
+		PreviousNextLocation = TargetLocation - Start;
+	}
 
 	/*
 	else
