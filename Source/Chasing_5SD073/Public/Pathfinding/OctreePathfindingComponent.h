@@ -32,17 +32,14 @@ protected:
 public:
 	inline static FLargeMemoryReader* OctreeData = nullptr;
 	
-	UFUNCTION(BlueprintCallable, Category="Pathfinding")
-	bool GetAStarPathToLocation(const FVector& End, FVector& OutPath) ;
 
 	UFUNCTION(BlueprintCallable, Category="Pathfinding")
-	bool GetAStarPathToTarget(const AActor* TargetActor, FVector& OutPath);
+	void GetAStarPathAsyncToLocation(FVector& TargetLocation, FVector& OutNextDirection);
 
 	UFUNCTION(BlueprintCallable, Category="Pathfinding")
-	void GetAStarPathAsyncToLocation(const AActor* TargetActor, const FVector& TargetLocation, FVector& OutNextDirection);
+	void GetAStarPathAsyncToTarget(const AActor* TargetActor, FVector& OutNextDirection);
 
-	UFUNCTION(BlueprintCallable, Category="Pathfinding")
-	void GetAStarPathAsyncToTarget(const AActor* TargetActor, FVector& OutNextLocation);
+	
 
 	UFUNCTION(BlueprintCallable, Category="Pathfinding")
 	void ForceStopPathfinding();
@@ -53,21 +50,28 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Pathfinding")
 	void SetOctree(AOctree* NewOctree)
 	{
+		if (NewOctree == nullptr)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("New Octree is nullptr. Cannot set Octree."));
+			return;
+		}
+		
 		OctreeWeakPtr = NewOctree;
 		CollisionChannel = NewOctree->GetCollisionChannel();
 		PathfindingRunnable = NewOctree->GetPathfindingRunnable();
 	}
 
 private:
-	FVector CalculateNextPathLocation(const FVector& Start, const AActor* TargetActor, const TArray<FVector>& Path) const;
+	FVector PathSmoothing(const FVector& Start, const AActor* TargetActor, const TArray<FVector>& Path) const;
+	void GetAStarPathAsync(const AActor* TargetActor, FVector& TargetLocation, FVector& OutNextDirection);
 
 	UPROPERTY()
 	UFloatingPawnMovement* MovementComponent = nullptr;
 
-	UPROPERTY(EditAnywhere, Category="Pathfinding", meta = (Tooltip = "If it can, it will try to float above the ground by this amount."))
-	float FloatAboveGround = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pathfinding", meta = (AllowPrivateAccess = "true",  ClampMin = 0))
+	float PlayerHeightAimOffset = 0;
 
-	UPROPERTY(EditAnywhere, Category="Pathfinding", meta = (Tooltip = "If the distance to the target is less than this, it will stop floating."))
+	UPROPERTY(EditAnywhere, Category="Pathfinding", meta = (Tooltip = "If the distance to the target is less than this, it will at offset."))
 	float StopFloatingAtDistance = 0;
 
 	UPROPERTY(EditAnywhere, Category="Pathfinding")
@@ -82,7 +86,7 @@ private:
 	
 	TWeakObjectPtr<AOctree> OctreeWeakPtr;
 	TWeakPtr<FPathfindingWorker> PathfindingRunnable;
-	ECollisionChannel CollisionChannel = ECollisionChannel::ECC_Visibility;
+	ECollisionChannel CollisionChannel = ECC_Visibility;
 	
 	bool StopPathfinding = false;
 	float OriginalSpeed = 0;
