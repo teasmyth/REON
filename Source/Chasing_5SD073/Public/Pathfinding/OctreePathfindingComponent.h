@@ -30,9 +30,7 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
-	inline static FLargeMemoryReader* OctreeData = nullptr;
 	
-
 	UFUNCTION(BlueprintCallable, Category="Pathfinding")
 	void GetAStarPathAsyncToLocation(FVector& TargetLocation, FVector& OutNextDirection);
 
