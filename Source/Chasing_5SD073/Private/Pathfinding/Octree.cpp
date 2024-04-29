@@ -400,6 +400,8 @@ void AOctree::SetUpOctree()
 	for (const auto Overlap : Result)
 	{
 		BoxResults.Add(Overlap.GetActor()->GetComponentsBoundingBox());
+
+		//Overlap.GetActor().GetBo
 	}
 
 	PathfindingWorker = MakeShareable(new FPathfindingWorker(RootNodeSharedPtr, Debug, BoxResults, MinNodeSize));
