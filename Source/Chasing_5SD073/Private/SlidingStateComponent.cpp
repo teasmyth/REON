@@ -81,7 +81,6 @@ void USlidingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 	{
 		if (InternalTimer > MaxSlideDuration || !IsUnderObject() && WasUnderObject)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, "Slide Time Over");
 			SM.ManualExitState();
 		}
 		else
