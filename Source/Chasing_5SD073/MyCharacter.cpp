@@ -78,9 +78,15 @@ void AMyCharacter::Tick(float DeltaTime)
 	}
 	//This for coyote for normal jump from the ground, as every other ability have their internal timer
 	//But if i were to quit them, their function would break, eg I need to be in wall run to do coyote for wall run.
+	//So I cannot do a global coyote here unfortunately.
 	else if (CanJump && StateMachine->GetCurrentEnumState() == ECharacterState::DefaultState && InternalCoyoteTimer <= CoyoteTime)
 	{
 		InternalCoyoteTimer += DeltaTime;
+	}
+	else if (InternalCoyoteTimer > CoyoteTime && !CanDash && CanJump)
+	{
+		CanJump = false;
+		CanDash = true;
 	}
 	
 
