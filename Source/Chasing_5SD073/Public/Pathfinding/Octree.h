@@ -80,6 +80,9 @@ private:
 	TSharedPtr<OctreeNode> RootNodeSharedPtr = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true"))
+	FName OctreeIgnoreTag;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true"))
 	TArray<AActor*> ActorsToIgnore;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Octree", meta = (AllowPrivateAccess = "true"))

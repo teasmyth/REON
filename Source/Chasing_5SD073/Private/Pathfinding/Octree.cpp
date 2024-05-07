@@ -399,6 +399,8 @@ void AOctree::SetUpOctree()
 
 	for (const auto Overlap : Result)
 	{
+		if (Overlap.GetActor()->ActorHasTag(OctreeIgnoreTag)) continue;
+		
 		BoxResults.Add(Overlap.GetActor()->GetComponentsBoundingBox());
 	}
 
