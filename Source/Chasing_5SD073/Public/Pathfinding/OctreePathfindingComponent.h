@@ -66,6 +66,9 @@ private:
 	UPROPERTY()
 	UFloatingPawnMovement* MovementComponent = nullptr;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly,Category = "Pathfinding", meta = (AllowPrivateAccess = "true"))
+	bool Debug = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pathfinding", meta = (AllowPrivateAccess = "true",  ClampMin = 0))
 	float PlayerHeightAimOffset = 0;
 

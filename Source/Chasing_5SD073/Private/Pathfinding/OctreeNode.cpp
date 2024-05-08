@@ -153,7 +153,7 @@ TSharedPtr<OctreeNode> OctreeNode::LazyDivideAndFindNode(const bool& ThreadIsPau
 		}
 		else
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Could not find a valid node to move to. Using the original node."));
+			//UE_LOG(LogTemp, Warning, TEXT("Could not find a valid node to move to. Using the original node."));
 		}
 
 		//In case happen to be in a very unlucky position where everything is occupied, then just use the original inside node.

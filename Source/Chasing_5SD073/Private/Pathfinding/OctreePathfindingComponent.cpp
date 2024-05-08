@@ -130,7 +130,7 @@ void UOctreePathfindingComponent::GetAStarPathAsync(const AActor* TargetActor, F
 
 	if (Distance <= MinDistanceForPathfinding)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Too close to target."));
+		if (Debug) UE_LOG(LogTemp, Warning, TEXT("Too close to target."));
 		OutNextDirection = FVector::ZeroVector;
 		return;
 	}
@@ -170,6 +170,7 @@ void UOctreePathfindingComponent::GetAStarPathAsync(const AActor* TargetActor, F
 	}
 	*/
 
+	if (Debug) UE_LOG(LogTemp, Warning, TEXT("Starting pathfinding."));
 	OutNextDirection = (PreviousNextLocation - Start).GetSafeNormal();
 	PathfindingRunnable.Pin()->AddToQueue(TPair<FVector, FVector>(Start, TargetLocation), true);
 }
