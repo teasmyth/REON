@@ -67,7 +67,7 @@ void UWallRunningStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 		WallRunTimer += GetWorld()->GetDeltaSeconds();
 	}
 
-	if (WallRunTimer >= MaxWallRunDuration)
+	if (WallRunTimer >= MaxWallRunDuration || PlayerMovement->IsMovingOnGround())
 	{
 		SM.ManualExitState();
 	}
