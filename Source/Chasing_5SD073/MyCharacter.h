@@ -74,6 +74,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* LookAction;
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = Input, meta = (AllowPrivateAccess = "true"))
+	FVector2D Sensitivity = FVector2d(0.5f, 0.5f);
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;

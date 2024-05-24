@@ -371,7 +371,7 @@ void AMyCharacter::DisablePreciseMovement()
 
 void AMyCharacter::Look(const FInputActionValue& Value)
 {
-	FVector2D LookAxisVector = Value.Get<FVector2D>();
+	FVector2D LookAxisVector = Value.Get<FVector2D>() * (2.0f * Sensitivity);
 
 	if (StateMachine != nullptr)
 	{
