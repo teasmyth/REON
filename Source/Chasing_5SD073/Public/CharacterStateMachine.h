@@ -55,7 +55,7 @@ class CHASING_5SD073_API UCharacterStateMachine : public UActorComponent
 public:
 	// Sets default values for this component's properties
 	UCharacterStateMachine();
-
+	
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
