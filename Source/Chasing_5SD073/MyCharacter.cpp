@@ -185,6 +185,7 @@ void AMyCharacter::MovementStateCheck()
 {
 	//TODO if a player doesnt move for a while, should it still stay in FELL or override it to walking? is that even possible? 
 
+	/*
 	if (CurrentMovementState != ECharacterMovementState::Fell && Falling && GetCharacterMovement()->IsMovingOnGround() && FallDistance > 0)
 	{
 		if (DebugFall && GEngine)
@@ -200,17 +201,18 @@ void AMyCharacter::MovementStateCheck()
 		GetCharacterMovement()->Velocity = FVector::ZeroVector;
 		PlayerFellEvent();
 	}
+	*/
 
 
-	if (CurrentMovementState != ECharacterMovementState::Fell && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing &&
-		GetHorizontalVelocity() <= 1)
+	if (CurrentMovementState != ECharacterMovementState::Fell && StateMachine->GetCurrentEnumState() == ECharacterState::DefaultState && GetHorizontalVelocity() <= 1)
+	//if (CurrentMovementState != ECharacterMovementState::Fell && StateMachine->GetCurrentEnumState() != ECharacterState::AirDashing &&	GetHorizontalVelocity() <= 1)
 	{
 		CurrentMovementState = ECharacterMovementState::Idle;
 	}
 
 
-	if (CurrentMovementState == ECharacterMovementState::Idle || (CurrentMovementState == ECharacterMovementState::Fell && GetHorizontalVelocity() >=
-		RunningStateSpeedMinimum))
+	if (CurrentMovementState == ECharacterMovementState::Idle && GetHorizontalVelocity() > 1 || (CurrentMovementState == ECharacterMovementState::Fell && GetHorizontalVelocity() >= RunningStateSpeedMinimum))
+	//if (CurrentMovementState == ECharacterMovementState::Idle || (CurrentMovementState == ECharacterMovementState::Fell && GetHorizontalVelocity() >=RunningStateSpeedMinimum))
 	{
 		CurrentMovementState = ECharacterMovementState::Running;
 		AccelerationTimer = 0;
@@ -225,6 +227,7 @@ void AMyCharacter::MovementStateCheck()
 	}
 	if (StateMachine != nullptr)
 	{
+		/*
 		if (GetCharacterMovement()->Velocity.Z != 0 && StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
 		{
 			Falling = true;
@@ -243,6 +246,61 @@ void AMyCharacter::MovementStateCheck()
 		{
 			FallStartZ = FallStartZ >= GetActorLocation().Z ? FallStartZ : GetActorLocation().Z;
 		}
+		*/
+
+		//We start capturing the Z position once the player is in the air if the mechanical state doesnt prevent it
+		if (!Falling && !GetCharacterMovement()->IsMovingOnGround() && StateMachine->GetCurrentState()->DoesItCountTowardsFalling())
+		 {
+		 	//FallStartZ = GetActorLocation().Z;
+		 	Falling = true;
+		 }
+
+		 //We want to count the falling from highest Z point in air
+		 if (Falling)
+		 {
+		 	FallStartZ = FallStartZ >= GetActorLocation().Z ? FallStartZ : GetActorLocation().Z;
+			if (!DisableExtraGravity)
+			{
+				GetCharacterMovement()->AddForce(-GetActorUpVector() * 980 * GetCharacterMovement()->Mass * (GravityWhileFalling - 1));
+				GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "Falling");
+			}
+		 }
+
+		 //We do the calculations once we hit the ground. If we don't hit the threshold, we return
+		 if (Falling && GetCharacterMovement()->IsMovingOnGround())
+		 {
+			FallDistance = FallStartZ - GetActorLocation().Z - FallZDistanceUnit; //The first unit is 'free' to fall.
+			Falling = false;
+			InternalFallingTimer = 0;
+
+			if (FallDistance < FallZDistanceUnit) return;
+			
+		 	if (DebugFall && GEngine)
+			{
+				const FString Text = FString::Printf(TEXT("Fall distance: %f. This is %f units."), FallDistance, FallDistance / FallZDistanceUnit);
+				GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Red, Text);
+			}
+			const float PotentialPenalty = FallDistance / FallZDistanceUnit * PenaltyMultiplierPerFallUnit;
+			CalculatedPostFallMultiplier = PotentialPenalty >= MaxPenaltyMultiplier ? MaxPenaltyMultiplier : PotentialPenalty;
+			AccelerationTimer = 0;
+			GetCharacterMovement()->Velocity = FVector::ZeroVector;
+			PlayerFellEvent();
+			CurrentMovementState = ECharacterMovementState::Fell;
+		 }
+
+		 if (CurrentMovementState == ECharacterMovementState::Fell)
+		 {
+			InternalFallingTimer += GetWorld()->GetDeltaSeconds();
+
+			if (InternalFallingTimer >= FallPenaltyTimer)
+			{
+				AccelerationTimer = 0;
+				InternalFallingTimer = 0;
+				CurrentMovementState = ECharacterMovementState::Idle;
+			}
+		 }
+		 
+		 
 	}
 }
 

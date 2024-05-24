@@ -46,6 +46,8 @@ public:
 private:
 	void RotatePlayerAlongsideWall(const FHitResult& Hit) const;
 	bool CheckWhetherStillWallRunning();
+	void BlockContinuousWall();
+	bool CloseToGround() const;
 
 	UPROPERTY(EditAnywhere, Category= "Settings",
 		meta = (Tooltip = "This stops sensors from being an insta trigger, preventing accidentals.", ClampMin = 0))
@@ -83,8 +85,13 @@ private:
 	//Internal
 	EWallOrientation WallOrientation = None;
 	FHitResult HitResult;
+	FVector LastPointOnWall = FVector::ZeroVector;
+	FVector PlayerForwardVectorOnEnter;
+	FVector PlayerUpVectorOnEnter;
 	//This booleans lets us utilise coyote time after we have stopped wall running, while keeping gravity and direction as if we were wall running.
 	bool NoLongerWallRunning = false;
 	float TriggerTimer;
 	float WallRunTimer;
+	bool TouchedGround = false;
+	UPROPERTY() TArray<AActor*> NonInteractableWalls;
 };

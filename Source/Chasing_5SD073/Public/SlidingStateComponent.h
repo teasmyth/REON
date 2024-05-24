@@ -57,6 +57,10 @@ private:
 private:
 	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "This number gets added to the velocity of the player at the moment and launches it forward", ClampMin = 0))
 	float SlideInitialBoost = 0;
+
+	UPROPERTY(EditAnywhere, Category= "Settings", meta = (Tooltip = "The higher number lets people slide in air. Trigger height = Falling speed * multiplier / Min speed.", ClampMin = 0))
+	float SlideTriggerHeightMultiplier = 1.3f;
+
 	
 	UPROPERTY(EditAnywhere, Category= "Settings",
 		meta = (Tooltip = "This does not represent the max time of the slide. The numbers represent the max speed of the player."))

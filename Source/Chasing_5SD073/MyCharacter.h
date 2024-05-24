@@ -124,6 +124,9 @@ public:
 	void ResetFalling()
 	{
 		Falling = false;
+		FallDistance = -1;
+		FallStartZ = GetActorLocation().Z;
+		InternalFallingTimer = 0;
 	}
 
 	void ResetSlide();
@@ -177,6 +180,9 @@ private: //For mechanics
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling", meta=(Tooltip = "This will OVERRIDE gravity, not add to it."))
 	float GravityWhileFalling;
+
+	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling", meta =(Tooltip = "After this period of time, the fall penalty ends, instead of reaching minimum speed."))
+	float FallPenaltyTimer = 1.5f;
 
 	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling", meta = (ClampMin = 0))
 	float FallZDistanceUnit;
@@ -244,6 +250,7 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	bool Falling = false;
 	bool CanJump = true;
+	float InternalFallingTimer = 0;
 
 	float InternalCoyoteTimer = 0;
 	FVector2d PreviousMovementVector;
