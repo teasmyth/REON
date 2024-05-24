@@ -3,8 +3,6 @@
 
 #include "WallClimbingStateComponent.h"
 
-#include "AssetRegistry/Private/AssetRegistryImpl.h"
-
 // Sets default values for this component's properties
 UWallClimbingStateComponent::UWallClimbingStateComponent()
 {
@@ -18,7 +16,8 @@ UWallClimbingStateComponent::UWallClimbingStateComponent()
 
 bool UWallClimbingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	if (PlayerCharacter->GetLastInteractedWall() != HitResult.GetActor() && PlayerCharacter->GetCharacterMovementInput().Y > 0.01f)
+	if (!PlayerMovement->IsMovingOnGround() /*&& PlayerCharacter->GetLastInteractedWall() != HitResult.GetActor()*/ && PlayerCharacter->
+		GetCharacterMovementInput().Y > 0.01f)
 	{
 		return true;
 	}
@@ -39,7 +38,7 @@ void UWallClimbingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 
 void UWallClimbingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
-	Super::OnUpdateState(SM);
+	if (CheckLedge()) Super::OnUpdateState(SM);
 
 	const FVector CounterGravityForce = FVector(0, 0, PlayerMovement->Mass * 980);
 	PlayerMovement->AddForce(CounterGravityForce);
@@ -49,7 +48,7 @@ void UWallClimbingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 	{
 		DisableInput = true;
 	}
-	
+
 	if (InternalTimer >= MaxWallClimbDuration + PlayerCharacter->GetCoyoteTime() || CheckLedge() && CheckLeg())
 	{
 		SM.ManualExitState();
@@ -79,14 +78,19 @@ void UWallClimbingStateComponent::OverrideMovementInput(UCharacterStateMachine& 
 	{
 		SM.ManualExitState();
 	}
-	
+
+
 	PlayerMovement->Velocity = FVector::ZeroVector;
 	PlayerMovement->UpdateComponentVelocity();
+	NewMovementVector = FVector2d::ZeroVector;
+
+	if (!CheckLedge()) return;
+
+
 	const float GravityMultiplier = WallClimbIntensityCurve->GetFloatValue(InternalTimer / MaxWallClimbDuration);
 	const float CurrentSpeed = WallClimbSpeed * GetWorld()->GetDeltaSeconds();
-	const float VerticalMovement = (CurrentSpeed  - CurrentSpeed * GravityMultiplier) * (InternalTimer / MaxWallClimbDuration);
+	const float VerticalMovement = (CurrentSpeed - CurrentSpeed * GravityMultiplier) * (InternalTimer / MaxWallClimbDuration);
 	PlayerCharacter->SetActorLocation(PlayerCharacter->GetActorLocation() + FVector(0.0f, 0.0f, VerticalMovement), true);
-	NewMovementVector = FVector2d::ZeroVector;
 }
 
 void UWallClimbingStateComponent::OverrideNoMovementInputEvent(UCharacterStateMachine& SM)
@@ -112,6 +116,18 @@ bool UWallClimbingStateComponent::CheckLedge() const
 bool UWallClimbingStateComponent::CheckLeg() const
 {
 	const FVector Start = PlayerCapsule->GetComponentLocation() - FVector(0, 0, PlayerCapsule->GetScaledCapsuleHalfHeight());
+	const FVector End = Start + PlayerCharacter->GetActorForwardVector() * LedgeGrabCheckDistance;
+
+	if (!LineTraceSingle(Start, End))
+	{
+		return true;
+	}
+	return false;
+}
+
+bool UWallClimbingStateComponent::CheckBody() const
+{
+	const FVector Start = GetOwner()->GetActorLocation();
 	const FVector End = Start + PlayerCharacter->GetActorForwardVector() * LedgeGrabCheckDistance;
 
 	if (!LineTraceSingle(Start, End))
@@ -194,12 +210,13 @@ void UWallClimbingStateComponent::OverrideDetectState(UCharacterStateMachine& SM
 		// AngleInDegrees now contains the angle between the wall and the actor's forward vector
 		if (AngleInDegrees <= WallClimbAngle)
 		{
-			TriggerTimer += GetWorld()->GetDeltaSeconds();
+			//TriggerTimer += GetWorld()->GetDeltaSeconds();
 
-			if (TriggerTimer >= WallClimbTriggerDelay)
-			{
-				SM.SetState(ECharacterState::WallClimbing);
-			}
+			SM.SetState(ECharacterState::WallClimbing);
+
+			//if (TriggerTimer >= WallClimbTriggerDelay)
+			//{
+			//}
 		}
 		else
 		{
