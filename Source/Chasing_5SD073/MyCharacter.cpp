@@ -218,7 +218,6 @@ void AMyCharacter::MovementStateCheck()
 			if (!DisableExtraGravity)
 			{
 				GetCharacterMovement()->AddForce(-GetActorUpVector() * 980 * GetCharacterMovement()->Mass * (GravityWhileFalling - 1));
-				GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Red, "Falling");
 			}
 		 }
 

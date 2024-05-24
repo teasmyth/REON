@@ -59,6 +59,9 @@ public:
 		PathfindingRunnable = NewOctree->GetPathfindingRunnable();
 	}
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere,  Category="Pathfinding")
+	float MaxDistanceToTarget = 1000;
+
 private:
 	FVector PathSmoothing(const FVector& Start, const AActor* TargetActor, const TArray<FVector>& Path) const;
 	void GetAStarPathAsync(const AActor* TargetActor, FVector& TargetLocation, FVector& OutNextDirection);
@@ -75,8 +78,7 @@ private:
 	UPROPERTY(EditAnywhere, Category="Pathfinding", meta = (Tooltip = "If the distance to the target is less than this, it will at offset."))
 	float StopFloatingAtDistance = 0;
 
-	UPROPERTY(EditAnywhere, Category="Pathfinding")
-	float MaxDistanceToTarget = 1000;
+	
 
 	UPROPERTY(EditAnywhere, Category="Pathfinding",
 		meta = (Tooltip =
