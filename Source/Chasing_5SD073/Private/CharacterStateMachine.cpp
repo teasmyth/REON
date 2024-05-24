@@ -12,6 +12,8 @@ UCharacterStateMachine::UCharacterStateMachine()
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = false;
 
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, "State Machine is created");
+
 	// ...
 }
 
