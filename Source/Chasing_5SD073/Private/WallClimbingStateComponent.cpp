@@ -34,15 +34,18 @@ void UWallClimbingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	PlayerMovement->Velocity = FVector(0, 0, PlayerMovement->Velocity.Z / 4.0f);
 	PlayerMovement->UpdateComponentVelocity();
 	PlayerCharacter->SetActorRotation((-HitResult.Normal).Rotation());
+	PlayerMovement->GravityScale = 0;
 }
 
 void UWallClimbingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 {
 	if (CheckLedge()) Super::OnUpdateState(SM);
 
-	const FVector CounterGravityForce = FVector(0, 0, PlayerMovement->Mass * 980);
-	PlayerMovement->AddForce(CounterGravityForce);
+	//const FVector CounterGravityForce = FVector(0, 0, PlayerMovement->Mass * 980);
+	//PlayerMovement->AddForce(CounterGravityForce);
 	InternalTimer += GetWorld()->GetDeltaSeconds();
+
+	
 
 	if (InternalTimer >= MaxWallClimbDuration)
 	{
@@ -57,6 +60,7 @@ void UWallClimbingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 
 void UWallClimbingStateComponent::OnExitState(UCharacterStateMachine& SM)
 {
+	PlayerMovement->GravityScale = 1;
 	Super::OnExitState(SM);
 	PlayerCharacter->bUseControllerRotationYaw = true;
 	//PrevResult = HitResult;
@@ -195,10 +199,24 @@ void UWallClimbingStateComponent::OverrideDetectState(UCharacterStateMachine& SM
 {
 	Super::OverrideDetectState(SM);
 
+	if (JustJumped)
+	{
+		TriggerTimer += GetWorld()->GetDeltaSeconds();
+
+		if (TriggerTimer >= WallClimbTriggerDelay)
+		{
+			JustJumped = false;
+			TriggerTimer = 0;
+		}
+		else return;
+	}
+
 	//if (PlayerMovement->IsMovingOnGround()) PrevResult = EmptyResult;
 
 	const FVector Start = GetOwner()->GetActorLocation();
 	const FVector End = Start + GetOwner()->GetActorRotation().Vector() * WallCheckDistance;
+
+	//const FVector End = Start + PlayerCharacter->GetFirstPersonCameraComponent()->GetComponentRotation().Vector() * WallCheckDistance;
 
 	//Prioritizing player's aim.
 	if (LineTraceSingle(HitResult, Start, End))
@@ -232,7 +250,16 @@ void UWallClimbingStateComponent::OverrideJump(UCharacterStateMachine& SM, FVect
 
 	if (!DisableTapWallFacingJump && FMath::Abs(PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeRotation().Yaw) < WallClimbAngle)
 	{
+	}
+
+	const FVector Start = GetOwner()->GetActorLocation();
+	const FVector End = Start + PlayerCharacter->GetFirstPersonCameraComponent()->GetComponentRotation().Vector() * WallCheckDistance;
+
+	if (LineTraceSingle(Start, End))
+	{
 		JumpVector = (PlayerCharacter->GetActorUpVector() * WallFacingJumpUpForceMultiplier - PlayerCharacter->GetActorForwardVector() *
 			WallFacingJumpBackForceMultiplier) * JumpVector.Size();
 	}
+
+	JustJumped = true;
 }

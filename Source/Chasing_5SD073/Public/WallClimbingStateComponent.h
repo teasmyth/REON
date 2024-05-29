@@ -74,4 +74,5 @@ private:
 	float InternalTimer = 0;
 	float TriggerTimer = 0;
 	bool DisableInput = false; //for coyote time.
+	bool JustJumped = false;
 };
