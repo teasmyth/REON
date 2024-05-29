@@ -214,9 +214,9 @@ void UWallClimbingStateComponent::OverrideDetectState(UCharacterStateMachine& SM
 	//if (PlayerMovement->IsMovingOnGround()) PrevResult = EmptyResult;
 
 	const FVector Start = GetOwner()->GetActorLocation();
-	//const FVector End = Start + GetOwner()->GetActorRotation().Vector() * WallCheckDistance;
+	const FVector End = Start + GetOwner()->GetActorRotation().Vector() * WallCheckDistance;
 
-	const FVector End = Start + PlayerCharacter->GetFirstPersonCameraComponent()->GetComponentRotation().Vector() * WallCheckDistance;
+	//const FVector End = Start + PlayerCharacter->GetFirstPersonCameraComponent()->GetComponentRotation().Vector() * WallCheckDistance;
 
 	//Prioritizing player's aim.
 	if (LineTraceSingle(HitResult, Start, End))
