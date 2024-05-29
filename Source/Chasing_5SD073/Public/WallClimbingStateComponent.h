@@ -32,6 +32,8 @@ private:
 	bool CheckLedge() const;
 	bool CheckLeg() const;
 	bool CheckBody() const;
+	bool CloseToGround() const;
+
 
 	UPROPERTY(EditAnywhere, Category= "Settings")
 	UCurveFloat* WallClimbIntensityCurve = nullptr;

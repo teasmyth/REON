@@ -16,7 +16,7 @@ UWallClimbingStateComponent::UWallClimbingStateComponent()
 
 bool UWallClimbingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	if (!PlayerMovement->IsMovingOnGround() /*&& PlayerCharacter->GetLastInteractedWall() != HitResult.GetActor()*/ && PlayerCharacter->
+	if (!CloseToGround() /*&& PlayerCharacter->GetLastInteractedWall() != HitResult.GetActor()*/ && PlayerCharacter->
 		GetCharacterMovementInput().Y > 0.01f)
 	{
 		return true;
@@ -248,8 +248,10 @@ void UWallClimbingStateComponent::OverrideJump(UCharacterStateMachine& SM, FVect
 {
 	Super::OverrideJump(SM, JumpVector);
 
-	if (!DisableTapWallFacingJump && FMath::Abs(PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeRotation().Yaw) < WallClimbAngle)
+	if (FMath::Abs(PlayerCharacter->GetFirstPersonCameraComponent()->GetRelativeRotation().Yaw) < WallClimbAngle)
 	{
+		JumpVector = (PlayerCharacter->GetActorUpVector() * WallFacingJumpUpForceMultiplier - PlayerCharacter->GetActorForwardVector() *
+			WallFacingJumpBackForceMultiplier) * JumpVector.Size();
 	}
 
 	const FVector Start = GetOwner()->GetActorLocation();
@@ -257,9 +259,15 @@ void UWallClimbingStateComponent::OverrideJump(UCharacterStateMachine& SM, FVect
 
 	if (LineTraceSingle(Start, End))
 	{
-		JumpVector = (PlayerCharacter->GetActorUpVector() * WallFacingJumpUpForceMultiplier - PlayerCharacter->GetActorForwardVector() *
-			WallFacingJumpBackForceMultiplier) * JumpVector.Size();
+		
 	}
 
 	JustJumped = true;
+}
+
+constexpr float MinimumDistanceFromGround = 350;
+
+bool UWallClimbingStateComponent::CloseToGround() const
+{
+	return LineTraceSingle(GetOwner()->GetActorLocation(),GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * MinimumDistanceFromGround);
 }
