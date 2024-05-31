@@ -72,20 +72,22 @@ void AMyCharacter::Tick(float DeltaTime)
 		if (StateMachine->GetCurrentEnumState() == ECharacterState::DefaultState)
 		{
 			LastInteractedWall = nullptr;
-			CanJump = true;
+			PlayerCanJump = true;
+			CanDash = false;
 		}
 		InternalCoyoteTimer = 0;
 	}
 	//This for coyote for normal jump from the ground, as every other ability have their internal timer
 	//But if i were to quit them, their function would break, eg I need to be in wall run to do coyote for wall run.
 	//So I cannot do a global coyote here unfortunately.
-	else if (CanJump && StateMachine->GetCurrentEnumState() == ECharacterState::DefaultState && InternalCoyoteTimer <= CoyoteTime)
+	if (PlayerCanJump && StateMachine->GetCurrentEnumState() == ECharacterState::DefaultState && InternalCoyoteTimer <= CoyoteTime)
 	{
 		InternalCoyoteTimer += DeltaTime;
 	}
-	else if (InternalCoyoteTimer > CoyoteTime && !CanDash && CanJump)
+	
+	if (InternalCoyoteTimer > CoyoteTime  && !CanDash && PlayerCanJump)
 	{
-		CanJump = false;
+		PlayerCanJump = false;
 		CanDash = true;
 	}
 	
@@ -136,17 +138,17 @@ void AMyCharacter::JumpAndDash()
 
 	//Internal coyote timer will be 0 for every other ability, as they have their own internal timer. They reset jump manually.
 	//SetStateBool will check automatically if we can exit the current state.
-	if (InternalCoyoteTimer <= CoyoteTime && CanJump && SetStateBool(ECharacterState::DefaultState))
+	if (InternalCoyoteTimer <= CoyoteTime && PlayerCanJump && SetStateBool(ECharacterState::DefaultState))
 	{
-		GetCharacterMovement()->Velocity = GetCharacterMovement()->Velocity.GetSafeNormal() * MaxRunningSpeed;
+		//GetCharacterMovement()->Velocity = GetCharacterMovement()->Velocity.GetSafeNormal() * MaxRunningSpeed;
 		GetCharacterMovement()->Velocity.Z = 0;
 		GetCharacterMovement()->UpdateComponentVelocity();
 		GetCharacterMovement()->AddImpulse(JumpVector, true);
-		CanJump = false;
+		PlayerCanJump = false;
 		CanDash = true;
 		HandleJumpEvent();
 	}
-	else if (CanDash && !CanJump && SetStateBool(ECharacterState::AirDashing))
+	else if (CanDash && !PlayerCanJump && SetStateBool(ECharacterState::AirDashing))
 	{
 		CanDash = false;
 	}

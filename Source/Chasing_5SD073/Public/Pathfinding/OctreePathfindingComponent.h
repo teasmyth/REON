@@ -37,7 +37,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Pathfinding")
 	void GetAStarPathAsyncToTarget(const AActor* TargetActor, FVector& OutNextDirection);
 
-	
+	UFUNCTION(BlueprintCallable, Category="Pathfinding")
+	void UpdateMaxSpeed(float NewSpeed) { OriginalSpeed = NewSpeed; }
 
 	UFUNCTION(BlueprintCallable, Category="Pathfinding")
 	void ForceStopPathfinding();

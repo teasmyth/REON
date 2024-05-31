@@ -86,6 +86,7 @@ void UWallRunningStateComponent::OnExitState(UCharacterStateMachine& SM)
 	Super::OnExitState(SM);
 	PlayerCharacter->bUseControllerRotationYaw = true;
 	LastPointOnWall = HitResult.ImpactPoint;
+	PlayerCharacter->DisableJump();
 }
 
 void UWallRunningStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)

@@ -33,6 +33,8 @@ private:
 	bool CheckLeg() const;
 	bool CheckBody() const;
 	bool CloseToGround() const;
+	static float Distance2DSqr(const FVector& A, const FVector& B);
+	bool PlayerMoved() const;
 
 
 	UPROPERTY(EditAnywhere, Category= "Settings")
@@ -76,5 +78,8 @@ private:
 	float InternalTimer = 0;
 	float TriggerTimer = 0;
 	bool DisableInput = false; //for coyote time.
-	bool JustJumped = false;
+	bool DisableWallClimb = false;
+	bool ManualExited = false;
+
+	FVector PreviousHitPoint = FVector::ZeroVector;
 };

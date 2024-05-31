@@ -119,7 +119,8 @@ protected:
 
 public:
 	void ResetDash() { CanDash = true; }
-	void ResetJump() { CanJump = true; }
+	void ResetJump() { PlayerCanJump = true; }
+	void DisableJump() {PlayerCanJump = false;}
 
 	void ResetFalling()
 	{
@@ -249,7 +250,8 @@ private:
 	bool CanDash;
 	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
 	bool Falling = false;
-	bool CanJump = true;
+	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	bool PlayerCanJump = true;
 	float InternalFallingTimer = 0;
 
 	float InternalCoyoteTimer = 0;

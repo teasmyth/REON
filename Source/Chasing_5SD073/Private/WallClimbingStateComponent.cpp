@@ -17,7 +17,7 @@ UWallClimbingStateComponent::UWallClimbingStateComponent()
 bool UWallClimbingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
 	if (!CloseToGround() /*&& PlayerCharacter->GetLastInteractedWall() != HitResult.GetActor()*/ && PlayerCharacter->
-		GetCharacterMovementInput().Y > 0.01f)
+		GetCharacterMovementInput().Y > 0.01f && PlayerMoved())
 	{
 		return true;
 	}
@@ -35,6 +35,8 @@ void UWallClimbingStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	PlayerMovement->UpdateComponentVelocity();
 	PlayerCharacter->SetActorRotation((-HitResult.Normal).Rotation());
 	PlayerMovement->GravityScale = 0;
+	PreviousHitPoint = HitResult.ImpactPoint;
+	ManualExited = false;
 }
 
 void UWallClimbingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
@@ -45,7 +47,6 @@ void UWallClimbingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 	//PlayerMovement->AddForce(CounterGravityForce);
 	InternalTimer += GetWorld()->GetDeltaSeconds();
 
-	
 
 	if (InternalTimer >= MaxWallClimbDuration)
 	{
@@ -55,6 +56,7 @@ void UWallClimbingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 	if (InternalTimer >= MaxWallClimbDuration + PlayerCharacter->GetCoyoteTime() || CheckLedge() && CheckLeg())
 	{
 		SM.ManualExitState();
+		ManualExited = true;
 	}
 }
 
@@ -198,27 +200,12 @@ void UWallClimbingStateComponent::OverrideDebug()
 void UWallClimbingStateComponent::OverrideDetectState(UCharacterStateMachine& SM)
 {
 	Super::OverrideDetectState(SM);
-
-	if (JustJumped)
-	{
-		TriggerTimer += GetWorld()->GetDeltaSeconds();
-
-		if (TriggerTimer >= WallClimbTriggerDelay)
-		{
-			JustJumped = false;
-			TriggerTimer = 0;
-		}
-		else return;
-	}
-
-	//if (PlayerMovement->IsMovingOnGround()) PrevResult = EmptyResult;
+	
 
 	const FVector Start = GetOwner()->GetActorLocation();
 	const FVector End = Start + GetOwner()->GetActorRotation().Vector() * WallCheckDistance;
 
-	//const FVector End = Start + PlayerCharacter->GetFirstPersonCameraComponent()->GetComponentRotation().Vector() * WallCheckDistance;
 
-	//Prioritizing player's aim.
 	if (LineTraceSingle(HitResult, Start, End))
 	{
 		// Calculate the angle of incidence
@@ -228,20 +215,23 @@ void UWallClimbingStateComponent::OverrideDetectState(UCharacterStateMachine& SM
 		// AngleInDegrees now contains the angle between the wall and the actor's forward vector
 		if (AngleInDegrees <= WallClimbAngle)
 		{
-			//TriggerTimer += GetWorld()->GetDeltaSeconds();
+			TriggerTimer += GetWorld()->GetDeltaSeconds();
 
-			SM.SetState(ECharacterState::WallClimbing);
-
-			//if (TriggerTimer >= WallClimbTriggerDelay)
-			//{
-			//}
+			if (!ManualExited && TriggerTimer >= WallClimbTriggerDelay)
+			{
+				SM.SetState(ECharacterState::WallClimbing);
+			}
 		}
 		else
 		{
 			TriggerTimer = 0;
 		}
 	}
-	else TriggerTimer = 0;
+	else
+	{
+		ManualExited = false;
+		TriggerTimer = 0;
+	}
 }
 
 void UWallClimbingStateComponent::OverrideJump(UCharacterStateMachine& SM, FVector& JumpVector)
@@ -253,21 +243,25 @@ void UWallClimbingStateComponent::OverrideJump(UCharacterStateMachine& SM, FVect
 		JumpVector = (PlayerCharacter->GetActorUpVector() * WallFacingJumpUpForceMultiplier - PlayerCharacter->GetActorForwardVector() *
 			WallFacingJumpBackForceMultiplier) * JumpVector.Size();
 	}
-
-	const FVector Start = GetOwner()->GetActorLocation();
-	const FVector End = Start + PlayerCharacter->GetFirstPersonCameraComponent()->GetComponentRotation().Vector() * WallCheckDistance;
-
-	if (LineTraceSingle(Start, End))
-	{
-		
-	}
-
-	JustJumped = true;
 }
 
 constexpr float MinimumDistanceFromGround = 350;
 
 bool UWallClimbingStateComponent::CloseToGround() const
 {
-	return LineTraceSingle(GetOwner()->GetActorLocation(),GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * MinimumDistanceFromGround);
+	return LineTraceSingle(GetOwner()->GetActorLocation(),
+	                       GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * MinimumDistanceFromGround);
+}
+
+float UWallClimbingStateComponent::Distance2DSqr(const FVector& A, const FVector& B)
+{
+	const FVector2d A2D = FVector2d(A.X, A.Y);
+	const FVector2d B2D = FVector2d(B.X, B.Y);
+
+	return FVector2d::DistSquared(A2D, B2D);
+}
+
+bool UWallClimbingStateComponent::PlayerMoved() const
+{
+	return Distance2DSqr(PreviousHitPoint, HitResult.ImpactPoint) > 100 || HitResult.ImpactPoint.Z - PreviousHitPoint.Z > 5;
 }
