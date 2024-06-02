@@ -76,6 +76,8 @@ void USlidingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 		CanExitState = true;
 	}
 
+	//Honestly, unsure what this is and why is it here. We don't have slopes in the game.
+	/*
 	const auto Info = GetSurfaceInfo();
 	if (!Info.IsSlopedSurface || (Info.IsSlopedSurface && Info.MovingDown))
 	{
@@ -87,6 +89,16 @@ void USlidingStateComponent::OnUpdateState(UCharacterStateMachine& SM)
 		{
 			InternalTimer += GetWorld()->GetDeltaSeconds();
 		}
+	}
+	*/
+
+	if (InternalTimer > MaxSlideDuration || !IsUnderObject() && WasUnderObject)
+	{
+		SM.ManualExitState();
+	}
+	else
+	{
+		InternalTimer += GetWorld()->GetDeltaSeconds();
 	}
 
 	if (IsUnderObject())
@@ -212,7 +224,8 @@ bool USlidingStateComponent::SweepCapsuleSingle(FVector& Start, FVector& End) co
 	FCollisionQueryParams CollisionParams;
 	CollisionParams.AddIgnoredActor(GetOwner());
 
-	const FCollisionShape CollisionShape = FCollisionShape::MakeBox(FVector(55.0f, 75.0f, 96.0f));
+	//Just a bit less wider than player, to not get stuck.
+	const FCollisionShape CollisionShape = FCollisionShape::MakeBox(FVector(55.0f, 50.0f, 96.0f));
 	FQuat Rotation = FQuat::Identity;
 	
 	if (FSurfaceInfo Info; IsOnSlope(Info))
