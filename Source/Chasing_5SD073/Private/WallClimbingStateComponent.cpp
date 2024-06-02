@@ -16,7 +16,7 @@ UWallClimbingStateComponent::UWallClimbingStateComponent()
 
 bool UWallClimbingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	if (!CloseToGround() /*&& PlayerCharacter->GetLastInteractedWall() != HitResult.GetActor()*/ && PlayerCharacter->
+	if (!CloseToGround() && PlayerCharacter->GetLastInteractedWall() != HitResult.GetActor() && PlayerCharacter->
 		GetCharacterMovementInput().Y > 0.01f && PlayerMoved())
 	{
 		return true;
