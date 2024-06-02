@@ -26,6 +26,7 @@ TWeakPtr<OctreeNode> OctreeGraph::PreviousValidEnd = nullptr;
 
 //Can do weighted H to increase performance. Higher numbers should yield faster path finding but might sacrifice accuracy.
 static float ExtraHWeight = 3.0f;
+static float MaxPathfindingTime = 1.0f;
 
 
 bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug, const TArray<FBox>& ActorBoxes, const float& MinSize,
@@ -62,6 +63,7 @@ bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug,
 		}
 	}
 
+	float PathfindingTimer = FPlatformTime::Seconds();
 	Start->PathfindingData = MakeShareable(new FPathfindingNode());
 	End->PathfindingData = MakeShareable(new FPathfindingNode());
 
@@ -91,7 +93,7 @@ bool OctreeGraph::LazyOctreeAStar(const bool& ThreadIsPaused, const bool& Debug,
 
 	PathfindingMemoryTick++;
 
-	while (!OpenQueue.empty() && !ThreadIsPaused)
+	while (!OpenQueue.empty() && !ThreadIsPaused && FPlatformTime::Seconds() - PathfindingTimer <= MaxPathfindingTime)
 	{
 		TSharedPtr<OctreeNode> CurrentNode = OpenQueue.top();
 
