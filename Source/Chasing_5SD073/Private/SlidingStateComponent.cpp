@@ -227,11 +227,21 @@ bool USlidingStateComponent::SweepCapsuleSingle(FVector& Start, FVector& End) co
 	//Just a bit less wider than player, to not get stuck.
 	const FCollisionShape CollisionShape = FCollisionShape::MakeBox(FVector(55.0f, 50.0f, 96.0f));
 	FQuat Rotation = FQuat::Identity;
-	
+
+	//No slopes, also idk what this is.
+	/*
 	if (FSurfaceInfo Info; IsOnSlope(Info))
 	{
 		Rotation = FQuat(FRotator(Info.Angle, 0, 0));
 	}
+	*/
+
+	if (HitR2.bBlockingHit)
+	{
+		Rotation = HitR2.ImpactNormal.ToOrientationQuat();
+	}
+
+	//DrawDebugBox(GetWorld(), Start, CollisionShape.GetExtent(), Rotation, FColor::Red, false, 0, 0, 3);
 	
 	return GetWorld()->SweepSingleByChannel(HitR, Start, End, Rotation, ECC_Visibility, CollisionShape, CollisionParams);
 }

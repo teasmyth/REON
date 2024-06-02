@@ -79,6 +79,9 @@ private:
 	UPROPERTY(EditAnywhere, Category="Pathfinding", meta = (Tooltip = "If the distance to the target is less than this, it will at offset."))
 	float StopFloatingAtDistance = 0;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pathfinding", meta = (AllowPrivateAccess = "true",  ClampMin = 0))
+	float StraightMovementSpeed = 1755;
+
 	
 
 	UPROPERTY(EditAnywhere, Category="Pathfinding",
