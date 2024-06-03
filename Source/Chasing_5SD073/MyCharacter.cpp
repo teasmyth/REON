@@ -272,6 +272,8 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 		//AccelerationTimer = 0;
 	}
 
+	GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Yellow, *MovementVector.ToString());
+
 	//Should this be below?
 	//PreviousMovementVector = MovementVector;
 

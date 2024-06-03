@@ -93,11 +93,11 @@ void UWallRunningStateComponent::OverrideMovementInput(UCharacterStateMachine& S
 {
 	Super::OverrideMovementInput(SM, NewMovementVector);
 
-	if (WallOrientation == Right && NewMovementVector.X <= 0)
+	if (WallOrientation == Right && NewMovementVector.X < 0)
 	{
 		SM.ManualExitState();
 	}
-	else if (WallOrientation == Left && NewMovementVector.X >= 0)
+	else if (WallOrientation == Left && NewMovementVector.X > 0)
 	{
 		SM.ManualExitState();
 	}
