@@ -38,7 +38,10 @@ AOctree::AOctree()
 void AOctree::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-	// In Tick method or wherever you want to record frame times, calculate frame time
+	if (RootNodeSharedPtr.IsValid())
+	{
+		DrawGrid();
+	}
 }
 
 void AOctree::BeginPlay()
@@ -88,6 +91,35 @@ void AOctree::OnConstruction(const FTransform& Transform)
 #pragma region Drawing
 void AOctree::DrawGrid()
 {
+	/*
+	TArray<TSharedPtr<OctreeNode>> NodeList;
+	NodeList.Add(RootNodeSharedPtr);
+	
+
+	for (int i = 0; i < NodeList.Num(); i++)
+	{
+		for (const auto& Child : NodeList[i]->ChildrenOctreeNodes)
+		{
+			if (Child.IsValid())
+			{
+				if (!Child->Occupied && Child->ChildrenOctreeNodes.Num() == 0)
+				{
+					DrawDebugBox(GetWorld(), Child->Position, FVector(Child->HalfSize), FColor::White, false, 0, 0, 10);
+				}
+
+				for (const auto& GrandChild : Child->ChildrenOctreeNodes)
+				{
+					if (GrandChild.IsValid())
+					{
+						NodeList.Add(GrandChild);
+					}
+				}
+			}
+		}
+	}
+	*/
+
+	/*
 	if (GridDrawn)
 	{
 		DynamicMaterialInstance->SetVectorParameterValue("Color", Color);
@@ -103,8 +135,9 @@ void AOctree::DrawGrid()
 			GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, "Root node is null. Cannot draw grid.");
 		}
 	}
+	*/
 
-	GridDrawn = true;
+	//GridDrawn = true;
 	ProceduralMesh->ClearAllMeshSections();
 	ProceduralMesh->bHiddenInGame = false;
 
@@ -117,42 +150,47 @@ void AOctree::DrawGrid()
 
 	for (int i = 0; i < NodeList.Num(); i++)
 	{
+		if (!NodeList[i].IsValid()) continue;
+
 		for (const auto& Child : NodeList[i]->ChildrenOctreeNodes)
 		{
-			if (!Child->Occupied)
+			if (Child.IsValid())
 			{
-				const FVector Center = Child->Position;
-				const FVector Extent = FVector(Child->HalfSize);
+				if (!Child->Occupied && Child->ChildrenOctreeNodes.Num() == 0)
+				{
+					const FVector Center = Child->Position;
+					const FVector Extent = FVector(Child->HalfSize);
 
-				// Draw lines for each edge of the cube
-				DrawLine(Center - Extent, FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z), FVector::RightVector, Vertices,
-				         Triangles);
-				DrawLine(FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z),
-				         FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z), FVector::ForwardVector, Vertices, Triangles);
-				DrawLine(FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z),
-				         FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z), FVector::RightVector, Vertices, Triangles);
-				DrawLine(FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z),
-				         FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z), FVector::ForwardVector, Vertices, Triangles);
+					// Draw lines for each edge of the cube
+					DrawLine(Center - Extent, FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z), FVector::RightVector, Vertices,
+					         Triangles);
+					DrawLine(FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z),
+					         FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z), FVector::ForwardVector, Vertices, Triangles);
+					DrawLine(FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z),
+					         FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z), FVector::RightVector, Vertices, Triangles);
+					DrawLine(FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z),
+					         FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z), FVector::ForwardVector, Vertices, Triangles);
 
-				DrawLine(FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z),
-				         FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::RightVector, Vertices, Triangles);
-				DrawLine(FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z),
-				         FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z), FVector::ForwardVector, Vertices, Triangles);
-				DrawLine(FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z),
-				         FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z), FVector::RightVector, Vertices, Triangles);
-				DrawLine(FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z),
-				         FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::ForwardVector, Vertices, Triangles);
+					DrawLine(FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z),
+					         FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::RightVector, Vertices, Triangles);
+					DrawLine(FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z),
+					         FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z), FVector::ForwardVector, Vertices, Triangles);
+					DrawLine(FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z),
+					         FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z), FVector::RightVector, Vertices, Triangles);
+					DrawLine(FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z),
+					         FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::ForwardVector, Vertices, Triangles);
 
-				DrawLine(FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z),
-				         FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::UpVector, Vertices, Triangles);
-				DrawLine(FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z),
-				         FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z), FVector::UpVector, Vertices, Triangles);
-				DrawLine(FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z),
-				         FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::UpVector, Vertices, Triangles);
-				DrawLine(FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z),
-				         FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::UpVector, Vertices, Triangles);
+					DrawLine(FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z),
+					         FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::UpVector, Vertices, Triangles);
+					DrawLine(FVector(Center.X - Extent.X, Center.Y - Extent.Y, Center.Z + Extent.Z),
+					         FVector(Center.X - Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z), FVector::UpVector, Vertices, Triangles);
+					DrawLine(FVector(Center.X + Extent.X, Center.Y - Extent.Y, Center.Z - Extent.Z),
+					         FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::UpVector, Vertices, Triangles);
+					DrawLine(FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z + Extent.Z),
+					         FVector(Center.X + Extent.X, Center.Y + Extent.Y, Center.Z - Extent.Z), FVector::UpVector, Vertices, Triangles);
+				}
+				NodeList.Add(Child);
 			}
-			NodeList.Add(Child);
 		}
 	}
 
@@ -285,8 +323,6 @@ void AOctree::DrawLine(const FVector& Start, const FVector& End, const FVector& 
 #pragma endregion
 
 
-
-
 #pragma region Making Octree
 
 void AOctree::ResizeOctree()
@@ -400,7 +436,7 @@ void AOctree::SetUpOctree()
 	for (const auto Overlap : Result)
 	{
 		if (Overlap.GetActor()->ActorHasTag(OctreeIgnoreTag)) continue;
-		
+
 		BoxResults.Add(Overlap.GetActor()->GetComponentsBoundingBox());
 	}
 

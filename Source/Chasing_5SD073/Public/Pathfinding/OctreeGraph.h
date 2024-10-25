@@ -26,8 +26,8 @@ public:
 
 	static void CleanupUnusedNodes(TSharedPtr<OctreeNode>& Node, const TSet<TSharedPtr<OctreeNode>>& OpenSet, int& DeletedChildrenCount);
 
-	inline static constexpr int MemoryOptimizerTickThreshold = 50;
-	inline static constexpr int MemoryCleanupFrequency = 1000;
+	inline static constexpr int MemoryOptimizerTickThreshold = 10;
+	inline static constexpr int MemoryCleanupFrequency = 50;
 	inline static int PathfindingMemoryTick = 0;
 
 private: 	

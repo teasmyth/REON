@@ -67,6 +67,8 @@ void AMyCharacter::Tick(float DeltaTime)
 	MovementStateCheck();
 	Acceleration();
 
+	if (StateMachine == nullptr) return;
+
 	if (GetCharacterMovement()->IsMovingOnGround() || StateMachine->GetCurrentEnumState() != ECharacterState::DefaultState)
 	{
 		if (StateMachine->GetCurrentEnumState() == ECharacterState::DefaultState)
@@ -185,6 +187,8 @@ void AMyCharacter::Acceleration()
 
 void AMyCharacter::MovementStateCheck()
 {
+	if (StateMachine == nullptr) return;
+	
 	if (CurrentMovementState != ECharacterMovementState::Fell && StateMachine->GetCurrentEnumState() == ECharacterState::DefaultState && GetHorizontalVelocity() <= 1)
 	{
 		CurrentMovementState = ECharacterMovementState::Idle;
@@ -272,7 +276,7 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 		//AccelerationTimer = 0;
 	}
 
-	GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Yellow, *MovementVector.ToString());
+	//GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Yellow, *MovementVector.ToString());
 
 	//Should this be below?
 	//PreviousMovementVector = MovementVector;
