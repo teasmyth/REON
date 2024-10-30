@@ -34,9 +34,10 @@ void UWallRunningStateComponent::TickComponent(float DeltaTime, ELevelTick TickT
 
 bool UWallRunningStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	if (!CloseToGround() && PlayerCharacter->GetLastInteractedWall() != HitResult.GetActor() /* && !NonInteractableWalls.Contains(HitResult.GetActor())*/
+	if (!CloseToGround() && PlayerCharacter->GetLastInteractedWall() != HitResult.GetActor())
+		/* && !NonInteractableWalls.Contains(HitResult.GetActor())
 		&& (PlayerCharacter->GetCharacterMovementInput().X > 0.1f && WallOrientation == Right ||
-			PlayerCharacter->GetCharacterMovementInput().X < -0.1f && WallOrientation == Left))
+			PlayerCharacter->GetCharacterMovementInput().X < -0.1f && WallOrientation == Left))*/
 
 	{
 		return true;
@@ -50,14 +51,17 @@ void UWallRunningStateComponent::OnEnterState(UCharacterStateMachine& SM)
 {
 	Super::OnEnterState(SM);
 	NoLongerWallRunning = false;
+	
 	PlayerCharacter->bUseControllerRotationYaw = false;
 	PlayerCharacter->SetLastInteractedWall(HitResult.GetActor());
 	WallRunTimer = 0.0f;
 	PlayerMovement->Velocity.Z = 0;
-	RotatePlayerAlongsideWall(HitResult);
+	const auto a = RotatePlayerAlongsideWall(HitResult);
+	DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(), GetOwner()->GetActorLocation() + a * 10, FColor::Red, false,20, 0, 3);
 	PlayerForwardVectorOnEnter = PlayerCharacter->GetActorForwardVector();
 	PlayerUpVectorOnEnter = PlayerCharacter->GetActorUpVector();
 	TouchedGround = false;
+	EnteringWallRun = false;
 	//BlockContinuousWall();
 }
 
@@ -133,7 +137,7 @@ void UWallRunningStateComponent::OverrideCameraInput(UCharacterStateMachine& SM,
 	Super::OverrideCameraInput(SM, NewRotationVector);
 }
 
-void UWallRunningStateComponent::RotatePlayerAlongsideWall(const FHitResult& Hit) const
+FVector UWallRunningStateComponent::RotatePlayerAlongsideWall(const FHitResult& Hit) const
 {
 	FVector RotatedVector;
 
@@ -148,13 +152,18 @@ void UWallRunningStateComponent::RotatePlayerAlongsideWall(const FHitResult& Hit
 		RotatedVector.Y = Hit.Normal.X;
 	}
 	PlayerCharacter->SetActorRotation(RotatedVector.Rotation());
-
+	DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(), GetOwner()->GetActorLocation() + RotatedVector * 10, FColor::Red, false,10, 0, 3);
 	const FVector NewVel = PlayerCharacter->GetActorForwardVector() * FVector(PlayerMovement->Velocity.X, PlayerMovement->Velocity.Y, 0).Size();
+	
 	PlayerMovement->Velocity = FVector(NewVel.X, NewVel.Y, PlayerMovement->Velocity.Z);
+
+	return RotatedVector;
 }
 
 bool UWallRunningStateComponent::CheckWhetherStillWallRunning()
 {
+	//if (EnteringWallRun) return true;
+
 	//If moving on ground, cancel wall run outright, otherwise, check the side if we are still wall running
 	if (PlayerMovement->IsMovingOnGround())
 	{
@@ -252,7 +261,7 @@ void UWallRunningStateComponent::BlockContinuousWall()
 
 			LongerSurfaceSize = UpBoundingBox.GetSize().Z;
 			ShorterSurfaceSize = 0;
-			
+
 			if (FMath::Abs(PlayerForwardVectorOnEnter.X) >= FMath::Abs(PlayerForwardVectorOnEnter.Y))
 			{
 				//LongerSurfaceSize = UpBoundingBox.GetSize().X;
@@ -263,7 +272,7 @@ void UWallRunningStateComponent::BlockContinuousWall()
 				//LongerSurfaceSize = UpBoundingBox.GetSize().Y;
 				ShorterSurfaceSize = UpBoundingBox.GetSize().X;
 			}
-			
+
 			const FVector UpMiddlePoint = UpBoundingBox.GetCenter();
 
 			//Middle point of the object on the surface
@@ -329,11 +338,13 @@ void UWallRunningStateComponent::BlockContinuousWall()
 			FHitResult DownHitIn;
 			FHitResult DownHitOut;
 
-			const bool DownInsideHit = GetWorld()->LineTraceSingleByChannel(DownHitIn, NewDownMiddlePointIn, TraceDownEndIn, ECC_Visibility, TraceParams);
-			const bool DownOutsideHit = GetWorld()->LineTraceSingleByChannel(DownHitOut, NewDownMiddlePointOut, TraceDownEndOut, ECC_Visibility, TraceParams);
-			
+			const bool DownInsideHit = GetWorld()->LineTraceSingleByChannel(DownHitIn, NewDownMiddlePointIn, TraceDownEndIn, ECC_Visibility,
+			                                                                TraceParams);
+			const bool DownOutsideHit = GetWorld()->LineTraceSingleByChannel(DownHitOut, NewDownMiddlePointOut, TraceDownEndOut, ECC_Visibility,
+			                                                                 TraceParams);
+
 			DrawDebugLine(GetWorld(), NewDownMiddlePointOut, TraceDownEndOut, FColor::Red, false, 20, 0, 10);
-			
+
 			if (DownInsideHit && !DownOutsideHit)
 			{
 				// It's a continuous wall, update LastUsedWall. We shouldn't be using this wall as it 'looks' like a single object.
@@ -423,9 +434,10 @@ void UWallRunningStateComponent::OverrideDetectState(UCharacterStateMachine& SM)
 	{
 		//if (TouchedGround || HitResult.GetActor() == nullptr)
 		//{
-			const FHitResult NewResult = bRightSideHit ? RightSide : LeftSide;
-			HitResult = NewResult;
-			SM.SetState(ECharacterState::WallRunning);
+		EnteringWallRun = true;
+		const FHitResult NewResult = bRightSideHit ? RightSide : LeftSide; //For unknown UE5 reasons, I need a temporary var otherwise doesn't work.
+		HitResult = NewResult;
+		SM.SetState(ECharacterState::WallRunning);
 		//}
 		/*
 		else

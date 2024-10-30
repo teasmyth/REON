@@ -44,7 +44,7 @@ public:
 	FORCEINLINE EWallOrientation GetWallOrientation() const { return WallOrientation; }
 
 private:
-	void RotatePlayerAlongsideWall(const FHitResult& Hit) const;
+	FVector RotatePlayerAlongsideWall(const FHitResult& Hit) const;
 	bool CheckWhetherStillWallRunning();
 	void BlockContinuousWall();
 	bool CloseToGround() const;
@@ -92,6 +92,7 @@ private:
 	bool NoLongerWallRunning = false;
 	float TriggerTimer;
 	float WallRunTimer;
+	bool EnteringWallRun = false;
 	bool TouchedGround = false;
 	UPROPERTY() TArray<AActor*> NonInteractableWalls;
 };
