@@ -40,7 +40,7 @@ void AOctree::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 	if (RootNodeSharedPtr.IsValid())
 	{
-		DrawGrid();
+		//DrawGrid();
 	}
 }
 

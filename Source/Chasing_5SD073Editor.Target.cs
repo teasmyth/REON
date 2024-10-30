@@ -8,6 +8,7 @@ public class Chasing_5SD073EditorTarget : TargetRules
 	public Chasing_5SD073EditorTarget( TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Editor;
+		bOverrideBuildEnvironment = true;
 		DefaultBuildSettings = BuildSettingsVersion.V2;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_1;
 		ExtraModuleNames.Add("Chasing_5SD073");
