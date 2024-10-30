@@ -25,6 +25,9 @@ UWallRunningStateComponent::UWallRunningStateComponent()
 void UWallRunningStateComponent::BeginPlay()
 {
 	Super::BeginPlay();
+	//Without not initializing FHitResult, it causes weird bugs with wall run that I cannot figure out.
+	//Probably something to do with how engine handles FHitResult.
+	LineTraceSingle(HitResult, GetOwner()->GetActorLocation(), GetOwner()->GetActorLocation() - GetOwner()->GetActorUpVector() * MinimumDistanceFromGround);
 }
 
 void UWallRunningStateComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -60,7 +63,6 @@ void UWallRunningStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	PlayerForwardVectorOnEnter = PlayerCharacter->GetActorForwardVector();
 	PlayerUpVectorOnEnter = PlayerCharacter->GetActorUpVector();
 	TouchedGround = false;
-	EnteringWallRun = false;
 	//BlockContinuousWall();
 }
 
@@ -158,8 +160,6 @@ void UWallRunningStateComponent::RotatePlayerAlongsideWall(const FHitResult& Hit
 
 bool UWallRunningStateComponent::CheckWhetherStillWallRunning()
 {
-	//if (EnteringWallRun) return true;
-
 	//If moving on ground, cancel wall run outright, otherwise, check the side if we are still wall running
 	if (PlayerMovement->IsMovingOnGround())
 	{
@@ -430,9 +430,7 @@ void UWallRunningStateComponent::OverrideDetectState(UCharacterStateMachine& SM)
 	{
 		//if (TouchedGround || HitResult.GetActor() == nullptr)
 		//{
-		EnteringWallRun = true;
-		const FHitResult NewResult = bRightSideHit ? RightSide : LeftSide; //For unknown UE5 reasons, I need a temporary var otherwise doesn't work.
-		HitResult = NewResult;
+		HitResult = bRightSideHit ? RightSide : LeftSide;
 		SM.SetState(ECharacterState::WallRunning);
 		//}
 		/*

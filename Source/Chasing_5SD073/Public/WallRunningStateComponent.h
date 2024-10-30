@@ -93,7 +93,6 @@ private:
 	bool NoLongerWallRunning = false;
 	float TriggerTimer;
 	float WallRunTimer;
-	bool EnteringWallRun = false;
 	bool TouchedGround = false;
 	UPROPERTY() TArray<AActor*> NonInteractableWalls;
 };
