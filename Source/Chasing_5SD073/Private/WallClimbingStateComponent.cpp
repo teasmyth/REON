@@ -245,6 +245,12 @@ void UWallClimbingStateComponent::OverrideJump(UCharacterStateMachine& SM, FVect
 	}
 }
 
+void UWallClimbingStateComponent::OverrideNoJump(UCharacterStateMachine& SM)
+{
+	Super::OverrideNoJump(SM);
+	PlayerCharacter->Jump();
+}
+
 constexpr float MinimumDistanceFromGround = 350;
 
 bool UWallClimbingStateComponent::CloseToGround() const

@@ -26,6 +26,7 @@ public:
 	virtual void OverrideDebug() override;
 	virtual void OverrideDetectState(UCharacterStateMachine& SM) override;
 	virtual void OverrideJump(UCharacterStateMachine& SM, FVector& JumpVector) override;
+	virtual void OverrideNoJump(UCharacterStateMachine& SM) override;
 
 private:
 	void DetectWallClimb();
