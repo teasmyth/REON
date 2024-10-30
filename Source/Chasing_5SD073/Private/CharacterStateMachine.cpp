@@ -149,6 +149,14 @@ void UCharacterStateMachine::OverrideJump(FVector& JumpVector)
 	}
 }
 
+void UCharacterStateMachine::OverrideNoJump()
+{
+	if (CurrentState != nullptr)
+	{
+		CurrentState->OverrideNoJump(*this);
+	}
+}
+
 
 void UCharacterStateMachine::DetectStates()
 {

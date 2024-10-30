@@ -57,6 +57,9 @@ private:
 	UInputAction* JumpAction;
 
 	UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
+	UInputAction* NoJumpAction;
+
+	UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* MoveAction;
 
 	//UPROPERTY(EditAnywhere, Category=Input, meta=(AllowPrivateAccess = "true"))
@@ -96,6 +99,7 @@ protected:
 	void CameraJitter(float& WalkSpeed);
 	void TurnTimeBackAsync();
 	void NoMovementInput();
+	void NoJumpInput();
 	//void PreciseMovement();
 	//void DisablePreciseMovement();
 
@@ -121,6 +125,7 @@ public:
 	void ResetDash() { CanDash = true; }
 	void ResetJump() { PlayerCanJump = true; }
 	void DisableJump() {PlayerCanJump = false;}
+	virtual void Jump() override { JumpAndDash(); }
 
 	void ResetFalling()
 	{

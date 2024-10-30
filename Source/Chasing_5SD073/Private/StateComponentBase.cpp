@@ -96,6 +96,10 @@ void UStateComponentBase::OverrideJump(UCharacterStateMachine& SM, FVector& Jump
 {
 }
 
+void UStateComponentBase::OverrideNoJump(UCharacterStateMachine& SM)
+{
+}
+
 void UStateComponentBase::OverrideDetectState(UCharacterStateMachine& SM)
 {
 }

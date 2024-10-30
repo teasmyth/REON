@@ -56,8 +56,7 @@ void UWallRunningStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	PlayerCharacter->SetLastInteractedWall(HitResult.GetActor());
 	WallRunTimer = 0.0f;
 	PlayerMovement->Velocity.Z = 0;
-	const auto a = RotatePlayerAlongsideWall(HitResult);
-	DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(), GetOwner()->GetActorLocation() + a * 10, FColor::Red, false,20, 0, 3);
+	RotatePlayerAlongsideWall(HitResult);
 	PlayerForwardVectorOnEnter = PlayerCharacter->GetActorForwardVector();
 	PlayerUpVectorOnEnter = PlayerCharacter->GetActorUpVector();
 	TouchedGround = false;
@@ -137,7 +136,7 @@ void UWallRunningStateComponent::OverrideCameraInput(UCharacterStateMachine& SM,
 	Super::OverrideCameraInput(SM, NewRotationVector);
 }
 
-FVector UWallRunningStateComponent::RotatePlayerAlongsideWall(const FHitResult& Hit) const
+void UWallRunningStateComponent::RotatePlayerAlongsideWall(const FHitResult& Hit) const
 {
 	FVector RotatedVector;
 
@@ -152,12 +151,9 @@ FVector UWallRunningStateComponent::RotatePlayerAlongsideWall(const FHitResult& 
 		RotatedVector.Y = Hit.Normal.X;
 	}
 	PlayerCharacter->SetActorRotation(RotatedVector.Rotation());
-	DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(), GetOwner()->GetActorLocation() + RotatedVector * 10, FColor::Red, false,10, 0, 3);
 	const FVector NewVel = PlayerCharacter->GetActorForwardVector() * FVector(PlayerMovement->Velocity.X, PlayerMovement->Velocity.Y, 0).Size();
 	
 	PlayerMovement->Velocity = FVector(NewVel.X, NewVel.Y, PlayerMovement->Velocity.Z);
-
-	return RotatedVector;
 }
 
 bool UWallRunningStateComponent::CheckWhetherStillWallRunning()
@@ -525,6 +521,12 @@ void UWallRunningStateComponent::OverrideJump(UCharacterStateMachine& SM, FVecto
 	}
 	else CanExitState = true;
 	*/
+}
+
+void UWallRunningStateComponent::OverrideNoJump(UCharacterStateMachine& SM)
+{
+	Super::OverrideNoJump(SM);
+	PlayerCharacter->Jump();
 }
 
 void UWallRunningStateComponent::OverrideNoMovementInputEvent(UCharacterStateMachine& SM)

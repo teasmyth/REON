@@ -84,6 +84,8 @@ public:
 
 	virtual void OverrideJump(UCharacterStateMachine& SM, FVector& JumpVector);
 
+	virtual void OverrideNoJump(UCharacterStateMachine& SM);
+
 	//This for mechanics that require automated triggers rather than manual one. State machine will make sure a mechanic will not try to detect itself
 	//Or if the mechanic prohibits transitioning from the current state.
 	virtual void OverrideDetectState(UCharacterStateMachine& SM);

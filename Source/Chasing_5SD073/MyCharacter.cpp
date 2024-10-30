@@ -106,7 +106,7 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	{
 		//Jumping
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &AMyCharacter::JumpAndDash);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		EnhancedInputComponent->BindAction(NoJumpAction, ETriggerEvent::Triggered, this, &AMyCharacter::NoJumpInput);
 
 		//Move
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
@@ -309,6 +309,14 @@ void AMyCharacter::NoMovementInput()
 
 	PreviousMovementVector = FVector2d::ZeroVector;
 	AccelerationTimer = 0;
+}
+
+void AMyCharacter::NoJumpInput() //Cant bind const fn to input
+{
+	if (StateMachine != nullptr)
+	{
+		StateMachine->OverrideNoJump();
+	}
 }
 
 /*

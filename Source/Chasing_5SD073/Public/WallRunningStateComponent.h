@@ -37,6 +37,7 @@ public:
 	virtual void OverrideDebug() override;
 	virtual void OverrideDetectState(UCharacterStateMachine& SM) override;
 	virtual void OverrideJump(UCharacterStateMachine& SM, FVector& JumpVector) override;
+	virtual void OverrideNoJump(UCharacterStateMachine& SM) override;
 	virtual void OverrideNoMovementInputEvent(UCharacterStateMachine& SM) override;
 
 
@@ -44,7 +45,7 @@ public:
 	FORCEINLINE EWallOrientation GetWallOrientation() const { return WallOrientation; }
 
 private:
-	FVector RotatePlayerAlongsideWall(const FHitResult& Hit) const;
+	void RotatePlayerAlongsideWall(const FHitResult& Hit) const;
 	bool CheckWhetherStillWallRunning();
 	void BlockContinuousWall();
 	bool CloseToGround() const;

@@ -77,6 +77,7 @@ public:
 	void OverrideAcceleration(float& NewSpeed);
 	void OverrideCameraInput(FVector2d& NewRotationVector);
 	void OverrideJump(FVector& JumpVector);
+	void OverrideNoJump();
 	void OverrideDebug() const;
 
 	bool IsThisCurrentState(const UStateComponentBase& Component) const { return CurrentState == &Component; }
@@ -87,6 +88,7 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	FORCEINLINE ECharacterState GetCurrentEnumState() const { return CurrentEnumState; }
+
 
 	//Add quick debug text with red color and 0 lifetime
 	static void DebugText(const FString& Text, const float Lifetime = 2.0f);
