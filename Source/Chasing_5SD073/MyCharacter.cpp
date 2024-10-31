@@ -297,7 +297,7 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 
 	PreviousMovementVector = MovementVector;
 
-	StateMachine->DetectStates();
+	if (StateMachine != nullptr) StateMachine->DetectStates();
 }
 
 void AMyCharacter::NoMovementInput()
