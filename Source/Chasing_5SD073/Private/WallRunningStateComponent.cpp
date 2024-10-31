@@ -59,7 +59,7 @@ void UWallRunningStateComponent::OnEnterState(UCharacterStateMachine& SM)
 	PlayerCharacter->SetLastInteractedWall(HitResult.GetActor());
 	WallRunTimer = 0.0f;
 	PlayerMovement->Velocity.Z = 0;
-	RotatePlayerAlongsideWall(HitResult);
+	//RotatePlayerAlongsideWall(HitResult);
 	PlayerForwardVectorOnEnter = PlayerCharacter->GetActorForwardVector();
 	PlayerUpVectorOnEnter = PlayerCharacter->GetActorUpVector();
 	TouchedGround = false;
