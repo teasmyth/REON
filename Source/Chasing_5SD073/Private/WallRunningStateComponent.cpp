@@ -128,7 +128,7 @@ void UWallRunningStateComponent::OverrideMovementInput(UCharacterStateMachine& S
 			}
 		}
 	}
-	else RotatePlayerAlongsideWall(HitResult);
+	//else RotatePlayerAlongsideWall(HitResult);
 
 	NewMovementVector.X = 0;
 }
