@@ -150,6 +150,9 @@ void UAirDashingStateComponent::OnExitState(UCharacterStateMachine& SM)
 	
 	GetWorld()->GetTimerManager().ClearTimer(SlideTimerHandle);
 	GetWorld()->GetTimerManager().SetTimer(SlideTimerHandle, this, &UAirDashingStateComponent::AddSlide, GetWorld()->GetDeltaSeconds(), true);
+	//PlayerCharacter->LaunchCharacter(PlayerMovement->Velocity.GetSafeNormal() * HorizontalVelocity, true, true);
+	const float DashBoost = FMath::Clamp(HorizontalVelocity, 0 ,PlayerCharacter->GetMaxRunningSpeed() / 2);
+	PlayerMovement->AddImpulse(InitialForwardVector * DashBoost, true);
 }
 
 void UAirDashingStateComponent::OverrideMovementInput(UCharacterStateMachine& SM, FVector2d& NewMovementVector)

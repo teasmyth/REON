@@ -20,6 +20,7 @@ class CHASING_5SD073_API UStateComponentBase : public UActorComponent
 public:
 	// Sets default values for this component's properties
 	UStateComponentBase();
+	void EnableAbility() { AbilityEnabled = true; }
 
 protected:
 	// Called when the game starts
@@ -33,6 +34,9 @@ protected:
 
 	UPROPERTY()
 	AMyCharacter* PlayerCharacter = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "Settings|General Settings")
+	bool AbilityEnabled = true;
 
 	UPROPERTY(EditFixedSize, EditAnywhere, Category = "Settings|General Settings",
 		meta = (ToolTip = "The list describes FROM which states this state can transtion"))
@@ -93,6 +97,7 @@ public:
 	//This runs in Debug
 	virtual void OverrideDebug();
 
+	bool IsEnabled() const { return AbilityEnabled; }
 	bool DoesItCountTowardsFalling() const { return CountTowardsFalling; }
 	bool DoesItResetDash() const { return ResetsDash; }
 	bool GetDebugMechanic() const { return DebugMechanic; }

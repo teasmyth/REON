@@ -45,6 +45,8 @@ struct FMechanicStateData
 	FMechanicStateData(const ECharacterState& InState, UStateComponentBase* InComponent)
 		: State(InState), Component(InComponent)
 	{}
+
+	bool operator==(const ECharacterState& Other) const { return State == Other; }
 };
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -67,6 +69,10 @@ public:
 	//This switches states. Returns true if successful
 	UFUNCTION(BlueprintCallable)
 	bool SetState(const ECharacterState& NewStateEnum);
+
+	UFUNCTION(BlueprintCallable)
+	void EnableAbility(const ECharacterState& State);
+	
 	void UpdateStateMachine();
 	void ManualExitState();
 	void DetectStates();

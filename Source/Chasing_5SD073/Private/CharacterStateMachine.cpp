@@ -34,7 +34,7 @@ bool UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 	UStateComponentBase* TranslatedState = TranslateEnumToState(NewStateEnum);
 
 	//If OnSetStateCondition returns false, it means the conditions are not meant for the new state, thus aborting switching state.
-	if (TranslatedState == nullptr || !TranslatedState->OnSetStateConditionCheck(*this))
+	if (TranslatedState == nullptr || !TranslatedState->IsEnabled() || !TranslatedState->OnSetStateConditionCheck(*this))
 	{
 		if (DebugStateMachine && GEngine)
 		{
@@ -44,7 +44,7 @@ bool UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 			}
 			else
 			{
-				GEngine->AddOnScreenDebugMessage(-1, 1, FColor::Red, "Conditions are not met for " + EnumToString(NewStateEnum));
+				GEngine->AddOnScreenDebugMessage(-1, 1, FColor::Red, "Conditions are not met for " + EnumToString(NewStateEnum) + " or it is not enabled.");
 			}
 		}
 		return false;
@@ -72,6 +72,11 @@ bool UCharacterStateMachine::SetState(const ECharacterState& NewStateEnum)
 	CurrentState->OnEnterState(*this);
 	RunUpdate = true;
 	return true;
+}
+
+void UCharacterStateMachine::EnableAbility(const ECharacterState& State)
+{
+	MechanicsList.FindByKey(State)->Component->EnableAbility();
 }
 
 void UCharacterStateMachine::UpdateStateMachine()
