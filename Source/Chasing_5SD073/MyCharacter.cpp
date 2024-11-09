@@ -173,7 +173,7 @@ void AMyCharacter::Acceleration()
 	}
 	else
 	{
-		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum + (MaxRunningSpeed - RunningStateSpeedMinimum) * RunningAccelerationTime->
+		GetCharacterMovement()->MaxWalkSpeed = RunningStateSpeedMinimum + (MaxRunningSpeed - RunningStateSpeedMinimum)* RunningAccelerationTime->
 			GetFloatValue(AccelerationTimer);
 	}
 
@@ -195,7 +195,7 @@ void AMyCharacter::MovementStateCheck()
 	}
 
 
-	if (CurrentMovementState == ECharacterMovementState::Idle && GetHorizontalVelocity() > 1 || (CurrentMovementState == ECharacterMovementState::Fell && GetHorizontalVelocity() >= RunningStateSpeedMinimum))
+	if (CurrentMovementState == ECharacterMovementState::Idle && GetHorizontalVelocity() > .001f || (CurrentMovementState == ECharacterMovementState::Fell && GetHorizontalVelocity() >= RunningStateSpeedMinimum))
 	{
 		CurrentMovementState = ECharacterMovementState::Running;
 		AccelerationTimer = 0;
@@ -271,15 +271,20 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 	AccelerationTimer += GetWorld()->GetDeltaSeconds();
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
-	if (MovementVector != PreviousMovementVector)
+
+	const float DotProduct = FVector2D::DotProduct(PreviousMovementVector, MovementVector);
+	const float MagnitudeProduct = PreviousMovementVector.Size() * MovementVector.Size();
+	const float CosineAngle = DotProduct / MagnitudeProduct;
+	const float AngleInRadians = FMath::Acos(CosineAngle);
+	const float AngleInDegrees = FMath::RadiansToDegrees(AngleInRadians);
+
+	if (AngleInDegrees >= 180.0f)
 	{
-		//AccelerationTimer = 0;
+		//If the angle is euqal or more than 180 degrees, than reset acceleration as the player is likely trying to position itself, needn't full throttle
+		AccelerationTimer = 0;
 	}
-
-	//GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Yellow, *MovementVector.ToString());
-
-	//Should this be below?
-	//PreviousMovementVector = MovementVector;
+	
+	PreviousMovementVector = MovementVector;
 
 	if (StateMachine != nullptr)
 	{
@@ -287,16 +292,13 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 		StateMachine->OverrideMovementInput(MovementVector);
 	}
 
-	//TODO because players keep input and velocity doesnt change, when they suddenly change from left to right the acceleration does not reset.
-
 	if (Controller != nullptr)
 	{
 		AddMovementInput(GetActorForwardVector(), MovementVector.Y);
 		AddMovementInput(GetActorRightVector(), MovementVector.X);
 	}
 
-	PreviousMovementVector = MovementVector;
-
+	
 	if (StateMachine != nullptr) StateMachine->DetectStates();
 }
 
