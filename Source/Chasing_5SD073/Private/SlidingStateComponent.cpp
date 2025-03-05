@@ -31,6 +31,7 @@ void USlidingStateComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 bool USlidingStateComponent::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
+	if (!Super::OnSetStateConditionCheck(SM)) return false;
 	if (PlayerCharacter->GetCharacterMovementState() != ECharacterMovementState::Idle && DetectGround() && !IsTimerOn(CapsuleSizeResetTimer))
 	{
 		return true;

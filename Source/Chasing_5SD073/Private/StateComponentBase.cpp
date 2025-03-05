@@ -54,7 +54,7 @@ void UStateComponentBase::TickComponent(float DeltaTime, ELevelTick TickType, FA
 
 bool UStateComponentBase::OnSetStateConditionCheck(UCharacterStateMachine& SM)
 {
-	return true;
+	return PlayerCharacter->GetEnergy() >= EnergyCost && AbilityEnabled;
 }
 
 void UStateComponentBase::OnEnterState(UCharacterStateMachine& SM)
@@ -63,11 +63,19 @@ void UStateComponentBase::OnEnterState(UCharacterStateMachine& SM)
 	if (!CountTowardsFalling) PlayerCharacter->ResetFalling();
 	if (ResetsDash) PlayerCharacter->ResetDash();
 	if (ResetsJump) PlayerCharacter->ResetJump();
+	if (!DrainsEnergyPerSecond) PlayerCharacter->AddEnergy(EnergyCost);
 }
 
 void UStateComponentBase::OnUpdateState(UCharacterStateMachine& SM)
 {
 	OnUpdateStateDelegate.Broadcast();
+	if (DrainsEnergyPerSecond){
+		if (PlayerCharacter->GetEnergy() < EnergyCost * GetWorld()->GetDeltaSeconds())
+		{
+			SM.ManualExitState();
+		}
+		PlayerCharacter->AddEnergy(-EnergyCost * GetWorld()->GetDeltaSeconds());
+	}
 }
 
 void UStateComponentBase::OnExitState(UCharacterStateMachine& SM)

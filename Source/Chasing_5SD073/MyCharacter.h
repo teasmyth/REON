@@ -137,6 +137,21 @@ public:
 
 	void ResetSlide();
 
+	UFUNCTION(BlueprintCallable)
+	FORCEINLINE void AddEnergy(const float Energy) { CurrentEnergy = FMath::Clamp(CurrentEnergy + Energy, 0.0f, MaxEnergy); }
+
+	UFUNCTION(BlueprintPure)
+	FORCEINLINE float GetEnergy() const { return CurrentEnergy; }
+
+	UFUNCTION(BlueprintPure)
+	FORCEINLINE float GetMaxEnergy() const { return MaxEnergy; }
+
+	UFUNCTION(BlueprintPure)
+	FORCEINLINE float GetEnergyPercentage() const { return FMath::Clamp(CurrentEnergy / MaxEnergy, 0, 1); }
+
+	UFUNCTION(BlueprintPure)
+	FORCEINLINE float GetStartingEnergy() const { return  FMath::Clamp(StartingEnergy / MaxEnergy, 0, 1); }
+
 	UFUNCTION(BlueprintPure)
 	FORCEINLINE ECharacterMovementState GetCharacterMovementState() const { return CurrentMovementState; }
 
@@ -159,6 +174,8 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	FORCEINLINE float GetMaxRunningSpeed() const { return MaxRunningSpeed; }
+
+	UFUNCTION(BlueprintPure)
 	FORCEINLINE float GetMinRunningSpeed() const { return RunningStateSpeedMinimum; }
 
 	FORCEINLINE UCharacterStateMachine* GetCharacterStateMachine() const { return StateMachine; }
@@ -169,93 +186,106 @@ public:
 	void SetLastInteractedWall(AActor* HitResult) { LastInteractedWall = HitResult; }
 
 private: //For mechanics
-	UPROPERTY(VisibleAnywhere, Category = "Movement Settings", DisplayName= "Current Movement State")
+	UPROPERTY(VisibleAnywhere, Category = "REON Player Settings", DisplayName= "Current Movement State")
 	ECharacterMovementState CurrentMovementState = ECharacterMovementState::Idle;
 
-	//UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
+	//UPROPERTY(EditAnywhere, Category = "REON Player Settings|Movement|Walking")
 	//UCurveFloat* WalkingAccelerationTime;
 	
-	//UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Walking")
+	//UPROPERTY(EditAnywhere, Category = "REON Player Settings|Movement|Walking")
 	//float PreciseWalkingSpeed;
+
+	UPROPERTY(EditAnywhere, Category="REON Player Settings|Energy")
+	float MaxEnergy;
+	UPROPERTY(EditAnywhere, Category="REON Player Settings|Energy")
+	float StartingEnergy;
+	UPROPERTY(EditAnywhere, Category="REON Player Settings|Energy")
+	float CurrentEnergy;
+	UPROPERTY(EditAnywhere, Category="REON Player Settings|Energy")
+	float GenerateEnergyPerSecond;
+	UPROPERTY(VisibleAnywhere, Category="REON Player Settings|Energy")
+	bool CurrentStateDrainedEnergy = false;
 	
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling")
+	
+	
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Movement|Falling")
 	UCurveFloat* PostFallAccelerationTime;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling")
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Movement|Falling")
 	bool DisableExtraGravity = false;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling", meta=(Tooltip = "This will OVERRIDE gravity, not add to it."))
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Movement|Falling", meta=(Tooltip = "This will OVERRIDE gravity, not add to it."))
 	float GravityWhileFalling;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling", meta =(Tooltip = "After this period of time, the fall penalty ends, instead of reaching minimum speed."))
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Movement|Falling", meta =(Tooltip = "After this period of time, the fall penalty ends, instead of reaching minimum speed."))
 	float FallPenaltyTimer = 1.5f;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Movement|Falling", meta = (ClampMin = 0))
 	float FallZDistanceUnit;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling", meta = (ClampMin = 0, ClampMax = 1))
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Movement|Falling", meta = (ClampMin = 0, ClampMax = 1))
 	float PenaltyMultiplierPerFallUnit;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Falling", meta = (ClampMin = 0, ClampMax = 1))
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Movement|Falling", meta = (ClampMin = 0, ClampMax = 1))
 	float MaxPenaltyMultiplier;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Running")
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Movement|Running")
 	UCurveFloat* RunningAccelerationTime;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Running", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Movement|Running", meta = (ClampMin = 0))
 	float RunningStateSpeedMinimum = 800;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Movement|Running", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Movement|Running", meta = (ClampMin = 0))
 	float MaxRunningSpeed;
 
-	UPROPERTY(EditAnywhere,  Category = "Movement Settings|Jump", meta = (ClampMin = 0, Tooltip = "Max time after a player can jump after platform"))
+	UPROPERTY(EditAnywhere,  Category = "REON Player Settings|Jump", meta = (ClampMin = 0, Tooltip = "Max time after a player can jump after platform"))
 	float CoyoteTime;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Jump", meta = (ClampMin = 0))
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Jump", meta = (ClampMin = 0))
 	float JumpStrength;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Camera")
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Camera")
 	float JitterSlowMinAngle;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Camera", meta = (ClampMin = 0, Tooltip = "At 1 Strength, it is 1% per 1 angle difference"))
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Camera", meta = (ClampMin = 0, Tooltip = "At 1 Strength, it is 1% per 1 angle difference"))
 	float JitterSlowPercentageStrength;
 
-	UPROPERTY(EditAnywhere, Category= "Movement Settings|LookBack", meta = (ClampMin = 0, ClampMax = 1))
+	UPROPERTY(EditAnywhere, Category= "REON Player Settings|LookBack", meta = (ClampMin = 0, ClampMax = 1))
 	UCurveFloat* LookBackTimeScale;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Debug")
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Debug")
 	bool DebugVelocity;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Debug")
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Debug")
 	bool DebugFall;
 
-	UPROPERTY(EditAnywhere, Category = "Movement Settings|Debug")
+	UPROPERTY(EditAnywhere, Category = "REON Player Settings|Debug")
 	bool DebugCameraLeftRight;
 
 
 	//Debug
 
 public:
-	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	UPROPERTY(VisibleAnywhere, Category = "REON Player Settings|Debug")
 	float AccelerationTimer = 0;
 
 private:
-	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	UPROPERTY(VisibleAnywhere, Category = "REON Player Settings|Debug")
 	float LookBackTimer = 0;
-	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	UPROPERTY(VisibleAnywhere, Category = "REON Player Settings|Debug")
 	float CalculatedPostFallMultiplier;
-	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	UPROPERTY(VisibleAnywhere, Category = "REON Player Settings|Debug")
 	float FallStartZ;
-	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	UPROPERTY(VisibleAnywhere, Category = "REON Player Settings|Debug")
 	float FallDistance;
-	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	UPROPERTY(VisibleAnywhere, Category = "REON Player Settings|Debug")
 	float PreviousFrameYaw = 0;
 
-	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	UPROPERTY(VisibleAnywhere, Category = "REON Player Settings|Debug")
 	bool CanDash;
-	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	UPROPERTY(VisibleAnywhere, Category = "REON Player Settings|Debug")
 	bool Falling = false;
-	UPROPERTY(VisibleAnywhere, Category = "Movement Settings|Debug")
+	UPROPERTY(VisibleAnywhere, Category = "REON Player Settings|Debug")
 	bool PlayerCanJump = true;
 	float InternalFallingTimer = 0;
 

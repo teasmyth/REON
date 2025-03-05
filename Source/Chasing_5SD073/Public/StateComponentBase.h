@@ -35,6 +35,12 @@ protected:
 	UPROPERTY()
 	AMyCharacter* PlayerCharacter = nullptr;
 
+	UPROPERTY(EditAnywhere, Category="Settings|Energy")
+	float EnergyCost = 0;
+
+	UPROPERTY(EditAnywhere, Category="Settings|Energy", meta = (ToolTip = "If true, the energy will be drained continuously per second."))
+	bool DrainsEnergyPerSecond = false;
+
 	UPROPERTY(EditAnywhere, Category = "Settings|General Settings")
 	bool AbilityEnabled = true;
 
@@ -101,6 +107,9 @@ public:
 	bool DoesItCountTowardsFalling() const { return CountTowardsFalling; }
 	bool DoesItResetDash() const { return ResetsDash; }
 	bool GetDebugMechanic() const { return DebugMechanic; }
+	bool DrainsEnergy() const { return EnergyCost > 0; }
+	bool DrainsEnergyPerSec() const { return DrainsEnergyPerSecond; }
+	float GetEnergyCost() const { return EnergyCost; }
 	TMap<ECharacterState, bool> GetTransitionList() const { return CanTransitionFromStateList; }
 
 	bool GetCanExitState() const { return CanExitState; }

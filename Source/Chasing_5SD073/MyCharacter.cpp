@@ -50,7 +50,7 @@ void AMyCharacter::BeginPlay()
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
-
+	CurrentEnergy = StartingEnergy;
 	StateMachine = GetComponentByClass<UCharacterStateMachine>();
 	StateMachine->SetupStateMachine();
 	StateMachine->SetState(ECharacterState::DefaultState);
@@ -68,6 +68,29 @@ void AMyCharacter::Tick(float DeltaTime)
 	Acceleration();
 
 	if (StateMachine == nullptr) return;
+
+	if (GetCharacterStateMachine()->GetCurrentState() != nullptr)
+	{
+		if (GetCharacterStateMachine()->GetCurrentState()->DrainsEnergy())
+		{
+			/*
+			if (GetCharacterStateMachine()->GetCurrentState()->DrainsEnergyPerSec())
+			{
+				CurrentEnergy -= GetCharacterStateMachine()->GetCurrentState()->GetEnergyCost() * DeltaTime;
+			}
+			else if (!CurrentStateDrainedEnergy)
+			{
+				CurrentEnergy -= GetCharacterStateMachine()->GetCurrentState()->GetEnergyCost();
+				CurrentStateDrainedEnergy = true;
+			}
+			*/
+		}
+		else
+		{
+			CurrentEnergy = FMath::Clamp(CurrentEnergy + GenerateEnergyPerSecond * DeltaTime, 0.0f, MaxEnergy);
+			CurrentStateDrainedEnergy = false;
+		}
+	}	
 
 	if (GetCharacterMovement()->IsMovingOnGround() || StateMachine->GetCurrentEnumState() != ECharacterState::DefaultState)
 	{
